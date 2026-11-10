@@ -1,11 +1,11 @@
 // Vista "Hoy": bloques AM/PM, filtro por épica, bandeja, dependencias y drag & drop.
 
 import { formatMinutes } from './parser.js';
-import { scheduleBlock, isNowInBlock, criticalIds, wouldCreateCycle, canDepend } from './pert.js';
+import { scheduleBlock, isNowInBlock, criticalIds, wouldCreateCycle, canDepend, suggestMove } from './pert.js';
 import { todayISO, shiftDate, dayLabel, shortLabel, nowMinutes } from './dates.js';
 import {
-  state, setView, findTask, findEpic, activeEpics, dayTasks, blockTasks, backlogTasks,
-  addFromText, editFromText, updateTask, deleteTask, setDependency, planTask, applyOrder,
+  state, setView, findTask, findEpic, activeEpics, blockTasks, backlogTasks, overdueTasks,
+  addFromText, editFromText, updateTask, deleteTask, setDependency, planTask, planMany, unplanTask, applyOrder,
 } from './store.js';
 import { h, showToast, attachEpicAutocomplete } from './ui.js';
 import { renderCard } from './cards.js';
@@ -32,6 +32,76 @@ function makeCtx() {
   };
 }
 
+const BLOCK_LABEL = { am: 'la mañana', pm: 'la tarde' };
+
+/**
+ * Si el bloque va mal (< 50%), sugiere mover una tarea al otro bloque del mismo día
+ * o a la mañana del día siguiente. Nunca sugiere mover tareas de las que otra depende.
+ */
+function computeSuggestion(block, ctx) {
+  if (state.viewDate < todayISO()) return null;
+  const nowMin = nowMinutesFor(state.viewDate);
+  const other = block === 'am' ? 'pm' : 'am';
+  const next = shiftDate(state.viewDate, 1);
+  const targets = [];
+  if (scheduleBlock([], state.settings[other], nowMin).remaining > 0) {
+    targets.push({
+      date: state.viewDate, block: other, label: `a ${BLOCK_LABEL[other]}`,
+      tasks: blockTasks(other), range: state.settings[other], nowMin,
+    });
+  }
+  targets.push({
+    date: next, block: 'am', label: `al ${shortLabel(next)} en la mañana`,
+    tasks: blockTasks('am', next), range: state.settings.am, nowMin: null,
+  });
+
+  const canMove = (task, target) => {
+    // A otro día: solo tareas sueltas (sus dependencias del día dejarían de valer).
+    if (target.date !== task.date) return task.dependencies.length === 0;
+    // De la tarde a la mañana: no si algo de lo que depende está en la tarde.
+    if (target.block === 'am') {
+      return !task.dependencies.some((id) => ctx.byId.get(id)?.date === task.date && ctx.byId.get(id)?.block === 'pm');
+    }
+    return true;
+  };
+
+  return suggestMove(
+    { tasks: blockTasks(block), range: state.settings[block], nowMin },
+    targets,
+    { critical: ctx.critical, canMove },
+  );
+}
+
+function renderSuggestion(el, sug) {
+  el.hidden = !sug;
+  if (!sug) return;
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  el.replaceChildren(
+    h('span', {}, `💡 Si mueves "${sug.task.title}" (${formatMinutes(sug.task.minutes)}) ${sug.target.label}, este bloque sube de ${pct(sug.before)} a ${pct(sug.sourceProbability)}.`),
+    h('button', {
+      class: 'suggest-btn',
+      dataset: { task: sug.task.id, date: sug.target.date, block: sug.target.block },
+      title: `El destino quedaría en ${pct(sug.targetProbability)}`,
+    }, 'Mover'),
+  );
+}
+
+function renderOverdue(ctx) {
+  const section = document.getElementById('overdue');
+  const today = todayISO();
+  const list = state.viewDate === today ? overdueTasks(today) : [];
+  section.hidden = !list.length;
+  if (!list.length) {
+    section.querySelector('.list').replaceChildren();
+    return;
+  }
+  list.sort((a, b) => a.date.localeCompare(b.date) || a.block.localeCompare(b.block) || a.order - b.order);
+  section.querySelector('.count').textContent = `(${list.length})`;
+  section.querySelector('.list').replaceChildren(...list.map((task) => renderCard(task, {
+    ctx, draggable: true, plan: true, unplan: true, when: true, dim: dimmed(task),
+  })));
+}
+
 const dimmed = (task) => Boolean(state.filter && task.epic_id !== state.filter);
 
 // ---------- Render ----------
@@ -49,42 +119,37 @@ function renderFilters() {
   bar.replaceChildren(chip(null, 'Todas'), ...epics.map((e) => chip(e.id, e.name, e.color)));
 }
 
+/** Pronóstico compacto para el encabezado del bloque; la frase completa va en el tooltip. */
 function renderForecast(el, sched) {
   el.className = 'forecast';
   el.title = '';
   if (sched.pendingCount === 0) {
-    el.textContent = sched.items.length ? '✓ Todo listo' : '';
+    el.textContent = sched.items.length ? '✓ listo' : '';
     if (sched.items.length) el.classList.add('good');
     return;
   }
   if (sched.remaining <= 0) {
-    el.textContent = `⏰ Bloque terminado · ${sched.pendingCount} pendiente${sched.pendingCount > 1 ? 's' : ''}`;
+    el.textContent = `⏰ ${sched.pendingCount} pendiente${sched.pendingCount > 1 ? 's' : ''}`;
+    el.title = 'El bloque ya terminó';
     el.classList.add('bad');
     return;
   }
   const pct = Math.round(sched.probability * 100);
-  const [icon, cls] = sched.probability >= 0.8 ? ['✅', 'good'] : sched.probability >= 0.5 ? ['🟡', 'warn'] : ['⚠️', 'bad'];
-  el.textContent = `${icon} ${pct}% de terminar a tiempo`;
+  const [icon, cls] = sched.probability >= 0.8 ? ['✓', 'good'] : sched.probability >= 0.5 ? ['🟡', 'warn'] : ['⚠️', 'bad'];
+  el.textContent = `${icon} ${pct}%`;
   el.classList.add(cls);
-  el.title = `Estimado ${formatMinutes(sched.mu)} ± ${formatMinutes(sched.sigma)} · quedan ${formatMinutes(sched.remaining)} en el bloque`;
+  el.title = `${pct}% de probabilidad de terminar a tiempo\nEstimado ${formatMinutes(sched.mu)} ± ${formatMinutes(sched.sigma)} · quedan ${formatMinutes(sched.remaining)} en el bloque`;
 }
 
-/** "2h ● Lanzar web · 1h sin épica" */
-function renderEpicSummary(el, list, ctx) {
+/** "2h Lanzar web · 1h sin épica" (para el tooltip de la barra). */
+function epicSummary(list, ctx) {
   const groups = new Map();
   for (const t of list) groups.set(t.epic_id, (groups.get(t.epic_id) || 0) + t.minutes);
-  const hasEpics = [...groups.keys()].some((id) => id && ctx.epicsById.has(id));
-  el.hidden = !hasEpics;
-  if (!hasEpics) return;
-  const parts = [...groups.entries()]
+  if (![...groups.keys()].some((id) => id && ctx.epicsById.has(id))) return '';
+  return [...groups.entries()]
     .sort(([a], [b]) => (a === null) - (b === null))
-    .map(([id, minutes]) => {
-      const epic = ctx.epicsById.get(id);
-      return h('span', { class: 'sum-item' },
-        epic ? h('span', { class: 'dot', style: `background:${epic.color}` }) : null,
-        `${formatMinutes(minutes)} ${epic ? epic.name : 'sin épica'}`);
-    });
-  el.replaceChildren(...parts);
+    .map(([id, minutes]) => `${formatMinutes(minutes)} ${ctx.epicsById.get(id)?.name || 'sin épica'}`)
+    .join(' · ');
 }
 
 function renderBlock(block, ctx) {
@@ -102,17 +167,21 @@ function renderBlock(block, ctx) {
   const planned = sched.doneMinutes + sched.mu;
   const scale = Math.max(sched.capacity, planned) || 1;
   const over = sched.mu > sched.remaining && sched.pendingCount > 0;
+  section.classList.toggle('over', over);
   const cap = section.querySelector('.capacity');
-  cap.classList.toggle('over', over);
   cap.querySelector('.bar-done').style.width = `${(sched.doneMinutes / scale) * 100}%`;
   cap.querySelector('.bar-pending').style.width = `${(sched.mu / scale) * 100}%`;
-  cap.querySelector('.capacity-label').textContent = `${formatMinutes(planned)} / ${formatMinutes(sched.capacity)}`;
-  cap.title = over
-    ? `Te faltan ${formatMinutes(sched.mu - sched.remaining)} (estimado PERT)`
-    : `Libre: ${formatMinutes(sched.remaining - sched.mu)} (estimado PERT)`;
+  const label = section.querySelector('.capacity-label');
+  label.textContent = `${formatMinutes(planned)} / ${formatMinutes(sched.capacity)}`;
+  const summary = epicSummary(list, ctx);
+  label.title = cap.title = [
+    over ? `Te faltan ${formatMinutes(sched.mu - sched.remaining)} (estimado PERT)`
+      : `Libre: ${formatMinutes(sched.remaining - sched.mu)} (estimado PERT)`,
+    summary,
+  ].filter(Boolean).join('\n');
 
   renderForecast(section.querySelector('.forecast'), sched);
-  renderEpicSummary(section.querySelector('.epic-summary'), list, ctx);
+  renderSuggestion(section.querySelector('.suggestion'), computeSuggestion(block, ctx));
 
   const ul = section.querySelector('.list');
   const cards = sched.items.map((item) => renderCard(item.task, {
@@ -120,7 +189,6 @@ function renderBlock(block, ctx) {
   }));
   if (now) cards.find((li) => !li.classList.contains('done'))?.classList.add('current');
   ul.replaceChildren(...cards);
-  if (!cards.length) ul.append(h('li', { class: 'empty' }, 'Sin tareas'));
 }
 
 function renderBacklog(ctx) {
@@ -145,6 +213,7 @@ export function renderDay() {
   document.getElementById('go-today').hidden = state.viewDate === todayISO();
   const ctx = makeCtx();
   renderFilters();
+  renderOverdue(ctx);
   BLOCKS.forEach((block) => renderBlock(block, ctx));
   renderBacklog(ctx);
   refreshDepsMenu();
@@ -344,6 +413,7 @@ function setupDragAndDrop() {
     closeDepsMenu();
     draggingId = li.dataset.id;
     dropped = false;
+    document.body.classList.add('is-dragging');
     e.dataTransfer.effectAllowed = 'linkMove';
     e.dataTransfer.setData('text/plain', draggingId);
     requestAnimationFrame(() => li.classList.add('dragging'));
@@ -354,6 +424,7 @@ function setupDragAndDrop() {
     const id = draggingId;
     const target = linkTarget?.classList.contains('link-target') ? linkTarget.dataset.id : null;
     draggingId = null;
+    document.body.classList.remove('is-dragging');
     setLinkTarget(null);
     document.querySelectorAll('.list.drag-over').forEach((ul) => ul.classList.remove('drag-over'));
 
@@ -388,6 +459,18 @@ export function setupDay() {
     updateTask(e.target.closest('.task').dataset.id, { done: e.target.checked });
   });
   view.addEventListener('click', (e) => {
+    const suggest = e.target.closest('.suggest-btn');
+    if (suggest) {
+      planTask(suggest.dataset.task, suggest.dataset.block, suggest.dataset.date);
+      showToast(`"${findTask(suggest.dataset.task).title}" se movió.`);
+      return;
+    }
+    const bulk = e.target.closest('[data-bulk]');
+    if (bulk) {
+      const today = todayISO();
+      planMany(overdueTasks(today).map((t) => t.id), bulk.dataset.bulk, today);
+      return;
+    }
     const filter = e.target.closest('.chip');
     if (filter) {
       const id = filter.dataset.filter || null;
@@ -399,6 +482,7 @@ export function setupDay() {
     const id = li.dataset.id;
     if (e.target.matches('.delete')) deleteTask(id);
     else if (e.target.matches('.plan-btn')) planTask(id, e.target.dataset.block);
+    else if (e.target.matches('.unplan')) unplanTask(id);
     else if (e.target.matches('.link')) {
       if (menu?.dataset.taskId === id) closeDepsMenu();
       else openDepsMenu(id, e.target);
@@ -428,7 +512,7 @@ export function setupDay() {
   // Bandeja plegable; se recuerda abierta/cerrada en este navegador.
   const details = document.getElementById('backlog-details');
   try {
-    details.open = localStorage.getItem(BACKLOG_OPEN_KEY) !== '0';
+    details.open = localStorage.getItem(BACKLOG_OPEN_KEY) === '1';
   } catch { /* sin almacenamiento: queda abierta */ }
   details.addEventListener('toggle', () => {
     try { localStorage.setItem(BACKLOG_OPEN_KEY, details.open ? '1' : '0'); } catch { /* ignorar */ }

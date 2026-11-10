@@ -3,10 +3,13 @@
 import { state, initStore, subscribe, setNotifier, setView } from './store.js';
 import { renderDay, setupDay, isDayBusy, closeDepsMenu } from './day-view.js';
 import { renderEpics, setupEpics, isEpicsBusy } from './epics-view.js';
+import { renderSettings, setupSettings } from './settings-view.js';
 import { currentBlock } from './pert.js';
 import { showToast } from './ui.js';
+import { todayISO } from './dates.js';
 
 const TAB_KEY = 'pertday:tab';
+const TABS = ['day', 'epics', 'settings'];
 
 function isBusy() {
   return isDayBusy() || isEpicsBusy();
@@ -20,8 +23,10 @@ function render() {
   });
   document.getElementById('view-day').hidden = state.tab !== 'day';
   document.getElementById('view-epics').hidden = state.tab !== 'epics';
+  document.getElementById('view-settings').hidden = state.tab !== 'settings';
   if (state.tab === 'day') renderDay();
-  else renderEpics();
+  else if (state.tab === 'epics') renderEpics();
+  else renderSettings();
 }
 
 function setupTabs() {
@@ -38,7 +43,7 @@ async function init() {
   await initStore();
   try {
     const saved = localStorage.getItem(TAB_KEY);
-    if (saved === 'day' || saved === 'epics') state.tab = saved;
+    if (TABS.includes(saved)) state.tab = saved;
   } catch { /* sin almacenamiento */ }
 
   setNotifier(showToast);
@@ -51,6 +56,8 @@ async function init() {
   setupTabs();
   setupDay();
   setupEpics();
+  setupSettings();
+  setupKeyboard();
   render();
 
   // El pronóstico depende de la hora: se recalcula cada minuto.
@@ -58,9 +65,24 @@ async function init() {
     if (!isBusy()) render();
   }, 60 * 1000);
 
-  if (state.tab === 'day') {
-    document.querySelector(`.block[data-block="${currentBlock(state.settings)}"] .quick-add input`).focus();
-  }
+  if (state.tab === 'day') focusQuickAdd();
+}
+
+/** Foco en el quick-add del bloque en curso (o el de la mañana si es otro día). */
+function focusQuickAdd() {
+  const block = state.viewDate === todayISO() ? currentBlock(state.settings) : 'am';
+  document.querySelector(`.block[data-block="${block}"] .quick-add input`)?.focus();
+}
+
+/** "N" (fuera de un campo de texto) = nueva tarea. */
+function setupKeyboard() {
+  document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+    e.preventDefault();
+    if (state.tab !== 'day') setView({ tab: 'day' });
+    focusQuickAdd();
+  });
 }
 
 init();

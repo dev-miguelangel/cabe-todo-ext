@@ -5,6 +5,7 @@ const DEFAULT_SETTINGS = {
   am: { start: '08:00', end: '13:00' },
   pm: { start: '14:00', end: '19:00' },
   default_minutes: 30,
+  notify: true,
 };
 
 // Identifica a esta ventana: así ignoramos los avisos de cambio que provocamos nosotros mismos.
@@ -53,17 +54,25 @@ export async function loadData() {
   return {
     tasks: tasks.map(normalizeTask),
     epics,
-    settings: {
-      ...DEFAULT_SETTINGS,
-      ...settings,
-      am: { ...DEFAULT_SETTINGS.am, ...settings.am },
-      pm: { ...DEFAULT_SETTINGS.pm, ...settings.pm },
-    },
+    settings: withDefaults(settings),
+  };
+}
+
+function withDefaults(settings) {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+    am: { ...DEFAULT_SETTINGS.am, ...settings.am },
+    pm: { ...DEFAULT_SETTINGS.pm, ...settings.pm },
   };
 }
 
 export function saveData({ tasks, epics }) {
   return setRaw({ tasks, epics, meta: { writer: WRITER_ID, at: Date.now() } });
+}
+
+export function saveSettings(settings) {
+  return setRaw({ settings, meta: { writer: WRITER_ID, at: Date.now() } });
 }
 
 /** Avisa cuando OTRA ventana con el panel abierto cambia los datos. */
@@ -75,6 +84,7 @@ export function onDataChanged(callback) {
     const data = {};
     if (changes.tasks) data.tasks = (changes.tasks.newValue || []).map(normalizeTask);
     if (changes.epics) data.epics = changes.epics.newValue || [];
-    if (data.tasks || data.epics) callback(data);
+    if (changes.settings) data.settings = withDefaults(changes.settings.newValue || {});
+    if (data.tasks || data.epics || data.settings) callback(data);
   });
 }

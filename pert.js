@@ -298,3 +298,41 @@ export function epicForecast(epic, tasks, settings, now = new Date()) {
     probability,
   };
 }
+
+// ---------- Sugerencias ----------
+
+const SUGGEST_BELOW = 0.5;
+
+/**
+ * Para un bloque con baja probabilidad de terminar a tiempo, busca UNA tarea para mover
+ * a otro bloque que lo arregle (o mejore) sin trasladar el problema al destino.
+ *
+ * source:  { tasks, range, nowMin }
+ * targets: [{ ...cualquier dato del destino, tasks, range, nowMin }]
+ * options: critical  — ids de tareas de las que depende otra (no se sugiere moverlas)
+ *          canMove(task, target) — filtro extra (dependencias, etc.)
+ * Devuelve { task, target, before, sourceProbability, targetProbability } o null.
+ */
+export function suggestMove(source, targets, { critical = new Set(), canMove = () => true } = {}) {
+  const before = scheduleBlock(source.tasks, source.range, source.nowMin).probability;
+  if (before === null || before >= SUGGEST_BELOW) return null;
+
+  let best = null;
+  for (const task of source.tasks) {
+    if (task.done || critical.has(task.id)) continue;
+    const rest = source.tasks.filter((t) => t !== task);
+    const sourceProbability = scheduleBlock(rest, source.range, source.nowMin).probability ?? 1;
+    for (const target of targets) {
+      if (!canMove(task, target)) continue;
+      const moved = { ...task, order: Number.MAX_SAFE_INTEGER, dependencies: [] };
+      const targetProbability = scheduleBlock([...target.tasks, moved], target.range, target.nowMin).probability;
+      if (targetProbability === null || targetProbability < SUGGEST_BELOW) continue;
+      const score = Math.min(sourceProbability, targetProbability);
+      const better = !best
+        || score > best.score + 1e-9
+        || (Math.abs(score - best.score) <= 1e-9 && task.minutes < best.task.minutes);
+      if (better) best = { task, target, score, before, sourceProbability, targetProbability };
+    }
+  }
+  return best && best.score > before ? best : null;
+}

@@ -60,15 +60,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .nav:hover { border-color: var(--accent); }
 
-/* Tablero: una columna en el side panel, dos si hay espacio */
+/* Tablero: mañana arriba y tarde abajo, siempre, sin importar el ancho */
 .board {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding: 8px 16px 12px;
-}
-@media (min-width: 560px) {
-  .board { grid-template-columns: 1fr 1fr; }
 }
 
 .block {
@@ -140,15 +137,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .task .deps { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
 .task .critical { color: var(--accent); font-size: 11px; }
 .task .minutes { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.task .link, .task .delete {
-  border: 0; background: none; padding: 0 2px;
-  color: var(--muted); font-size: 15px; line-height: 1;
-  opacity: 0;
+/* Acciones (↩ ↳ ×): flotan sobre la tarjeta al pasar el mouse, sin ocupar espacio */
+.task { position: relative; }
+.task .actions {
+  position: absolute; top: 50%; right: 4px; transform: translateY(-50%);
+  display: none; gap: 2px; padding: 2px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
 }
-.task:hover .link, .task:hover .delete,
-.task .link:focus-visible, .task .delete:focus-visible { opacity: 1; }
-.task .link:hover { color: var(--accent); }
-.task .delete:hover { color: var(--over); }
+.task:hover .actions, .task:focus-within .actions { display: flex; }
+.task.dragging .actions, .task:has(.edit-input) .actions { display: none; }
+.task .actions button {
+  border: 0; background: none; padding: 0 4px;
+  color: var(--muted); font-size: 15px; line-height: 1.3;
+}
+.task .actions .link:hover, .task .actions .unplan:hover { color: var(--accent); }
+.task .actions .delete:hover { color: var(--over); }
+.task .title-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.task .title-line .dot { align-self: center; }
+.task .meta { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .task.done .title { text-decoration: line-through; color: var(--muted); }
 
 /* Primera tarea pendiente del bloque en curso */
@@ -263,12 +270,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .task.blocked .title { color: var(--muted); }
 .task .locked { font-size: 11px; }
 .task .plan { display: inline-flex; gap: 4px; }
-.task .plan-btn, .task .unplan {
+.task .plan-btn {
   border: 1px solid var(--border); border-radius: 4px;
   background: var(--bg); padding: 1px 6px;
   font-size: 11px; color: var(--muted); white-space: nowrap;
 }
-.task .plan-btn:hover, .task .unplan:hover { border-color: var(--accent); color: var(--accent); }
+.task .plan-btn:hover { border-color: var(--accent); color: var(--accent); }
 .task.link-invalid::after { content: attr(data-link-problem); }
 
 /* Bandeja en la vista del día */
@@ -352,3 +359,155 @@ button { font: inherit; color: inherit; cursor: pointer; }
   color: inherit; font-weight: 700; text-decoration: underline;
 }
 .task[draggable="true"] { cursor: grab; }
+
+/* ================= Fase 4 ================= */
+
+.tab-icon { flex: none; padding: 5px 12px; }
+
+/* Sugerencia de mover una tarea */
+.suggestion {
+  display: flex; align-items: center; gap: 8px;
+  margin: -4px 0 8px; padding: 6px 8px;
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border-radius: 6px; font-size: 12px;
+}
+.suggestion span { flex: 1; }
+.suggest-btn, .bulk-btn {
+  flex: none;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); padding: 2px 8px; font-size: 12px;
+}
+.suggest-btn:hover, .bulk-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Pendientes de días anteriores */
+.overdue {
+  margin: 4px 16px 0; padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--warn) 50%, var(--border)); border-radius: var(--radius);
+}
+.overdue-head { display: flex; align-items: center; gap: 6px; }
+.overdue-head h2 { flex: 1; margin: 0; font-size: 13px; font-weight: 600; }
+.overdue .count { color: var(--muted); font-weight: 400; }
+
+/* Ajustes */
+#view-settings { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.settings {
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.settings fieldset {
+  border: 0; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+}
+.settings legend { font-weight: 600; margin-bottom: 4px; padding: 0; }
+.settings label { font-size: 13px; color: var(--muted); }
+.settings input[type="time"], .settings select {
+  font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px;
+}
+.settings .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.settings .check-row input { margin: 0; accent-color: var(--accent); }
+.settings-error { margin: 0; color: var(--over); font-size: 12px; }
+.settings-actions { display: flex; align-items: center; gap: 10px; }
+.primary {
+  border: 0; border-radius: 6px; padding: 6px 14px;
+  background: var(--accent); color: var(--surface); font-weight: 600;
+}
+.settings-saved { color: var(--done); font-size: 12px; }
+.shortcuts h2 { margin: 0; font-size: 14px; }
+.shortcuts p { margin: 0; font-size: 13px; color: var(--muted); }
+kbd {
+  font: 12px ui-monospace, monospace; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 5px;
+}
+.link-btn { border: 0; background: none; padding: 0 4px; color: var(--accent); font-size: 12px; }
+
+/* Columnas angostas (side panel): la tarjeta pasa a dos líneas —
+   título arriba; duración, indicadores y → AM/PM abajo. */
+.block, .backlog details, .overdue, .epic { container-type: inline-size; }
+@container (max-width: 300px) {
+  .task {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 8px; row-gap: 2px;
+    align-items: start;
+  }
+  .task .check { grid-row: 1 / span 3; margin-top: 3px; }
+  .task > :not(.check):not(.actions) { grid-column: 2; justify-self: start; }
+  .task .actions { top: 4px; transform: none; }
+  .task .plan { flex-wrap: wrap; }
+  .block { padding: 10px; }
+  .block-head h2 { font-size: 13px; }
+  .range { display: block; margin: 0; }
+  .suggestion { flex-wrap: wrap; }
+  .suggestion span { flex-basis: 100%; }
+  .epic-summary { flex-direction: column; gap: 2px; }
+  .capacity-label { font-size: 11px; }
+}
+
+/* ================= Vista simplificada: las tareas son lo protagonista ================= */
+
+/* Navegación más liviana */
+.tabs { margin: 10px 16px 0; padding: 2px; }
+.tab { padding: 4px 0; font-size: 13px; }
+.tab-icon { padding: 4px 10px; }
+.topbar { padding: 10px 16px 4px; }
+.day h1 { font-size: 15px; }
+.nav { border-color: transparent; background: none; color: var(--muted); }
+.nav:hover { color: var(--text); border-color: var(--border); }
+
+/* Bloques sin caja: solo un encabezado de una línea y una barra fina */
+.board { gap: 22px; padding: 10px 16px 16px; }
+.block { background: none; border: 0; border-radius: 0; padding: 0; }
+.block.is-now { border: 0; }
+.block-head { justify-content: flex-start; align-items: baseline; gap: 8px; }
+.block-head h2 { font-size: 15px; }
+.block.is-now .block-head h2 { color: var(--accent); }
+.range { margin: 0; }
+.block-head .forecast { margin: 0 0 0 auto; min-height: 0; font-size: 12px; white-space: nowrap; }
+.block-head .forecast.good { color: var(--muted); }
+.block-head .capacity-label { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.block.over .capacity-label { color: var(--over); font-weight: 600; }
+.capacity { margin: 6px 0 10px; }
+.bar { height: 3px; }
+.block.over .bar-pending { background: var(--over); }
+.suggestion { margin: 0 0 10px; }
+
+/* Lista: las tarjetas son el único elemento con peso visual */
+.list { gap: 6px; margin: 0; min-height: 0; }
+body.is-dragging .list[data-list] {
+  min-height: 40px;
+  outline: 1px dashed var(--border); outline-offset: 2px;
+}
+.task { padding: 9px 10px; font-size: 14px; }
+
+/* "+ Nueva tarea" discreto, debajo de la lista */
+.block .quick-add { margin-top: 4px; }
+.block .quick-add input {
+  border: 1px solid transparent; background: transparent;
+  padding: 7px 10px;
+}
+.block .quick-add input:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.block .quick-add input:focus { background: var(--surface); border-color: var(--accent); }
+
+/* Secciones secundarias más discretas */
+.overdue { margin-top: 6px; }
+.backlog details { border-style: dashed; background: none; }
+.filters { padding-top: 2px; }
+.chip { padding: 2px 9px; font-size: 11px; }
+
+/* Ayuda (en Ajustes) */
+.help ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.help h2 { margin: 0; font-size: 14px; }
+.help p { margin: 0; font-size: 13px; color: var(--muted); }
+.help code {
+  font-size: 12px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 0 4px;
+}
+.overdue { margin: 10px 16px 8px; padding: 0; background: none; border: 0; }
+.overdue-head { margin-bottom: 8px; }
+.overdue-head h2 { font-size: 15px; color: var(--warn); }
+.overdue .list { padding-bottom: 6px; border-bottom: 1px solid var(--border); }

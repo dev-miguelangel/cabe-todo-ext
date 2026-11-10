@@ -155,18 +155,21 @@ Cada épica tiene una lista de tareas **sin fecha**: cosas que hay que hacer "al
 ```
 pert-day/
 ├── manifest.json
-├── background.js        # abre el side panel
+├── background.js        # abre el side panel, avisos de fin de bloque (alarms)
 ├── panel.html / .css    # vista principal (pestañas Hoy · Épicas)
 ├── panel.js             # punto de entrada: conecta vistas y pestañas
 ├── day-view.js          # vista del día: bloques, bandeja, dependencias, drag & drop
 ├── epics-view.js        # vista de épicas: progreso, pronóstico, bandeja
+├── settings-view.js     # ajustes: horarios, duración por defecto, avisos, atajo
 ├── cards.js             # tarjeta de tarea compartida
 ├── ui.js                # helpers de DOM, avisos, autocompletado de #épica
 ├── store.js             # estado + acciones (todo cambio pasa por aquí)
 ├── parser.js            # quick-add: texto → tarea
 ├── pert.js              # cálculos (puro, testeable)
 ├── dates.js             # utilidades de fechas
-└── storage.js           # wrapper de chrome.storage
+├── storage.js           # wrapper de chrome.storage
+├── icons/               # generados con tests/make_icons.py
+└── tests/run.mjs        # pruebas de la lógica pura: node tests/run.mjs
 ```
 
 ---
@@ -279,11 +282,11 @@ Mismo cálculo que el bloque, a otra escala: un solo `pert.js` sirve para ambos.
 - [x] Dependencias entre días dentro de la épica (🔒 bloqueada)
 
 ### Fase 4 — Comodidad
-- [ ] Sugerencia automática de mover tareas cuando un bloque se pasa
-- [ ] "Pendientes de ayer"
-- [ ] Notificaciones de fin de bloque
-- [ ] Ajustes de horario AM/PM
-- [ ] Atajo de teclado global para abrir el panel y escribir
+- [x] Sugerencia automática de mover tareas cuando un bloque se pasa
+- [x] "Pendientes de ayer"
+- [x] Notificaciones de fin de bloque
+- [x] Ajustes de horario AM/PM
+- [x] Atajo de teclado global para abrir el panel y escribir
 
 ---
 

@@ -97,3 +97,22 @@ fc = P.epicForecast({ id: 'E', target_date: '2026-11-01' }, et, settings, now); 
 // sin fecha
 assert.equal(P.epicForecast({ id: 'E' }, et, settings, now).probability, null);
 console.log('OK: parser + PERT + épicas');
+// ----- Fase 4: sugerencias -----
+{
+  const range = { start: '08:00', end: '13:00' }, pmRange = { start: '14:00', end: '19:00' };
+  const am = [mk('s1', 0, [], { minutes: 120 }), mk('s2', 1, [], { minutes: 120 }), mk('s3', 2, [], { minutes: 60 })]; // TE 5h37 > 5h
+  const pm = [mk('s4', 0, [], { minutes: 60, block: 'pm' })];
+  const sug = P.suggestMove({ tasks: am, range, nowMin: null }, [{ key: 'pm', tasks: pm, range: pmRange, nowMin: null }]);
+  assert.ok(sug, 'debe sugerir algo');
+  assert.ok(sug.sourceProbability >= 0.5 && sug.targetProbability >= 0.5 && sug.before < 0.5);
+  // con s3 crítica y s1/s2 sin permiso de moverse → nada que sugerir
+  const none = P.suggestMove({ tasks: am, range, nowMin: null }, [{ key: 'pm', tasks: pm, range: pmRange, nowMin: null }],
+    { critical: new Set(['s3']), canMove: (t) => t.id === 's3' });
+  assert.equal(none, null);
+  // bloque sano → null
+  assert.equal(P.suggestMove({ tasks: [am[2]], range, nowMin: null }, [{ tasks: pm, range: pmRange, nowMin: null }]), null);
+  // destino lleno → null (no traslada el problema)
+  const fullPm = [0, 1, 2, 3, 4].map((i) => mk('f' + i, i, [], { block: 'pm' }));
+  assert.equal(P.suggestMove({ tasks: am, range, nowMin: null }, [{ tasks: fullPm, range: pmRange, nowMin: null }]), null);
+  console.log('OK: sugerencias');
+}

@@ -2,7 +2,7 @@
 // Las vistas leen `state` y llaman acciones; cada acción termina en commit(), que aplica
 // las reglas, guarda y avisa a los suscriptores para re-renderizar.
 
-import { loadData, saveData, onDataChanged } from './storage.js';
+import { loadData, saveData, saveSettings as saveSettingsRaw, onDataChanged } from './storage.js';
 import { enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend } from './pert.js';
 import { parseQuickAdd, tagKey } from './parser.js';
 import { todayISO } from './dates.js';
@@ -258,6 +258,37 @@ export function updateTask(id, changes) {
 
 export function planTask(id, block, date = state.viewDate) {
   updateTask(id, { date, block });
+}
+
+/** Mueve varias tareas de una vez (un solo guardado: las dependencias entre ellas se conservan). */
+export function planMany(ids, block, date = state.viewDate) {
+  let order = nextOrder(date, block);
+  for (const id of ids) {
+    const t = findTask(id);
+    if (t) Object.assign(t, { date, block, order: order++ });
+  }
+  commit();
+}
+
+/** Pendientes de días anteriores a `today`. */
+export const overdueTasks = (today) =>
+  state.tasks.filter((t) => t.date && t.date < today && !t.done);
+
+// ---------- Ajustes ----------
+
+/** Valida y guarda ajustes. Devuelve un mensaje de error o null. */
+export function saveSettings(next) {
+  const m = (hhmm) => {
+    const [h, min] = hhmm.split(':').map(Number);
+    return h * 60 + min;
+  };
+  if (!(m(next.am.start) < m(next.am.end))) return 'La mañana debe terminar después de empezar.';
+  if (!(m(next.pm.start) < m(next.pm.end))) return 'La tarde debe terminar después de empezar.';
+  if (m(next.am.end) > m(next.pm.start)) return 'La tarde debe empezar cuando termina la mañana o después.';
+  state.settings = { ...state.settings, ...next };
+  saveSettingsRaw(state.settings);
+  emit();
+  return null;
 }
 
 export function unplanTask(id) {
