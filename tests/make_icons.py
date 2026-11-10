@@ -2,9 +2,9 @@
 Sin dependencias: escribe PNG con zlib. Uso: python3 tests/make_icons.py"""
 import struct, zlib, math, os
 
-SUN = (245, 177, 48)     # mañana
-NIGHT = (79, 70, 229)    # tarde
-LINE = (255, 255, 255)
+SUN = (29, 185, 84)      # mañana: Mountain Meadow #1db954
+NIGHT = (32, 33, 36)     # tarde: gris oscuro de Chrome #202124
+LINE = (177, 242, 177)   # Madang #b1f2b1
 
 def pixel(x, y, size):
     # coordenadas normalizadas en [-1, 1]

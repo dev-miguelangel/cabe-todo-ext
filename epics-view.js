@@ -1,4 +1,4 @@
-// Vista "Épicas": crear épicas, ver progreso y pronóstico, y llenar su bandeja.
+// Vista "Épicas": crear épicas, ver progreso y pronóstico, y llenar su backlog.
 
 import { formatMinutes } from './parser.js';
 import { epicForecast, criticalIds } from './pert.js';
@@ -10,6 +10,7 @@ import {
 } from './store.js';
 import { h } from './ui.js';
 import { renderCard } from './cards.js';
+import { showBlockedModal } from './blocked-modal.js';
 
 const OPEN_PLANNED_KEY = 'pertday:openPlanned';
 let openPlanned = new Set();
@@ -25,11 +26,11 @@ function rememberPlanned(id, open) {
 
 function forecastText(fc, epic) {
   if (!epic.target_date || !fc.pendingCount) return null;
-  if (epic.target_date < todayISO()) return ['⏰ La fecha ya pasó', 'bad'];
+  if (epic.target_date < todayISO()) return ['◷ La fecha ya pasó', 'bad'];
   const pct = Math.round(fc.probability * 100);
-  if (fc.probability >= 0.8) return [`✅ ${pct}% a tiempo`, 'good'];
-  if (fc.probability >= 0.5) return [`🟡 ${pct}% a tiempo`, 'warn'];
-  return [`⚠️ ${pct}% a tiempo`, 'bad'];
+  if (fc.probability >= 0.8) return [`✓ ${pct}% a tiempo`, 'good'];
+  if (fc.probability >= 0.5) return [`◐ ${pct}% a tiempo`, 'warn'];
+  return [`⚠︎ ${pct}% a tiempo`, 'bad'];
 }
 
 function blocksText(blocks) {
@@ -47,7 +48,7 @@ function renderEpic(epic, ctx) {
 
   const remaining = fc.pendingCount
     ? `Quedan ~${formatMinutes(fc.mu)} de trabajo (${blocksText(fc.blocks)})`
-    : fc.total ? '✓ Todo hecho' : 'Agrega tareas a la bandeja para empezar';
+    : fc.total ? '✓ Todo hecho' : 'Agrega tareas al backlog para empezar';
 
   const forecast = forecastText(fc, epic);
   const target = h('div', { class: 'epic-target' },
@@ -63,7 +64,7 @@ function renderEpic(epic, ctx) {
 
   const cardOpts = { ctx, link: false, plan: true, unplan: true, showEpic: false };
   const backlogList = h('ul', { class: 'list' }, ...backlog.map((t) => renderCard(t, cardOpts)));
-  if (!backlog.length) backlogList.append(h('li', { class: 'empty' }, 'Sin tareas en la bandeja'));
+  if (!backlog.length) backlogList.append(h('li', { class: 'empty' }, 'Sin tareas en el backlog'));
 
   const plannedDetails = planned.length ? h('details', {
     class: 'planned', open: openPlanned.has(epic.id), dataset: { epicId: epic.id },
@@ -81,7 +82,7 @@ function renderEpic(epic, ctx) {
     h('div', { class: 'bar epic-bar' }, h('div', { class: 'bar-done', style: `width:${pct}%` })),
     h('p', { class: 'epic-remaining' }, remaining),
     target,
-    h('h4', {}, `Bandeja (${backlog.filter((t) => !t.done).length})`),
+    h('h4', {}, `Backlog (${backlog.filter((t) => !t.done).length})`),
     h('form', { class: 'quick-add', autocomplete: 'off', dataset: { action: 'add-task' } },
       h('input', {
         type: 'text',
@@ -215,6 +216,10 @@ export function setupEpics() {
     const li = e.target.closest('.task');
     if (li) {
       const id = li.dataset.id;
+      if (li.classList.contains('blocked') && !e.target.closest('button, input')) {
+        showBlockedModal(id);
+        return;
+      }
       if (e.target.matches('.delete')) deleteTask(id);
       else if (e.target.matches('.plan-btn')) planTask(id, e.target.dataset.block);
       else if (e.target.matches('.unplan')) unplanTask(id);

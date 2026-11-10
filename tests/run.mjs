@@ -78,6 +78,10 @@ x2.dependencies = ['x1'];
 const byId = new Map([x1, x2, x3, x5].map((t) => [t.id, t]));
 assert.deepEqual(P.blockersOf(x2, byId).map((t) => t.id), ['x1']);
 x1.done = true; assert.deepEqual(P.blockersOf(x2, byId), []);
+// también bloquea una predecesora pendiente del mismo día
+{ const a = mk('ba', 0), b = mk('bb', 1, ['ba']); const m = new Map([[a.id, a], [b.id, b]]);
+  assert.deepEqual(P.blockersOf(b, m).map((t) => t.id), ['ba']); a.done = true; assert.deepEqual(P.blockersOf(b, m), []);
+  assert.deepEqual(P.blockersOf({ ...b, done: true }, m), []); }
 // epicForecast: 2 tareas pendientes de 4h normal (TE 4h30 c/u = 9h) con fecha objetivo mañana
 const settings = { am: { start: '08:00', end: '13:00' }, pm: { start: '14:00', end: '19:00' } };
 const now = new Date(2026, 10, 10, 7, 0); // 10 nov 07:00 → hoy completo + mañana = 4 bloques = 20h

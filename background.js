@@ -50,7 +50,7 @@ async function notifyBlockEnd(block) {
     const list = pending.slice(0, 3).map((t) => t.title).join(', ') + (n > 3 ? '…' : '');
     message = `${n === 1 ? 'Te queda 1 tarea' : `Te quedan ${n} tareas`}: ${list}`;
   } else {
-    title = `🎉 Terminaste todo lo de la ${name}`;
+    title = `Terminaste todo lo de la ${name}`;
     message = `${own.length} tarea${own.length > 1 ? 's' : ''} hecha${own.length > 1 ? 's' : ''}.`;
   }
   chrome.notifications.create(`pertday-${today}-${block}`, {

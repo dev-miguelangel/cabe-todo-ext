@@ -2,17 +2,18 @@
 
 import { formatMinutes } from './parser.js';
 import { scheduleBlock, isNowInBlock, criticalIds, wouldCreateCycle, canDepend, suggestMove } from './pert.js';
-import { todayISO, shiftDate, dayLabel, shortLabel, nowMinutes } from './dates.js';
+import { todayISO, shiftDate, dayLabel, shortLabel, nowMinutes, toMinutes } from './dates.js';
 import {
   state, setView, findTask, findEpic, activeEpics, blockTasks, backlogTasks, overdueTasks,
-  addFromText, editFromText, updateTask, deleteTask, setDependency, planTask, planMany, unplanTask, applyOrder,
+  addFromText, editFromText, updateTask, deleteTask, setDependency, planTask, planMany, unplanTask, unplanMany, applyOrder,
 } from './store.js';
 import { h, showToast, attachEpicAutocomplete } from './ui.js';
 import { renderCard } from './cards.js';
+import { showBlockedModal } from './blocked-modal.js';
 import { toQuickAddText } from './parser.js';
 
 const BLOCKS = ['am', 'pm'];
-const BLOCK_ICON = { am: '☀️', pm: '🌙' };
+const BLOCK_ICON = { am: '☀︎', pm: '☾' };
 const BACKLOG_OPEN_KEY = 'pertday:backlogOpen';
 
 /** "Ahora" en minutos para el día que se está viendo: null si es futuro, fin del día si es pasado. */
@@ -77,12 +78,42 @@ function renderSuggestion(el, sug) {
   if (!sug) return;
   const pct = (p) => `${Math.round(p * 100)}%`;
   el.replaceChildren(
-    h('span', {}, `💡 Si mueves "${sug.task.title}" (${formatMinutes(sug.task.minutes)}) ${sug.target.label}, este bloque sube de ${pct(sug.before)} a ${pct(sug.sourceProbability)}.`),
+    h('span', {}, `✦ Si mueves "${sug.task.title}" (${formatMinutes(sug.task.minutes)}) ${sug.target.label}, este bloque sube de ${pct(sug.before)} a ${pct(sug.sourceProbability)}.`),
     h('button', {
       class: 'suggest-btn',
       dataset: { task: sug.task.id, date: sug.target.date, block: sug.target.block },
       title: `El destino quedaría en ${pct(sug.targetProbability)}`,
     }, 'Mover'),
+  );
+}
+
+/**
+ * Próximo bloque que todavía no termina, contando desde ahora:
+ * la mañana de hoy, la tarde de hoy o la mañana del día siguiente.
+ */
+function nextOpenBlock() {
+  const today = todayISO();
+  const now = nowMinutes();
+  let target;
+  if (now < toMinutes(state.settings.am.end)) target = { date: today, block: 'am' };
+  else if (now < toMinutes(state.settings.pm.end)) target = { date: today, block: 'pm' };
+  else target = { date: shiftDate(today, 1), block: 'am' };
+  const isToday = target.date === today;
+  return {
+    ...target,
+    label: isToday ? `→ ${target.block.toUpperCase()}` : `→ ${shortLabel(target.date).split(' ')[0]} ${target.block.toUpperCase()}`,
+    title: isToday ? `Mover a ${BLOCK_LABEL[target.block]} de hoy` : `Mover al ${shortLabel(target.date)}, en ${BLOCK_LABEL[target.block]}`,
+  };
+}
+
+/** Barra del bloque terminado: mover todas las pendientes de una vez. */
+function renderEndedBar(el, block, pending, next) {
+  el.hidden = !pending.length;
+  if (!pending.length) return;
+  el.replaceChildren(
+    h('span', {}, 'Bloque terminado'),
+    h('button', { class: 'ended-all', dataset: { all: 'next', block }, title: next.title }, `Todo ${next.label}`),
+    h('button', { class: 'ended-all', dataset: { all: 'backlog', block }, title: 'Enviar todas al backlog' }, 'Todo ⤓'),
   );
 }
 
@@ -129,13 +160,13 @@ function renderForecast(el, sched) {
     return;
   }
   if (sched.remaining <= 0) {
-    el.textContent = `⏰ ${sched.pendingCount} pendiente${sched.pendingCount > 1 ? 's' : ''}`;
+    el.textContent = `◷ ${sched.pendingCount} pendiente${sched.pendingCount > 1 ? 's' : ''}`;
     el.title = 'El bloque ya terminó';
     el.classList.add('bad');
     return;
   }
   const pct = Math.round(sched.probability * 100);
-  const [icon, cls] = sched.probability >= 0.8 ? ['✓', 'good'] : sched.probability >= 0.5 ? ['🟡', 'warn'] : ['⚠️', 'bad'];
+  const [icon, cls] = sched.probability >= 0.8 ? ['✓', 'good'] : sched.probability >= 0.5 ? ['◐', 'warn'] : ['⚠︎', 'bad'];
   el.textContent = `${icon} ${pct}%`;
   el.classList.add(cls);
   el.title = `${pct}% de probabilidad de terminar a tiempo\nEstimado ${formatMinutes(sched.mu)} ± ${formatMinutes(sched.sigma)} · quedan ${formatMinutes(sched.remaining)} en el bloque`;
@@ -181,11 +212,16 @@ function renderBlock(block, ctx) {
   ].filter(Boolean).join('\n');
 
   renderForecast(section.querySelector('.forecast'), sched);
-  renderSuggestion(section.querySelector('.suggestion'), computeSuggestion(block, ctx));
+
+  // Bloque terminado con pendientes: ofrecer moverlas en vez de sugerir reacomodos.
+  const ended = sched.remaining <= 0 && sched.pendingCount > 0;
+  const next = ended ? nextOpenBlock() : null;
+  renderEndedBar(section.querySelector('.ended-bar'), block, ended ? list.filter((t) => !t.done) : [], next);
+  renderSuggestion(section.querySelector('.suggestion'), ended ? null : computeSuggestion(block, ctx));
 
   const ul = section.querySelector('.list');
   const cards = sched.items.map((item) => renderCard(item.task, {
-    ctx, item, draggable: true, dim: dimmed(item.task),
+    ctx, item, draggable: true, dim: dimmed(item.task), ended: next,
   }));
   if (now) cards.find((li) => !li.classList.contains('done'))?.classList.add('current');
   ul.replaceChildren(...cards);
@@ -205,7 +241,7 @@ function renderBacklog(ctx) {
     ctx, draggable: true, plan: true, dim: dimmed(task),
   }));
   ul.replaceChildren(...cards);
-  if (!cards.length) ul.append(h('li', { class: 'empty' }, 'Vacía · agrega tareas desde la pestaña Épicas'));
+  if (!cards.length) ul.append(h('li', { class: 'empty' }, 'Vacío · arrastra aquí lo que quieras dejar para después'));
 }
 
 export function renderDay() {
@@ -266,8 +302,8 @@ function fillDepsMenu() {
   for (const other of candidates) {
     const checked = task.dependencies.includes(other.id);
     const blocked = !checked && wouldCreateCycle(state.tasks, task.id, other.id);
-    const where = other.date === task.date ? BLOCK_ICON[other.block] || '📥'
-      : other.date ? `${shortLabel(other.date)} ${BLOCK_ICON[other.block]}` : '📥';
+    const where = other.date === task.date ? BLOCK_ICON[other.block] || '⤓'
+      : other.date ? `${shortLabel(other.date)} ${BLOCK_ICON[other.block]}` : '⤓';
     const box = h('input', { type: 'checkbox', checked, disabled: blocked });
     box.addEventListener('change', () => setDependency(task.id, other.id, box.checked));
     nodes.push(h('label', {
@@ -324,6 +360,7 @@ function startEdit(li) {
 // ---------- Drag & drop ----------
 // Bordes de una tarjeta = reordenar / mover. Centro = "va después de esta".
 
+let blockedClickTimer = null;
 let draggingId = null;
 let linkTarget = null;
 let dropped = false;
@@ -471,6 +508,19 @@ export function setupDay() {
       planMany(overdueTasks(today).map((t) => t.id), bulk.dataset.bulk, today);
       return;
     }
+    const all = e.target.closest('.ended-all');
+    if (all) {
+      const ids = blockTasks(all.dataset.block).filter((t) => !t.done).map((t) => t.id);
+      if (all.dataset.all === 'backlog') {
+        unplanMany(ids);
+        showToast(`${ids.length} tarea${ids.length > 1 ? 's' : ''} al backlog.`);
+      } else {
+        const next = nextOpenBlock();
+        planMany(ids, next.block, next.date);
+        showToast(`${ids.length} tarea${ids.length > 1 ? 's' : ''} movida${ids.length > 1 ? 's' : ''}: ${next.title.replace('Mover ', '')}.`);
+      }
+      return;
+    }
     const filter = e.target.closest('.chip');
     if (filter) {
       const id = filter.dataset.filter || null;
@@ -480,15 +530,27 @@ export function setupDay() {
     const li = e.target.closest('.task');
     if (!li) return;
     const id = li.dataset.id;
+    if (li.classList.contains('blocked') && !e.target.closest('button, input')) {
+      clearTimeout(blockedClickTimer);
+      blockedClickTimer = setTimeout(() => showBlockedModal(id), 220);
+      return;
+    }
     if (e.target.matches('.delete')) deleteTask(id);
     else if (e.target.matches('.plan-btn')) planTask(id, e.target.dataset.block);
-    else if (e.target.matches('.unplan')) unplanTask(id);
+    else if (e.target.matches('.unplan, .backlog-btn')) {
+      unplanTask(id);
+      showToast(`"${findTask(id).title}" al backlog.`);
+    } else if (e.target.matches('.next-btn')) {
+      planTask(id, e.target.dataset.block, e.target.dataset.date);
+      showToast(`"${findTask(id).title}" movida: ${e.target.title.replace('Mover ', '')}.`);
+    }
     else if (e.target.matches('.link')) {
       if (menu?.dataset.taskId === id) closeDepsMenu();
       else openDepsMenu(id, e.target);
     }
   });
   view.addEventListener('dblclick', (e) => {
+    clearTimeout(blockedClickTimer); // doble clic = editar, no abrir el modal
     const li = e.target.closest('.task');
     if (li && !e.target.closest('button, input')) startEdit(li);
   });

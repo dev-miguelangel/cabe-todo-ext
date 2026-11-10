@@ -124,3 +124,42 @@ export function attachEpicAutocomplete(input, getEpics) {
   });
   input.addEventListener('blur', close);
 }
+
+// ---------- Modal ----------
+
+let modalOnClose = null;
+
+/** Abre (o actualiza) el modal. content: nodos del cuerpo. Escape o clic fuera lo cierran. */
+export function openModal(title, content, onClose = null) {
+  let dialog = document.getElementById('modal');
+  if (!dialog) {
+    dialog = h('dialog', { id: 'modal', class: 'modal', 'aria-labelledby': 'modal-title' });
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) closeModal(); // clic en el fondo
+    });
+    dialog.addEventListener('close', () => {
+      const cb = modalOnClose;
+      modalOnClose = null;
+      cb?.();
+    });
+    document.body.append(dialog);
+  }
+  modalOnClose = onClose;
+  dialog.replaceChildren(
+    h('div', { class: 'modal-box' },
+      h('header', { class: 'modal-head' },
+        h('h2', { id: 'modal-title' }, title),
+        h('button', { class: 'modal-close', 'aria-label': 'Cerrar', onclick: closeModal }, '×')),
+      ...content),
+  );
+  if (!dialog.open) dialog.showModal();
+}
+
+export function closeModal() {
+  const dialog = document.getElementById('modal');
+  if (dialog?.open) dialog.close();
+}
+
+export function isModalOpen() {
+  return Boolean(document.getElementById('modal')?.open);
+}

@@ -5,27 +5,28 @@ import { blockersOf } from './pert.js';
 import { shortLabel, dayLabel } from './dates.js';
 
 const template = document.getElementById('task-template');
-const BLOCK_ICON = { am: '☀️', pm: '🌙' };
+const BLOCK_ICON = { am: '☀︎', pm: '☾' };
 
 function signed(minutes) {
   return minutes >= 0 ? formatMinutes(minutes) : `−${formatMinutes(-minutes)}`;
 }
 
-/** "bandeja" · "mié 12 nov" · nada si es el mismo día de la tarea */
+/** "backlog" · "mié 12 nov" · nada si es el mismo día de la tarea */
 function whereLabel(pred, task) {
   if (pred.date === task.date) return '';
-  return pred.date ? shortLabel(pred.date) : 'bandeja';
+  return pred.date ? shortLabel(pred.date) : 'backlog';
 }
 
 export function whenLabel(task) {
-  return task.date ? `${shortLabel(task.date)} · ${BLOCK_ICON[task.block]}` : 'bandeja';
+  return task.date ? `${shortLabel(task.date)} · ${BLOCK_ICON[task.block]}` : 'backlog';
 }
 
 /**
  * opts:
  *  ctx       { byId, epicsById, critical:Set, planDate }
  *  item      resultado de scheduleBlock para esta tarea (hora estimada, holgura)
- *  draggable, link, plan (botones → AM/PM), unplan (↩ a la bandeja), when (mostrar fecha), dim
+ *  draggable, link, plan (botones → AM/PM), unplan (↩︎ al backlog), when (mostrar fecha), dim
+ *  ended     { date, block, label, title } si el bloque ya terminó: → siguiente bloque / ⤓ backlog
  */
 export function renderCard(task, opts) {
   const { ctx } = opts;
@@ -69,14 +70,15 @@ export function renderCard(task, opts) {
   if (blockers.length) {
     const lock = li.querySelector('.locked');
     lock.hidden = false;
-    lock.title = `Bloqueada: falta ${blockers.map((p) => `"${p.title}" (${p.date ? shortLabel(p.date) : 'en la bandeja'})`).join(', ')}`;
+    lock.title = `Bloqueada: falta ${blockers.map((p) => `"${p.title}"`).join(', ')} · clic para ver por qué`;
     li.classList.add('blocked');
   }
 
   const critical = ctx.critical?.has(task.id);
   li.querySelector('.critical').hidden = !critical;
 
-  li.querySelector('.link').hidden = opts.link === false;
+  // Dependencias: solo tiene sentido en tareas pendientes.
+  li.querySelector('.link').hidden = opts.link === false || task.done;
   if (opts.plan && !task.done) {
     const plan = li.querySelector('.plan');
     plan.hidden = false;
@@ -85,10 +87,20 @@ export function renderCard(task, opts) {
     plan.querySelector('[data-block="pm"]').title = `Planificar el ${day} en la tarde`;
   }
   li.querySelector('.unplan').hidden = !(opts.unplan && task.date && !task.done);
+  if (opts.ended && !task.done) {
+    const ended = li.querySelector('.ended');
+    ended.hidden = false;
+    const next = ended.querySelector('.next-btn');
+    next.textContent = opts.ended.label;
+    next.title = opts.ended.title;
+    next.dataset.date = opts.ended.date;
+    next.dataset.block = opts.ended.block;
+  }
 
   const item = opts.item;
   if (item && !task.done) {
-    li.classList.toggle('late', item.slack < 0);
+    // En un bloque ya terminado todas irían "tarde": no marcarlas, ya hay botones para moverlas.
+    li.classList.toggle('late', item.slack < 0 && !opts.ended);
     const lines = [
       `Terminarías ~${formatClock(item.finish)} · holgura ${signed(item.slack)}`,
       `Estimado ${formatMinutes(item.est.te)} (entre ${formatMinutes(item.est.o)} y ${formatMinutes(item.est.p)})`,
@@ -103,5 +115,5 @@ export function renderCard(task, opts) {
 }
 
 function lock(blockers) {
-  return `🔒 Falta: ${blockers.map((p) => p.title).join(', ')}`;
+  return `⧖ Falta: ${blockers.map((p) => p.title).join(', ')}`;
 }

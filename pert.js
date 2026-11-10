@@ -231,15 +231,12 @@ export function pruneInvalidDeps(tasks) {
   return removed;
 }
 
-/**
- * Predecesoras que bloquean una tarea: no hechas y que no están en el mismo día
- * (en otro día o en la bandeja). Las del mismo día no bloquean: solo ordenan.
- */
+/** Predecesoras que bloquean una tarea: todas las que todavía no están hechas. */
 export function blockersOf(task, byId) {
   if (task.done) return [];
   return (task.dependencies || [])
     .map((id) => byId.get(id))
-    .filter((p) => p && !p.done && p.date !== task.date);
+    .filter((p) => p && !p.done);
 }
 
 /**

@@ -8,6 +8,15 @@ const DEFAULT_SETTINGS = {
   notify: true,
 };
 
+// Colores de épicas: solo los tonos de la paleta (Cod Gray es el fondo, no sirve como color de épica).
+// Ordenados para que las primeras épicas se distingan lo más posible.
+export const PALETTE = ['#1db954', '#b1f2b1', '#6fdc7c', '#1dd75e'];
+
+/** Épicas guardadas con colores de antes: pasarlas a la paleta. */
+function normalizeEpics(epics) {
+  return epics.map((e, i) => (PALETTE.includes(e.color) ? e : { ...e, color: PALETTE[i % PALETTE.length] }));
+}
+
 // Identifica a esta ventana: así ignoramos los avisos de cambio que provocamos nosotros mismos.
 const WRITER_ID = Math.random().toString(36).slice(2);
 
@@ -53,7 +62,7 @@ export async function loadData() {
   const { tasks = [], epics = [], settings = {} } = await getRaw(['tasks', 'epics', 'settings']);
   return {
     tasks: tasks.map(normalizeTask),
-    epics,
+    epics: normalizeEpics(epics),
     settings: withDefaults(settings),
   };
 }
@@ -83,7 +92,7 @@ export function onDataChanged(callback) {
     if (changes.meta?.newValue?.writer === WRITER_ID) return;
     const data = {};
     if (changes.tasks) data.tasks = (changes.tasks.newValue || []).map(normalizeTask);
-    if (changes.epics) data.epics = changes.epics.newValue || [];
+    if (changes.epics) data.epics = normalizeEpics(changes.epics.newValue || []);
     if (changes.settings) data.settings = withDefaults(changes.settings.newValue || {});
     if (data.tasks || data.epics || data.settings) callback(data);
   });

@@ -10,7 +10,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" data-tab="day">Hoy</button>
     <button class="tab" role="tab" data-tab="epics">Épicas</button>
-    <button class="tab tab-icon" role="tab" data-tab="settings" title="Ajustes" aria-label="Ajustes">⚙️</button>
+    <button class="tab tab-icon" role="tab" data-tab="settings" title="Ajustes" aria-label="Ajustes">⚙︎</button>
   </nav>
 
   <!-- ===== Vista del día ===== -->
@@ -28,7 +28,7 @@
 
     <section class="overdue" id="overdue" hidden>
       <header class="overdue-head">
-        <h2>⏪ Pendientes anteriores <span class="count"></span></h2>
+        <h2>« Pendientes anteriores <span class="count"></span></h2>
         <button class="bulk-btn" data-bulk="am" title="Mover todas a la mañana de hoy">Todo → AM</button>
         <button class="bulk-btn" data-bulk="pm" title="Mover todas a la tarde de hoy">Todo → PM</button>
       </header>
@@ -38,13 +38,14 @@
     <main class="board">
       <section class="block" data-block="am">
         <header class="block-head">
-          <h2>☀️ Mañana</h2>
+          <h2>☀︎ Mañana</h2>
           <span class="range"></span>
           <span class="now-badge" hidden>ahora</span>
           <span class="forecast" aria-live="polite"></span>
           <span class="capacity-label"></span>
         </header>
         <div class="capacity"><div class="bar"><div class="bar-done"></div><div class="bar-pending"></div></div></div>
+        <div class="ended-bar" hidden></div>
         <div class="suggestion" hidden></div>
         <ul class="list" data-list="am" aria-label="Tareas de la mañana"></ul>
         <form class="quick-add" autocomplete="off">
@@ -54,13 +55,14 @@
 
       <section class="block" data-block="pm">
         <header class="block-head">
-          <h2>🌙 Tarde</h2>
+          <h2>☾ Tarde</h2>
           <span class="range"></span>
           <span class="now-badge" hidden>ahora</span>
           <span class="forecast" aria-live="polite"></span>
           <span class="capacity-label"></span>
         </header>
         <div class="capacity"><div class="bar"><div class="bar-done"></div><div class="bar-pending"></div></div></div>
+        <div class="ended-bar" hidden></div>
         <div class="suggestion" hidden></div>
         <ul class="list" data-list="pm" aria-label="Tareas de la tarde"></ul>
         <form class="quick-add" autocomplete="off">
@@ -71,9 +73,9 @@
 
     <section class="backlog" id="backlog" hidden>
       <details id="backlog-details">
-        <summary>📥 Bandeja de épicas <span class="count"></span></summary>
+        <summary>⤓ Backlog <span class="count"></span></summary>
         <p class="backlog-hint">Tareas sin fecha. Arrástralas a la mañana o la tarde, o usa → AM / → PM.</p>
-        <ul class="list" data-list="backlog" aria-label="Bandeja"></ul>
+        <ul class="list" data-list="backlog" aria-label="Backlog"></ul>
       </details>
     </section>
 
@@ -94,12 +96,12 @@
   <div id="view-settings" hidden>
     <form id="settings-form" class="settings" novalidate>
       <fieldset>
-        <legend>☀️ Mañana</legend>
+        <legend>☀︎ Mañana</legend>
         <label>Desde <input type="time" name="am-start" required></label>
         <label>Hasta <input type="time" name="am-end" required></label>
       </fieldset>
       <fieldset>
-        <legend>🌙 Tarde</legend>
+        <legend>☾ Tarde</legend>
         <label>Desde <input type="time" name="pm-start" required></label>
         <label>Hasta <input type="time" name="pm-end" required></label>
       </fieldset>
@@ -138,7 +140,7 @@
         <li><code>?</code> no estoy seguro · <code>!</code> muy seguro</li>
         <li><code>#épica</code> agrupar en una épica</li>
       </ul>
-      <p>Arrastra una tarea <strong>sobre</strong> otra para que vaya después · doble clic para editar · ◆ otras dependen de ella · 🔒 bloqueada</p>
+      <p>Arrastra una tarea <strong>sobre</strong> otra para que vaya después · doble clic para editar · ◆ otras dependen de ella · ⧖ bloqueada</p>
     </section>
   </div>
 
@@ -152,17 +154,21 @@
         <span class="deps" hidden></span>
       </div>
       <span class="meta">
-        <span class="locked" hidden>🔒</span>
+        <span class="locked" hidden>⧖</span>
         <span class="critical" title="Otras tareas dependen de esta" hidden>◆</span>
         <span class="minutes"></span>
+      </span>
+      <button class="link row-btn" title="Va después de… (agregar dependencia)" aria-label="Elegir de qué tareas depende">↳</button>
+      <span class="ended" hidden>
+        <button class="next-btn"></button>
+        <button class="backlog-btn" title="Enviar al backlog" aria-label="Enviar al backlog">⤓</button>
       </span>
       <span class="plan" hidden>
         <button class="plan-btn" data-block="am">→ AM</button>
         <button class="plan-btn" data-block="pm">→ PM</button>
       </span>
       <span class="actions">
-        <button class="unplan" title="Volver a la bandeja" aria-label="Volver a la bandeja" hidden>↩</button>
-        <button class="link" title="Va después de…" aria-label="Elegir de qué tareas depende">↳</button>
+        <button class="unplan" title="Enviar al backlog" aria-label="Enviar al backlog" hidden>↩︎</button>
         <button class="delete" title="Borrar" aria-label="Borrar tarea">×</button>
       </span>
     </li>

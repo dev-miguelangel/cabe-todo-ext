@@ -2,12 +2,12 @@
 // Las vistas leen `state` y llaman acciones; cada acción termina en commit(), que aplica
 // las reglas, guarda y avisa a los suscriptores para re-renderizar.
 
-import { loadData, saveData, saveSettings as saveSettingsRaw, onDataChanged } from './storage.js';
+import { loadData, saveData, saveSettings as saveSettingsRaw, onDataChanged, PALETTE } from './storage.js';
 import { enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend } from './pert.js';
 import { parseQuickAdd, tagKey } from './parser.js';
 import { todayISO } from './dates.js';
 
-export const PALETTE = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#84cc16'];
+export { PALETTE } from './storage.js';
 
 export const state = {
   tasks: [],
@@ -178,7 +178,7 @@ function checkEpicComplete(epicId) {
   const epic = findEpic(epicId);
   const own = epicTasks(epicId);
   if (!epic || epic.archived || !own.length || own.some((t) => !t.done)) return;
-  notify(`🎉 ¡Completaste "${epic.name}"!`, { label: 'Archivar', run: () => archiveEpic(epicId) });
+  notify(`¡Completaste "${epic.name}"!`, { label: 'Archivar', run: () => archiveEpic(epicId) });
 }
 
 // ---------- Tareas ----------
@@ -266,6 +266,16 @@ export function planMany(ids, block, date = state.viewDate) {
   for (const id of ids) {
     const t = findTask(id);
     if (t) Object.assign(t, { date, block, order: order++ });
+  }
+  commit();
+}
+
+/** Envía varias tareas al backlog (sin fecha) de una vez. */
+export function unplanMany(ids) {
+  let order = nextOrder(null, null);
+  for (const id of ids) {
+    const t = findTask(id);
+    if (t) Object.assign(t, { date: null, block: null, order: order++ });
   }
   commit();
 }
