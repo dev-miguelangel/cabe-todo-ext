@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pert-day</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="day">Hoy</button>
+    <button class="tab" role="tab" data-tab="epics">Épicas</button>
+  </nav>
+
+  <!-- ===== Vista del día ===== -->
+  <div id="view-day">
+    <header class="topbar">
+      <button class="nav" id="prev-day" title="Día anterior" aria-label="Día anterior">‹</button>
+      <div class="day">
+        <h1 id="day-label"></h1>
+        <button class="today-link" id="go-today" hidden>Volver a hoy</button>
+      </div>
+      <button class="nav" id="next-day" title="Día siguiente" aria-label="Día siguiente">›</button>
+    </header>
+
+    <div class="filters" id="filters" hidden></div>
+
+    <main class="board">
+      <section class="block" data-block="am">
+        <header class="block-head">
+          <h2>☀️ Mañana <span class="range"></span></h2>
+          <span class="now-badge" hidden>ahora</span>
+        </header>
+        <div class="capacity">
+          <div class="bar"><div class="bar-done"></div><div class="bar-pending"></div></div>
+          <span class="capacity-label"></span>
+        </div>
+        <div class="forecast" aria-live="polite"></div>
+        <div class="epic-summary" hidden></div>
+        <form class="quick-add" autocomplete="off">
+          <input type="text" placeholder="+ Escribe una tarea…  (ej: Informe 2h)" aria-label="Nueva tarea en la mañana">
+        </form>
+        <ul class="list" data-list="am" aria-label="Tareas de la mañana"></ul>
+      </section>
+
+      <section class="block" data-block="pm">
+        <header class="block-head">
+          <h2>🌙 Tarde <span class="range"></span></h2>
+          <span class="now-badge" hidden>ahora</span>
+        </header>
+        <div class="capacity">
+          <div class="bar"><div class="bar-done"></div><div class="bar-pending"></div></div>
+          <span class="capacity-label"></span>
+        </div>
+        <div class="forecast" aria-live="polite"></div>
+        <div class="epic-summary" hidden></div>
+        <form class="quick-add" autocomplete="off">
+          <input type="text" placeholder="+ Escribe una tarea…  (ej: Revisar PR 1h ?)" aria-label="Nueva tarea en la tarde">
+        </form>
+        <ul class="list" data-list="pm" aria-label="Tareas de la tarde"></ul>
+      </section>
+    </main>
+
+    <section class="backlog" id="backlog" hidden>
+      <details id="backlog-details" open>
+        <summary>📥 Bandeja de épicas <span class="count"></span></summary>
+        <p class="backlog-hint">Tareas sin fecha. Arrástralas a la mañana o la tarde, o usa → AM / → PM.</p>
+        <ul class="list" data-list="backlog" aria-label="Bandeja"></ul>
+      </details>
+    </section>
+
+    <footer class="hint">
+      <p><code>15m</code> <code>1h30</code> duración · <code>am</code>/<code>pm</code> bloque · <code>?</code> no estoy seguro · <code>!</code> muy seguro · <code>#épica</code></p>
+      <p>Arrastra una tarea <strong>sobre</strong> otra para que vaya después · doble clic para editar · ◆ otras dependen de ella · 🔒 bloqueada</p>
+    </footer>
+  </div>
+
+  <!-- ===== Vista de épicas ===== -->
+  <div id="view-epics" hidden>
+    <div class="epics-top">
+      <form id="new-epic" class="quick-add" autocomplete="off">
+        <input type="text" placeholder="+ Nueva épica…  (ej: Lanzar web)" aria-label="Nueva épica">
+      </form>
+      <p class="plan-date-hint" id="plan-date-hint"></p>
+    </div>
+    <div id="epics-list"></div>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <template id="task-template">
+    <li class="task">
+      <input type="checkbox" class="check" aria-label="Marcar como hecha">
+      <span class="dot" hidden></span>
+      <div class="body">
+        <span class="title"></span>
+        <span class="deps" hidden></span>
+      </div>
+      <span class="locked" hidden>🔒</span>
+      <span class="critical" title="Otras tareas dependen de esta" hidden>◆</span>
+      <span class="minutes"></span>
+      <span class="plan" hidden>
+        <button class="plan-btn" data-block="am">→ AM</button>
+        <button class="plan-btn" data-block="pm">→ PM</button>
+      </span>
+      <button class="unplan" title="Volver a la bandeja" aria-label="Volver a la bandeja" hidden>↩</button>
+      <button class="link" title="Va después de…" aria-label="Elegir de qué tareas depende">↳</button>
+      <button class="delete" title="Borrar" aria-label="Borrar tarea">×</button>
+    </li>
+  </template>
+
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

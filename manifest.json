@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Pert-day",
+  "version": "0.1.0",
+  "description": "Planifica tu día en dos bloques: mañana y tarde.",
+  "permissions": ["storage", "sidePanel"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "action": {
+    "default_title": "Abrir Pert-day"
+  }
+}

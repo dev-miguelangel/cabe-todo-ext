@@ -1,0 +1,107 @@
+// Tarjeta de tarea, compartida por la vista del día, la bandeja y la vista de épicas.
+
+import { formatMinutes, formatClock } from './parser.js';
+import { blockersOf } from './pert.js';
+import { shortLabel, dayLabel } from './dates.js';
+
+const template = document.getElementById('task-template');
+const BLOCK_ICON = { am: '☀️', pm: '🌙' };
+
+function signed(minutes) {
+  return minutes >= 0 ? formatMinutes(minutes) : `−${formatMinutes(-minutes)}`;
+}
+
+/** "bandeja" · "mié 12 nov" · nada si es el mismo día de la tarea */
+function whereLabel(pred, task) {
+  if (pred.date === task.date) return '';
+  return pred.date ? shortLabel(pred.date) : 'bandeja';
+}
+
+export function whenLabel(task) {
+  return task.date ? `${shortLabel(task.date)} · ${BLOCK_ICON[task.block]}` : 'bandeja';
+}
+
+/**
+ * opts:
+ *  ctx       { byId, epicsById, critical:Set, planDate }
+ *  item      resultado de scheduleBlock para esta tarea (hora estimada, holgura)
+ *  draggable, link, plan (botones → AM/PM), unplan (↩ a la bandeja), when (mostrar fecha), dim
+ */
+export function renderCard(task, opts) {
+  const { ctx } = opts;
+  const li = template.content.firstElementChild.cloneNode(true);
+  li.dataset.id = task.id;
+  li.draggable = Boolean(opts.draggable);
+  li.classList.toggle('done', task.done);
+  li.classList.toggle('dim', Boolean(opts.dim));
+  li.querySelector('.check').checked = task.done;
+  li.querySelector('.title').textContent = task.title;
+
+  const epic = ctx.epicsById.get(task.epic_id);
+  if (epic && opts.showEpic !== false) {
+    const dot = li.querySelector('.dot');
+    dot.hidden = false;
+    dot.style.background = epic.color;
+    dot.title = epic.name;
+  }
+
+  const mark = task.certainty === 'unsure' ? ' ?' : task.certainty === 'sure' ? ' !' : '';
+  li.querySelector('.minutes').textContent = formatMinutes(task.minutes) + mark;
+
+  // Línea secundaria: cuándo (en la vista de épica) y de qué depende
+  const meta = [];
+  if (opts.when) meta.push(whenLabel(task));
+  const preds = task.dependencies.map((id) => ctx.byId.get(id)).filter(Boolean);
+  if (preds.length) {
+    const names = preds.map((p) => {
+      const where = whereLabel(p, task);
+      return where ? `${p.title} (${where})` : p.title;
+    });
+    meta.push(`↳ después de: ${names.join(', ')}`);
+  }
+  if (meta.length) {
+    const deps = li.querySelector('.deps');
+    deps.hidden = false;
+    deps.textContent = meta.join(' · ');
+  }
+
+  const blockers = blockersOf(task, ctx.byId);
+  if (blockers.length) {
+    const lock = li.querySelector('.locked');
+    lock.hidden = false;
+    lock.title = `Bloqueada: falta ${blockers.map((p) => `"${p.title}" (${p.date ? shortLabel(p.date) : 'en la bandeja'})`).join(', ')}`;
+    li.classList.add('blocked');
+  }
+
+  const critical = ctx.critical?.has(task.id);
+  li.querySelector('.critical').hidden = !critical;
+
+  li.querySelector('.link').hidden = opts.link === false;
+  if (opts.plan && !task.done) {
+    const plan = li.querySelector('.plan');
+    plan.hidden = false;
+    const day = dayLabel(ctx.planDate).toLowerCase();
+    plan.querySelector('[data-block="am"]').title = `Planificar el ${day} en la mañana`;
+    plan.querySelector('[data-block="pm"]').title = `Planificar el ${day} en la tarde`;
+  }
+  li.querySelector('.unplan').hidden = !(opts.unplan && task.date && !task.done);
+
+  const item = opts.item;
+  if (item && !task.done) {
+    li.classList.toggle('late', item.slack < 0);
+    const lines = [
+      `Terminarías ~${formatClock(item.finish)} · holgura ${signed(item.slack)}`,
+      `Estimado ${formatMinutes(item.est.te)} (entre ${formatMinutes(item.est.o)} y ${formatMinutes(item.est.p)})`,
+    ];
+    if (critical) lines.push('◆ Otras tareas dependen de esta');
+    if (blockers.length) lines.push(lock(blockers));
+    li.title = lines.join('\n');
+  } else if (task.done) {
+    li.title = 'Hecha';
+  }
+  return li;
+}
+
+function lock(blockers) {
+  return `🔒 Falta: ${blockers.map((p) => p.title).join(', ')}`;
+}
