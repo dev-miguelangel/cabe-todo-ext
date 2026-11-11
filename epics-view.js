@@ -6,11 +6,11 @@ import { todayISO, dayLabel } from './dates.js';
 import {
   state, findEpic, activeEpics, archivedEpics, epicTasks,
   createEpic, renameEpic, setEpicTarget, archiveEpic, restoreEpic, deleteEpic,
-  addFromText, updateTask, deleteTask, planTask, unplanTask,
+  addFromText, updateTask, deleteTask, planTask, unplanTask, toggleTimer,
 } from './store.js';
 import { h } from './ui.js';
 import { renderCard } from './cards.js';
-import { showBlockedModal } from './blocked-modal.js';
+import { showTaskModal } from './task-modal.js';
 
 const OPEN_PLANNED_KEY = 'pertday:openPlanned';
 let openPlanned = new Set();
@@ -216,11 +216,12 @@ export function setupEpics() {
     const li = e.target.closest('.task');
     if (li) {
       const id = li.dataset.id;
-      if (li.classList.contains('blocked') && !e.target.closest('button, input')) {
-        showBlockedModal(id);
+      if (!e.target.closest('button, input, textarea')) {
+        showTaskModal(id);
         return;
       }
-      if (e.target.matches('.delete')) deleteTask(id);
+      if (e.target.matches('.timer-btn')) toggleTimer(id);
+      else if (e.target.matches('.delete')) deleteTask(id);
       else if (e.target.matches('.plan-btn')) planTask(id, e.target.dataset.block);
       else if (e.target.matches('.unplan')) unplanTask(id);
       return;

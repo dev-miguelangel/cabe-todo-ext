@@ -6,6 +6,7 @@ import { loadData, saveData, saveSettings as saveSettingsRaw, onDataChanged, PAL
 import { enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend } from './pert.js';
 import { parseQuickAdd, tagKey } from './parser.js';
 import { todayISO } from './dates.js';
+import { isRunning } from './timer.js';
 
 export { PALETTE } from './storage.js';
 
@@ -42,6 +43,16 @@ export async function initStore() {
     if (state.filter && !findEpic(state.filter)) state.filter = null;
     emit({ external: true });
   });
+}
+
+/**
+ * Relee tareas y épicas del almacenamiento. Útil antes de guardar desde una pestaña que
+ * pasa mucho tiempo abierta (documentación), para no pisar cambios recientes del panel.
+ */
+export async function refreshFromStorage() {
+  const data = await loadData();
+  state.tasks = data.tasks;
+  state.epics = data.epics;
 }
 
 /** Cambios solo de vista (pestaña, día, filtro): no se guardan. */
@@ -218,6 +229,8 @@ export function addFromText(text, where) {
     dependencies: [],
     done: false,
     done_at: null,
+    time_entries: [],
+    comments: [],
     created_at: new Date().toISOString(),
   });
   commit();
@@ -251,6 +264,8 @@ export function updateTask(id, changes) {
   if ('done' in changes && changes.done !== t.done) {
     changes.done_at = changes.done ? new Date().toISOString() : null;
   }
+  // Al terminar una tarea, su temporizador se detiene.
+  if (changes.done && isRunning(t)) stopEntry(t);
   Object.assign(t, changes);
   commit();
   if (changes.done && t.epic_id) checkEpicComplete(t.epic_id);
@@ -310,6 +325,84 @@ export function deleteTask(id) {
   for (const t of state.tasks) {
     if (t.dependencies.includes(id)) t.dependencies = t.dependencies.filter((d) => d !== id);
   }
+  commit();
+}
+
+// ---------- Temporizador ----------
+
+function stopEntry(task, at = new Date().toISOString()) {
+  const last = task.time_entries[task.time_entries.length - 1];
+  task.time_entries = [...task.time_entries.slice(0, -1), { ...last, end: at }];
+}
+
+/** Inicia (o reanuda) el temporizador. Solo uno corre a la vez: los demás se pausan. */
+export function startTimer(id) {
+  const task = findTask(id);
+  if (!task || isRunning(task)) return;
+  const now = new Date().toISOString();
+  const paused = state.tasks.filter((t) => t.id !== id && isRunning(t));
+  paused.forEach((t) => stopEntry(t, now));
+  task.time_entries = [...task.time_entries, { start: now, end: null }];
+  commit();
+  if (paused.length) notify(`Se pausó "${paused[0].title}" (solo un temporizador corre a la vez).`);
+}
+
+export function pauseTimer(id) {
+  const task = findTask(id);
+  if (!task || !isRunning(task)) return;
+  stopEntry(task);
+  commit();
+}
+
+export function toggleTimer(id) {
+  const task = findTask(id);
+  if (task) (isRunning(task) ? pauseTimer : startTimer)(id);
+}
+
+export function resetTimer(id) {
+  const task = findTask(id);
+  if (!task) return;
+  task.time_entries = [];
+  commit();
+}
+
+// ---------- Documentación ----------
+
+/** Guarda la documentación (Markdown) de una tarea. */
+export function setDoc(taskId, text) {
+  const task = findTask(taskId);
+  if (!task || task.doc === text) return;
+  task.doc = text;
+  task.doc_updated_at = new Date().toISOString();
+  commit();
+}
+
+// ---------- Comentarios ----------
+
+export function addComment(taskId, text) {
+  const task = findTask(taskId);
+  const clean = text.trim();
+  if (!task || !clean) return false;
+  const now = new Date().toISOString();
+  task.comments = [...task.comments, { id: newId('c'), text: clean, created_at: now, updated_at: null }];
+  commit();
+  return true;
+}
+
+export function editComment(taskId, commentId, text) {
+  const task = findTask(taskId);
+  const clean = text.trim();
+  if (!task || !clean) return false;
+  task.comments = task.comments.map((c) =>
+    (c.id === commentId ? { ...c, text: clean, updated_at: new Date().toISOString() } : c));
+  commit();
+  return true;
+}
+
+export function deleteComment(taskId, commentId) {
+  const task = findTask(taskId);
+  if (!task) return;
+  task.comments = task.comments.filter((c) => c.id !== commentId);
   commit();
 }
 

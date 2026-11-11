@@ -3,7 +3,7 @@
   "name": "Pert-day",
   "version": "0.4.0",
   "description": "Planifica tu día en dos bloques: mañana y tarde.",
-  "permissions": ["storage", "sidePanel", "alarms", "notifications"],
+  "permissions": ["storage", "sidePanel", "alarms", "notifications", "offscreen"],
   "background": {
     "service_worker": "background.js",
     "type": "module"

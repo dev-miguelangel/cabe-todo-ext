@@ -6,10 +6,11 @@ import { todayISO, shiftDate, dayLabel, shortLabel, nowMinutes, toMinutes } from
 import {
   state, setView, findTask, findEpic, activeEpics, blockTasks, backlogTasks, overdueTasks,
   addFromText, editFromText, updateTask, deleteTask, setDependency, planTask, planMany, unplanTask, unplanMany, applyOrder,
+  toggleTimer,
 } from './store.js';
 import { h, showToast, attachEpicAutocomplete } from './ui.js';
-import { renderCard } from './cards.js';
-import { showBlockedModal } from './blocked-modal.js';
+import { renderCard, updateTimerChip } from './cards.js';
+import { showTaskModal } from './task-modal.js';
 import { toQuickAddText } from './parser.js';
 
 const BLOCKS = ['am', 'pm'];
@@ -360,7 +361,7 @@ function startEdit(li) {
 // ---------- Drag & drop ----------
 // Bordes de una tarjeta = reordenar / mover. Centro = "va después de esta".
 
-let blockedClickTimer = null;
+let detailClickTimer = null;
 let draggingId = null;
 let linkTarget = null;
 let dropped = false;
@@ -530,12 +531,14 @@ export function setupDay() {
     const li = e.target.closest('.task');
     if (!li) return;
     const id = li.dataset.id;
-    if (li.classList.contains('blocked') && !e.target.closest('button, input')) {
-      clearTimeout(blockedClickTimer);
-      blockedClickTimer = setTimeout(() => showBlockedModal(id), 220);
+    if (!e.target.closest('button, input, textarea')) {
+      // Clic simple = detalle (espera un instante: si es doble clic, se edita en línea)
+      clearTimeout(detailClickTimer);
+      detailClickTimer = setTimeout(() => showTaskModal(id), 220);
       return;
     }
-    if (e.target.matches('.delete')) deleteTask(id);
+    if (e.target.matches('.timer-btn')) toggleTimer(id);
+    else if (e.target.matches('.delete')) deleteTask(id);
     else if (e.target.matches('.plan-btn')) planTask(id, e.target.dataset.block);
     else if (e.target.matches('.unplan, .backlog-btn')) {
       unplanTask(id);
@@ -550,7 +553,7 @@ export function setupDay() {
     }
   });
   view.addEventListener('dblclick', (e) => {
-    clearTimeout(blockedClickTimer); // doble clic = editar, no abrir el modal
+    clearTimeout(detailClickTimer); // doble clic = editar, no abrir el modal
     const li = e.target.closest('.task');
     if (li && !e.target.closest('button, input')) startEdit(li);
   });
@@ -581,4 +584,12 @@ export function setupDay() {
   });
 
   setupDragAndDrop();
+
+  // Los chips de temporizador en marcha se actualizan solos (sin re-renderizar todo).
+  setInterval(() => {
+    document.querySelectorAll('.timer-btn.running').forEach((chip) => {
+      const task = findTask(chip.closest('.task')?.dataset.id);
+      if (task) updateTimerChip(chip, task);
+    });
+  }, 5 * 1000);
 }

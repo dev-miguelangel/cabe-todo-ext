@@ -878,3 +878,156 @@ input[type="checkbox"] { border-color: var(--muted); }
 .list > .task:hover + .task::before,
 .list > .task.dragging::before,
 .list > .task.dragging + .task::before { opacity: 0; }
+
+/* ======================= Detalle de tarea ======================= */
+
+.task { cursor: pointer; }
+.task[draggable="true"] { cursor: pointer; }
+.task.dragging { cursor: grabbing; }
+
+.modal { width: min(460px, calc(100vw - 24px)); }
+.modal-box { max-height: min(86vh, 760px); overflow-y: auto; }
+.task-meta { margin: -4px 0 14px; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; }
+.task-meta-epic { display: inline-flex; align-items: center; gap: 4px; }
+
+.detail-section { margin-top: 14px; }
+.detail-section h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--label); }
+.blocked-section { padding: 12px; background: var(--hover); border-radius: 10px; margin-top: 0; }
+.blocked-section .blocker { background: var(--raised); }
+
+/* Temporizador */
+.timer {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; background: var(--hover); border-radius: 10px;
+}
+.timer-toggle {
+  flex: none; width: 44px; height: 44px; border-radius: 50%; border: 0;
+  background: var(--accent); color: var(--on-accent);
+  font-size: 16px; line-height: 1; display: grid; place-content: center;
+  transition: transform 0.1s, background 0.1s;
+}
+.timer-toggle:hover { background: var(--accent-hover); transform: scale(1.05); }
+.timer.running .timer-toggle {
+  background: var(--text); color: var(--on-accent);
+  font-size: 0; display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+/* Ícono de pausa dibujado: dos barras */
+.timer.running .timer-toggle::before, .timer.running .timer-toggle::after {
+  content: ""; width: 4px; height: 16px; border-radius: 1px; background: currentColor;
+}
+.timer-info { flex: 1; min-width: 0; }
+.timer-clock { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.timer.running .timer-clock { color: var(--accent-text); }
+.timer-sub { font-size: 12px; color: var(--muted); }
+
+/* Chips de la fila: tiempo (clic = pausar/reanudar) y comentarios */
+.task .timer-btn {
+  border: 0; border-radius: 999px; padding: 1px 8px;
+  background: var(--field); color: var(--label);
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.task .timer-btn:hover { background: color-mix(in srgb, var(--field) 70%, var(--white)); }
+.task .timer-btn.running { background: color-mix(in srgb, var(--meadow) 22%, var(--raised)); color: var(--accent-text); }
+.task .comment-count { font-size: 11px; color: var(--muted); }
+
+/* Comentarios */
+.comment-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.comment { padding: 10px 12px; background: var(--hover); border-radius: 10px; }
+.comment.editing { padding: 0; background: none; }
+.comment-head { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.comment-head span { flex: 1; }
+.comment-action { border: 0; background: none; padding: 0; font-size: 11px; color: var(--muted); font-weight: 600; }
+.comment-action:hover { color: var(--text); }
+.comment-action.danger:hover { color: var(--over); }
+
+/* Editor Markdown: pestañas Código / Lectura */
+.md-editor { background: var(--hover); border-radius: 10px; overflow: hidden; }
+.md-tabs { display: flex; gap: 2px; padding: 6px 6px 0; }
+.md-tab {
+  border: 0; border-radius: 6px 6px 0 0; padding: 5px 12px;
+  background: none; color: var(--muted); font-size: 12px; font-weight: 600;
+}
+.md-tab:hover { color: var(--text); }
+.md-tab.active { background: var(--field); color: var(--text); }
+.md-input {
+  display: block; width: 100%; min-height: 96px; resize: vertical;
+  margin: 0; padding: 10px 12px; border: 0; border-radius: 0;
+  background: var(--field); color: var(--text);
+  font: 13px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.md-input::placeholder { color: var(--muted); }
+.md-input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.md-editor > .md { min-height: 96px; padding: 10px 12px; background: var(--field); }
+.md-actions { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.md-hint { flex: 1; font-size: 11px; color: var(--muted); }
+
+/* Contenido Markdown renderizado (vista lectura) */
+.md { font-size: 13px; line-height: 1.55; color: var(--text); overflow-wrap: anywhere; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 8px; }
+.md h3, .md h4, .md h5, .md h6 { margin: 10px 0 6px; font-weight: 600; line-height: 1.3; }
+.md h3 { font-size: 16px; } .md h4 { font-size: 15px; } .md h5 { font-size: 14px; } .md h6 { font-size: 13px; color: var(--label); }
+.md ul, .md ol { margin: 0 0 8px; padding-left: 20px; }
+.md li { margin: 2px 0; }
+.md li.task-item { list-style: none; margin-left: -18px; display: flex; align-items: center; gap: 6px; }
+.md li.task-item input { width: 14px; height: 14px; cursor: default; }
+.md a { color: var(--accent-text); }
+.md code {
+  font: 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--raised); border-radius: 4px; padding: 1px 5px;
+}
+.md pre { margin: 0 0 8px; padding: 10px 12px; background: var(--bg); border-radius: 8px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { margin: 0 0 8px; padding: 2px 0 2px 12px; border-left: 3px solid var(--accent); color: var(--label); }
+.md hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
+.md del { color: var(--muted); }
+.md-empty { color: var(--muted); font-style: italic; }
+
+/* Cuenta atrás: barra de avance y alerta de tiempo cumplido */
+.timer-bar { height: 4px; margin-top: 8px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.timer-bar-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.9s linear; }
+.timer.over { background: color-mix(in srgb, var(--madang) 12%, var(--raised)); box-shadow: inset 0 0 0 1px var(--madang); }
+.timer.over .timer-clock { color: var(--madang); }
+.timer.over .timer-sub { color: var(--madang); font-weight: 600; }
+.timer.over .timer-bar-fill { background: var(--madang); }
+.timer.over.running .timer-clock { animation: pertday-pulse 1s ease-in-out infinite; }
+.task .timer-btn.over { background: var(--madang); color: var(--on-accent); }
+.task .timer-btn.over.running { animation: pertday-pulse 1s ease-in-out infinite; }
+@keyframes pertday-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .timer.over.running .timer-clock, .task .timer-btn.over.running { animation: none; }
+}
+
+/* ======================= Barra de formato Markdown ======================= */
+
+.md-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
+  padding: 6px 8px; background: var(--field);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, var(--field));
+}
+.md-tb {
+  border: 0; border-radius: 6px; padding: 3px 8px;
+  background: none; color: var(--label);
+  font-size: 12px; font-weight: 600; line-height: 1.4; white-space: nowrap;
+}
+.md-tb:hover { background: color-mix(in srgb, var(--field) 70%, var(--white)); color: var(--text); }
+.md-tb.tb-bold { font-weight: 800; }
+.md-tb.tb-italic { font-style: italic; font-family: Georgia, serif; }
+.md-tb-sep { width: 1px; height: 16px; margin: 0 4px; background: var(--border); }
+.md-tabs + .md-toolbar + .md-input { border-radius: 0; }
+
+/* Documentación en el modal: solo un extracto */
+.doc-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.doc-section-head h3 { margin: 0; }
+.doc-excerpt {
+  padding: 10px 12px; background: var(--hover); border-radius: 10px; cursor: pointer;
+}
+.doc-excerpt:hover { background: color-mix(in srgb, var(--hover) 80%, var(--white)); }
+.doc-excerpt p {
+  margin: 0; font-size: 13px; line-height: 1.5; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.doc-updated { display: block; margin-top: 6px; font-size: 11px; color: var(--muted); }
+.doc-empty { margin: 0; font-size: 12px; color: var(--muted); }
+.task .doc-mark { font-size: 12px; color: var(--muted); }

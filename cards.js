@@ -2,7 +2,22 @@
 
 import { formatMinutes, formatClock } from './parser.js';
 import { blockersOf } from './pert.js';
+import { markdownExcerpt } from './markdown.js';
 import { shortLabel, dayLabel } from './dates.js';
+import { isRunning, trackedMs, remainingMs, formatTracked, formatLeft } from './timer.js';
+
+/** Chip de tiempo de la fila: cuánto queda (o cuánto se pasó). Clic = pausar/reanudar. */
+export function updateTimerChip(chip, task) {
+  const running = isRunning(task);
+  const left = remainingMs(task);
+  const over = left <= 0;
+  chip.classList.toggle('running', running);
+  chip.classList.toggle('over', over);
+  chip.textContent = over ? `⚠\ufe0e +${formatTracked(-left)}` : `${running ? '●' : '⏱\ufe0e'} ${formatLeft(left)}`;
+  const state = running ? 'clic para pausar' : 'clic para reanudar';
+  chip.title = over ? `Tiempo cumplido: +${formatTracked(-left)} sobre lo estimado · ${state}` : `Quedan ${formatLeft(left)} · ${state}`;
+  chip.setAttribute('aria-label', chip.title);
+}
 
 const template = document.getElementById('task-template');
 const BLOCK_ICON = { am: '☀︎', pm: '☾' };
@@ -70,8 +85,27 @@ export function renderCard(task, opts) {
   if (blockers.length) {
     const lock = li.querySelector('.locked');
     lock.hidden = false;
-    lock.title = `Bloqueada: falta ${blockers.map((p) => `"${p.title}"`).join(', ')} · clic para ver por qué`;
+    lock.title = `Bloqueada: falta ${blockers.map((p) => `"${p.title}"`).join(', ')}`;
     li.classList.add('blocked');
+  }
+
+  // Tiempo registrado: chip que pausa/reanuda (solo si ya hay tiempo o está corriendo).
+  const running = isRunning(task);
+  if (running || trackedMs(task) > 0) {
+    const chip = li.querySelector('.timer-btn');
+    chip.hidden = false;
+    updateTimerChip(chip, task);
+  }
+  if (task.doc?.trim()) {
+    const mark = li.querySelector('.doc-mark');
+    mark.hidden = false;
+    mark.title = `Documentación: ${markdownExcerpt(task.doc, 140)}`;
+  }
+  if (task.comments?.length) {
+    const count = li.querySelector('.comment-count');
+    count.hidden = false;
+    count.textContent = `✎ ${task.comments.length}`;
+    count.title = `${task.comments.length} comentario${task.comments.length > 1 ? 's' : ''}`;
   }
 
   const critical = ctx.critical?.has(task.id);

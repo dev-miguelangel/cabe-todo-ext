@@ -1,7 +1,9 @@
-// Service worker: abre el side panel desde el ícono/atajo y avisa cuando termina cada bloque.
+// Service worker: abre el side panel desde el ícono/atajo, avisa cuando termina cada bloque
+// y suena la alarma cuando el temporizador de una tarea llega a cero (aunque el panel esté cerrado).
 
 import { loadData } from './storage.js';
 import { todayISO, toMinutes } from './dates.js';
+import { isRunning, zeroAt, remainingMs } from './timer.js';
 
 const BLOCKS = ['am', 'pm'];
 const BLOCK_NAME = { am: 'mañana', pm: 'tarde' };
@@ -62,13 +64,76 @@ async function notifyBlockEnd(block) {
   });
 }
 
+// ---------- Temporizador: alarma al llegar a cero ----------
+
+const TIMER_ALARM = 'timer-zero';
+const OFFSCREEN_URL = 'offscreen.html';
+
+/** Programa una alarma para el momento en que el temporizador en marcha llega a cero. */
+async function scheduleTimerAlarm() {
+  const { tasks } = await loadData();
+  await chrome.alarms.clear(TIMER_ALARM);
+  const running = tasks.find(isRunning);
+  const when = running && zeroAt(running);
+  // Nota: Chrome no dispara alarmas antes de ~30 s; si queda menos, sonará con ese margen.
+  if (when) chrome.alarms.create(TIMER_ALARM, { when });
+}
+
+/** Suena la alarma tipo Casio desde un documento offscreen (MV3 no tiene audio en el service worker). */
+async function playAlarmSound() {
+  try {
+    if (await chrome.offscreen.hasDocument()) {
+      chrome.runtime.sendMessage({ type: 'pertday-casio' });
+    } else {
+      // offscreen.js suena apenas carga
+      await chrome.offscreen.createDocument({
+        url: OFFSCREEN_URL,
+        reasons: ['AUDIO_PLAYBACK'],
+        justification: 'Sonido de aviso cuando el temporizador de una tarea llega a cero',
+      });
+    }
+    setTimeout(() => chrome.offscreen.closeDocument().catch(() => {}), 4000);
+  } catch (err) {
+    console.error('Pert-day: no se pudo reproducir el sonido', err);
+  }
+}
+
+async function onTimerZero(alarm) {
+  const { tasks, settings } = await loadData();
+  const task = tasks.find(isRunning);
+  if (!task) return;
+  // Si cambió la estimación o hubo pausas, puede que todavía no llegue a cero: reprogramar.
+  if (remainingMs(task) > 1000) {
+    await scheduleTimerAlarm();
+    return;
+  }
+  if (Date.now() - alarm.scheduledTime > MAX_DELAY_MS) return;
+  if (settings.timer_sound !== false) playAlarmSound();
+  chrome.notifications.create(`pertday-timer-${task.id}`, {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: 'Tiempo cumplido',
+    message: `"${task.title}" llegó a su estimado de ${task.minutes} min. El temporizador sigue corriendo.`,
+    priority: 2,
+    requireInteraction: true,
+  });
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   setupPanel();
   scheduleAlarms();
+  scheduleTimerAlarm();
 });
-chrome.runtime.onStartup.addListener(scheduleAlarms);
+chrome.runtime.onStartup.addListener(() => {
+  scheduleAlarms();
+  scheduleTimerAlarm();
+});
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === TIMER_ALARM) {
+    await onTimerZero(alarm);
+    return;
+  }
   if (!alarm.name.startsWith(ALARM_PREFIX)) return;
   const block = alarm.name.slice(ALARM_PREFIX.length);
   if (Date.now() - alarm.scheduledTime < MAX_DELAY_MS) await notifyBlockEnd(block);
@@ -77,7 +142,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 // Si cambian los horarios o se activan/desactivan los avisos, reprogramar.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.settings) scheduleAlarms();
+  if (area !== 'local') return;
+  if (changes.settings) scheduleAlarms();
+  // Iniciar, pausar, reiniciar o cambiar la estimación mueve el momento del cero.
+  if (changes.tasks) scheduleTimerAlarm();
 });
 
 // Clic en el aviso: intentar abrir el panel en la ventana activa.

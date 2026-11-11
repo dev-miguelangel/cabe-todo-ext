@@ -117,6 +117,13 @@
         <input type="checkbox" name="notify">
         Avisarme cuando termine cada bloque
       </label>
+      <div class="row">
+        <label class="row check-row">
+          <input type="checkbox" name="timer-sound">
+          Sonar cuando el temporizador llegue a cero
+        </label>
+        <button type="button" class="ghost small" id="test-sound">♪ Probar sonido</button>
+      </div>
       <p class="settings-error" id="settings-error" role="alert" hidden></p>
       <div class="settings-actions">
         <button type="submit" class="primary">Guardar</button>
@@ -154,6 +161,9 @@
         <span class="deps" hidden></span>
       </div>
       <span class="meta">
+        <button class="timer-btn" hidden></button>
+        <span class="comment-count" hidden></span>
+        <span class="doc-mark" hidden>▤</span>
         <span class="locked" hidden>⧖</span>
         <span class="critical" title="Otras tareas dependen de esta" hidden>◆</span>
         <span class="minutes"></span>

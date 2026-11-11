@@ -138,6 +138,9 @@ export function openModal(title, content, onClose = null) {
       if (e.target === dialog) closeModal(); // clic en el fondo
     });
     dialog.addEventListener('close', () => {
+      // El evento llega un instante después de cerrar: si ya se volvió a abrir
+      // (otra tarea), no limpiar el estado del modal nuevo.
+      if (dialog.open) return;
       const cb = modalOnClose;
       modalOnClose = null;
       cb?.();

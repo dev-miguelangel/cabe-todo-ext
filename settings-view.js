@@ -1,6 +1,7 @@
 // Vista "Ajustes": horarios de los bloques, duración por defecto, avisos y atajo de teclado.
 
 import { state, saveSettings } from './store.js';
+import { playCasio } from './casio.js';
 
 const form = () => document.getElementById('settings-form');
 
@@ -15,6 +16,7 @@ export function renderSettings() {
   f.elements['pm-end'].value = s.pm.end;
   f.elements['default-minutes'].value = String(s.default_minutes);
   f.elements.notify.checked = Boolean(s.notify);
+  f.elements['timer-sound'].checked = s.timer_sound !== false;
   loadShortcut();
 }
 
@@ -49,6 +51,7 @@ export function setupSettings() {
       pm: { start: pmStart, end: pmEnd },
       default_minutes: Number(f.elements['default-minutes'].value),
       notify: f.elements.notify.checked,
+      timer_sound: f.elements['timer-sound'].checked,
     });
     error.textContent = problem || '';
     error.hidden = !problem;
@@ -59,6 +62,8 @@ export function setupSettings() {
       savedTimer = setTimeout(() => { saved.hidden = true; }, 2000);
     }
   });
+
+  document.getElementById('test-sound').addEventListener('click', () => playCasio());
 
   document.getElementById('edit-shortcuts').addEventListener('click', () => {
     try {

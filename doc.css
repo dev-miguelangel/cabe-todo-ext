@@ -1,0 +1,43 @@
+/* Pestaña de documentación: mismo tema que el panel (panel.css), a página completa. */
+
+body.doc-page { min-height: 100vh; }
+.doc-main {
+  max-width: 860px; margin: 0 auto; padding: 32px 24px 64px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.doc-header { padding: 0 4px; }
+.doc-kicker { margin: 0 0 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-text); }
+.doc-title { margin: 0 0 10px; font-size: 28px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.doc-meta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.doc-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--raised); color: var(--label); font-size: 12px; font-weight: 500;
+}
+.doc-chip.running { color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.doc-chip.done { color: var(--accent-text); }
+.doc-status { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+.doc-card { background: var(--raised); border-radius: var(--radius); padding: 16px; }
+
+/* Editor grande */
+.doc-editor { background: none; border-radius: 0; overflow: visible; }
+.doc-editor .md-tabs { padding: 0 0 0; }
+.doc-editor .md-input {
+  min-height: 52vh; padding: 16px 18px; border-radius: 0 0 10px 10px;
+  font-size: 14px; line-height: 1.65;
+}
+.doc-editor > .md {
+  min-height: 52vh; padding: 20px 24px; border-radius: 10px;
+  background: var(--bg); font-size: 15px; line-height: 1.7;
+}
+.doc-editor .md h1 { font-size: 26px; margin: 18px 0 10px; }
+.doc-editor .md h2 { font-size: 21px; margin: 16px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.doc-editor .md h3 { font-size: 17px; }
+.doc-editor .md p, .doc-editor .md ul, .doc-editor .md ol, .doc-editor .md pre, .doc-editor .md blockquote { margin-bottom: 12px; }
+.doc-editor .md code { font-size: 13px; }
+
+.doc-missing h1 { margin: 0 0 8px; font-size: 20px; }
+.doc-missing p { margin: 0; color: var(--muted); }
+.doc-editor > .md pre { background: var(--raised); }

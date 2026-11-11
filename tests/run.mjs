@@ -120,3 +120,105 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(P.suggestMove({ tasks: am, range, nowMin: null }, [{ tasks: fullPm, range: pmRange, nowMin: null }]), null);
   console.log('OK: sugerencias');
 }
+// ----- Comentarios (markdown) y temporizador -----
+{
+  const { renderMarkdown: md } = await import(root + '/markdown.js');
+  const T = await import(root + '/timer.js');
+  assert.equal(md('Hola **mundo** y *tú* y `x<y`'), '<p>Hola <strong>mundo</strong> y <em>tú</em> y <code>x&lt;y</code></p>');
+  assert.equal(md('<script>alert(1)</script>'), '<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>');
+  assert.equal(md('[clic](javascript:alert(1))').includes('<a'), false, 'javascript: no debe ser enlace');
+  assert.equal(md('[doc](https://a.com/x?a=1&b=2)'), '<p><a href="https://a.com/x?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">doc</a></p>');
+  assert.ok(md('ver https://ejemplo.com.').includes('href="https://ejemplo.com"'));
+  assert.equal(md('# Título'), '<h3>Título</h3>');
+  assert.equal(md('- uno\n- dos'), '<ul><li>uno</li><li>dos</li></ul>');
+  assert.equal(md('1. a\n2. b'), '<ol><li>a</li><li>b</li></ol>');
+  assert.ok(md('- [x] hecho\n- [ ] falta').includes('<input type="checkbox" disabled checked> hecho'));
+  assert.equal(md('```\n<b>hola</b>\n```'), '<pre><code>&lt;b&gt;hola&lt;/b&gt;</code></pre>');
+  assert.equal(md('> cita'), '<blockquote><p>cita</p></blockquote>');
+  assert.equal(md('línea 1\nlínea 2\n\notro'), '<p>línea 1<br>línea 2</p><p>otro</p>');
+  assert.equal(md('snake_case_name'), '<p>snake_case_name</p>');
+  assert.equal(md('"comillas" & <tags>'), '<p>&quot;comillas&quot; &amp; &lt;tags&gt;</p>');
+
+  const t0 = Date.parse('2026-11-10T10:00:00Z');
+  const task = { time_entries: [
+    { start: '2026-11-10T10:00:00Z', end: '2026-11-10T10:10:00Z' },
+    { start: '2026-11-10T10:20:00Z', end: null },
+  ] };
+  assert.equal(T.isRunning(task), true);
+  assert.equal(T.trackedMs(task, t0 + 25 * 60000), 15 * 60000);
+  assert.equal(T.isRunning({ time_entries: [] }), false);
+  assert.equal(T.formatStopwatch(754000), '12:34'); assert.equal(T.formatStopwatch(3723000), '1:02:03');
+  assert.equal(T.formatTracked(30000), '<1m'); assert.equal(T.formatTracked(65 * 60000), '1h05');
+  console.log('OK: markdown + temporizador');
+}
+// ----- Cuenta atrás -----
+{
+  const T = await import(root + '/timer.js');
+  const start = Date.parse('2026-11-10T10:00:00Z');
+  const t = { minutes: 30, time_entries: [{ start: '2026-11-10T10:00:00Z', end: null }] };
+  assert.equal(T.remainingMs(t, start + 6000), 30 * 60000 - 6000);
+  assert.equal(T.formatCountdown(T.remainingMs(t, start)), '30:00');
+  assert.equal(T.formatCountdown(T.remainingMs(t, start + 6000)), '29:54');
+  assert.equal(T.formatCountdown(T.remainingMs(t, start + 30 * 60000)), '+00:00');
+  assert.equal(T.formatCountdown(T.remainingMs(t, start + 31 * 60000 + 12000)), '+01:12');
+  assert.equal(T.zeroAt(t, start + 6000), start + 30 * 60000);
+  assert.equal(T.zeroAt(t, start + 31 * 60000), null, 'ya pasó: no hay alarma pendiente');
+  assert.equal(T.zeroAt({ ...t, time_entries: [{ start: '2026-11-10T10:00:00Z', end: '2026-11-10T10:05:00Z' }] }, start), null, 'en pausa: sin alarma');
+  // pausado 5 min y reanudado: el cero se corre
+  const p = { minutes: 30, time_entries: [{ start: '2026-11-10T10:00:00Z', end: '2026-11-10T10:10:00Z' }, { start: '2026-11-10T10:15:00Z', end: null }] };
+  assert.equal(T.zeroAt(p, start + 16 * 60000), start + 35 * 60000);
+  assert.equal(T.formatLeft(12.3 * 60000), '13m'); assert.equal(T.formatLeft(30000), '<1m'); assert.equal(T.formatLeft(65 * 60000), '1h05');
+  console.log('OK: cuenta atrás');
+}
+// ----- Sonido Casio (con un AudioContext simulado que registra lo programado) -----
+{
+  const { scheduleCasio } = await import(root + '/casio.js');
+  const beeps = [];
+  const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} });
+  const node = () => ({ gain: param(), connect(n) { return n; } });
+  const ctx = {
+    currentTime: 0, destination: {},
+    createGain: node,
+    createOscillator: () => {
+      const o = { type: '', frequency: param(), connect(n) { return n; }, start(t) { beeps.push({ t, type: o.type, f: o.frequency.value }); }, stop() {} };
+      return o;
+    },
+  };
+  const dur = scheduleCasio(ctx, 0);
+  assert.equal(beeps.length, 8, '2 rondas × 4 bips');
+  assert.ok(beeps.every((b) => b.type === 'square' && b.f === 4096));
+  const gaps = beeps.slice(1).map((b, i) => +(b.t - beeps[i].t).toFixed(3));
+  assert.deepEqual(gaps, [0.13, 0.13, 0.13, 0.58, 0.13, 0.13, 0.13], 'bip-bip-bip-bip … bip-bip-bip-bip');
+  assert.ok(dur > 1.4 && dur < 1.6, `duración ${dur}`);
+  console.log(`OK: sonido Casio (8 bips cuadrados a 4096 Hz, ${dur.toFixed(2)} s)`);
+}
+// ----- Documentación: barra de formato y extracto -----
+{
+  const { applyFormat: F } = await import(root + '/md-format.js');
+  const { renderMarkdown: md, markdownExcerpt: ex } = await import(root + '/markdown.js');
+  const sel = (r) => r.text.slice(r.start, r.end);
+  // Títulos: sobre la línea actual, reemplazan el prefijo previo y alternan
+  let r = F('hola\nmundo', 7, 7, 'h2'); assert.equal(r.text, 'hola\n## mundo');
+  r = F('# hola', 3, 3, 'h2'); assert.equal(r.text, '## hola');
+  r = F('## hola', 3, 3, 'h2'); assert.equal(r.text, 'hola', 'mismo título = quitar');
+  r = F('a\nb\nc', 0, 3, 'ul'); assert.equal(r.text, '- a\n- b\nc');
+  r = F('- a', 0, 3, 'task'); assert.equal(r.text, '- [ ] a');
+  // Enlaces
+  r = F('ver docs', 4, 8, 'link'); assert.equal(r.text, 'ver [docs](https://)'); assert.equal(sel(r), 'https://');
+  r = F('', 0, 0, 'link'); assert.equal(r.text, '[texto](https://)'); assert.equal(sel(r), 'texto');
+  r = F('https://a.com', 0, 13, 'link'); assert.equal(r.text, '[texto](https://a.com)'); assert.equal(sel(r), 'texto');
+  // Bloque de código: en líneas propias
+  r = F('antes', 5, 5, 'codeblock'); assert.equal(r.text, 'antes\n```\n\n```');
+  r = F('x = 1', 0, 5, 'codeblock'); assert.equal(r.text, '```\nx = 1\n```'); assert.equal(sel(r), 'x = 1');
+  // Envolver y desenvolver
+  r = F('hola', 0, 4, 'bold'); assert.equal(r.text, '**hola**'); assert.equal(sel(r), 'hola');
+  r = F(r.text, r.start, r.end, 'bold'); assert.equal(r.text, 'hola');
+  r = F('', 0, 0, 'code'); assert.equal(r.text, '`código`'); assert.equal(sel(r), 'código');
+  // Títulos grandes en el documento
+  assert.equal(md('# Doc', { headingBase: 1 }), '<h1>Doc</h1>'); assert.equal(md('# Doc'), '<h3>Doc</h3>');
+  // Extracto
+  assert.equal(ex('# Resumen\n\nEl **cliente** quiere [ver](https://a.com) el `informe`.\n\n```js\nx()\n```\n- [x] listo'), 'Resumen El cliente quiere ver el informe. listo');
+  assert.equal(ex('a '.repeat(200), 20).length <= 20, true);
+  assert.equal(ex(''), '');
+  console.log('OK: documentación (barra de formato + extracto)');
+}

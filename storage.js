@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
   pm: { start: '14:00', end: '19:00' },
   default_minutes: 30,
   notify: true,
+  timer_sound: true,
 };
 
 // Colores de épicas: solo los tonos de la paleta (Cod Gray es el fondo, no sirve como color de épica).
@@ -54,6 +55,10 @@ export function normalizeTask(task) {
     dependencies: [],
     epic_id: null,
     done_at: null,
+    time_entries: [],
+    comments: [],
+    doc: '',
+    doc_updated_at: null,
     ...task,
   };
 }
