@@ -4,7 +4,7 @@
 // tarea normal con `routine_id`, que se planifica, cronometra y marca como cualquier otra.
 // `generated` recuerda qué días ya se crearon: si mueves o borras esa tarea, no vuelve a aparecer.
 
-import { parseISO, toISO, shiftDate } from '../utils/dates.js';
+import { parseISO, toISO } from '../utils/dates.js';
 
 export const ALL_DAYS = [1, 2, 3, 4, 5, 6, 0];      // lunes primero (como se muestra)
 export const WEEKDAYS = [1, 2, 3, 4, 5];
@@ -63,15 +63,6 @@ export function repeatLabel(days) {
   return names.length > 1 ? `${names.slice(0, -1).join(', ')} y ${names.at(-1)}` : `los ${names[0]}`;
 }
 
-/** Texto corto para el quick-add (lo inverso de takeRepeat). */
-export function repeatToken(days) {
-  const d = sortDays(days);
-  if (d.length === 7) return 'cada día';
-  if (d.length === 5 && WEEKDAYS.every((x) => d.includes(x))) return 'hábiles';
-  const short = { 1: 'lun', 2: 'mar', 3: 'mie', 4: 'jue', 5: 'vie', 6: 'sab', 0: 'dom' };
-  return `cada ${d.map((x) => short[x]).join(',')}`;
-}
-
 /** Molde a partir de una tarea (título, duración, certeza, épica, bloque y horario si es reunión). */
 export function routineFrom(task, { id, days, startDate, block = 'am', now = new Date() }) {
   return {
@@ -124,11 +115,4 @@ export function dueInstances(routines, date, { newId, orderFor, now = new Date()
     return { ...r, generated: [...r.generated.filter((d) => d >= oldest), date] };
   });
   return { tasks: created, routines: created.length ? next : routines };
-}
-
-/** Días de hoy en adelante que se pueden materializar al mirarlos (no más de 2 semanas). */
-export function materializableDates(today, viewDate) {
-  const dates = [today];
-  if (viewDate > today && viewDate <= shiftDate(today, 14)) dates.push(viewDate);
-  return dates;
 }

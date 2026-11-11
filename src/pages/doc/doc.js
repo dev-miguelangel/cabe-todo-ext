@@ -10,6 +10,7 @@ import { isRunning, remainingMs, formatCountdown } from '../../core/timer.js';
 import { h, showToast, applyTheme } from '../../utils/ui.js';
 import { blockName } from '../../core/blocks.js';
 import { markdownEditor } from '../../components/md-editor.js';
+import { setupThemeToggle, renderThemeToggle } from '../../components/theme-toggle.js';
 
 const SAVE_DELAY = 700;
 const taskId = new URLSearchParams(location.search).get('task');
@@ -150,6 +151,7 @@ async function init() {
   await initStore();
   setNotifier(showToast);
   applyTheme(state.settings.theme);
+  setupThemeToggle(document.getElementById('theme-toggle'));
   const task = findTask(taskId);
   if (!task) {
     renderMissing();
@@ -166,6 +168,7 @@ async function init() {
 
   subscribe(() => {
     applyTheme(state.settings.theme);
+    renderThemeToggle();
     const current = findTask(taskId);
     if (!current) {
       renderMissing();

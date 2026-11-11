@@ -55,7 +55,6 @@ export function blockRange(settings, id) {
 
 export const blockIndex = (settings, id) => blocksOf(settings).findIndex((b) => b.id === id);
 export const firstBlock = (settings) => blocksOf(settings)[0];
-export const lastBlock = (settings) => blocksOf(settings).at(-1);
 
 /** "☀︎" del bloque (o "" si no existe). */
 export const blockIcon = (settings, id) => blockById(settings, id)?.icon || '';
@@ -149,7 +148,7 @@ export function fold(text) {
  * Palabras del quick-add para elegir bloque:
  *  - tags: "@tarde", "@gym", "@deepwork" → id (título completo sin tildes ni espacios, o su primera palabra)
  *  - phrases: el título escrito tal cual al final ("… foco profundo") → id; las más largas primero
- *  - words: palabras sueltas de siempre (am, pm, mañana, tarde) para los bloques 'am' y 'pm'.
+ *  - words: palabras sueltas de siempre (am, pm, tarde) para los bloques 'am' y 'pm' ("mañana" es un día).
  */
 export function blockWords(settings) {
   const blocks = blocksOf(settings);
@@ -160,13 +159,14 @@ export function blockWords(settings) {
     if (first && !(first in tags)) tags[first] = b.id;
     if (full) tags[full] = b.id;
   }
+  // "mañana" siempre es el día siguiente: un bloque llamado "Mañana" se elige con am o @mañana
   const phrases = blocks
     .map((b) => ({ id: b.id, words: b.title.trim().split(/\s+/).map(fold).filter(Boolean) }))
-    .filter((p) => p.words.length)
+    .filter((p) => p.words.length && !(p.words.length === 1 && p.words[0] === 'manana'))
     .sort((a, b) => b.words.length - a.words.length);
   const words = {};
   const ids = new Set(blocks.map((b) => b.id));
-  if (ids.has('am')) Object.assign(words, { am: 'am', 'mañana': 'am', manana: 'am' });
+  if (ids.has('am')) words.am = 'am';
   if (ids.has('pm')) Object.assign(words, { pm: 'pm', tarde: 'pm' });
   return { tags, phrases, words };
 }

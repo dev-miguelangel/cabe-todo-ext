@@ -1,4 +1,4 @@
-// Vista "Docs": todas las tareas, de la más nueva a la más antigua, con un buscador
+// Vista "Docs": las tareas con documentación, de la más nueva a la más antigua, con un buscador
 // que filtra por el título de la tarea y por los títulos/subtítulos de su documentación.
 
 import { state } from '../services/store.js';
@@ -67,13 +67,12 @@ function created(iso) {
 
 function renderDocCard(task, terms, headings, epicsById) {
   const epic = epicsById.get(task.epic_id);
-  const hasDoc = Boolean(task.doc?.trim());
   const shown = terms.length ? headings.filter((x) => hits(x.text, terms)) : [];
 
-  return h('li', { class: `doc-card${task.done ? ' done' : ''}${hasDoc ? '' : ' no-doc'}`, dataset: { id: task.id } },
+  return h('li', { class: `doc-card${task.done ? ' done' : ''}`, dataset: { id: task.id } },
     h('button', {
       type: 'button', class: 'doc-card-open',
-      title: hasDoc ? 'Abrir la documentación en una pestaña' : 'Escribir la documentación en una pestaña',
+      title: 'Abrir la documentación en una pestaña',
       onclick: () => openDocTab(task.id),
     },
     h('span', { class: 'doc-card-title' },
@@ -81,8 +80,7 @@ function renderDocCard(task, terms, headings, epicsById) {
       h('span', { class: 'doc-card-name' }, ...highlight(task.title, terms))),
     shown.length ? h('ul', { class: 'doc-card-headings' },
       ...shown.map((x) => h('li', { style: `--lvl:${Math.min(x.level, 4) - 1}` }, ...highlight(x.text, terms)))) : null,
-    hasDoc && !shown.length ? h('span', { class: 'doc-card-excerpt' }, markdownExcerpt(task.doc, 140)) : null,
-    hasDoc ? null : h('span', { class: 'doc-card-excerpt none' }, 'Sin documentación')),
+    shown.length ? null : h('span', { class: 'doc-card-excerpt' }, markdownExcerpt(task.doc, 140))),
     h('div', { class: 'doc-card-foot' },
       h('span', { class: 'doc-card-meta' },
         [created(task.created_at), whenLabel(task), task.done ? '✓ hecha' : null].filter(Boolean).join(' · ')),
@@ -96,18 +94,21 @@ export function renderDocs() {
   const root = document.getElementById('docs-list');
   const terms = searchTerms(query);
   const epicsById = new Map(state.epics.map((e) => [e.id, e]));
-  const rows = [...state.tasks].sort(byNewest)
+  // Solo las tareas que tienen documentación escrita
+  const documented = state.tasks.filter((t) => t.doc?.trim()).sort(byNewest);
+  const rows = documented
     .map((t) => ({ t, headings: markdownHeadings(t.doc) }))
     .filter(({ t, headings }) => matchTask(t, terms, headings));
 
-  const total = state.tasks.length;
+  const total = documented.length;
   document.getElementById('docs-count').textContent = terms.length
     ? `${rows.length} de ${total}`
-    : `${total} tarea${total === 1 ? '' : 's'} · ${state.tasks.filter((t) => t.doc?.trim()).length} con documentación`;
+    : `${total} tarea${total === 1 ? '' : 's'} con documentación`;
 
   if (!rows.length) {
     root.replaceChildren(h('li', { class: 'empty' },
-      total ? `Nada coincide con "${query.trim()}"` : 'Todavía no hay tareas'));
+      total ? `Nada coincide con "${query.trim()}"`
+        : 'Ninguna tarea tiene documentación todavía. Escríbela desde el detalle de una tarea, en la sección Documentación.'));
     return;
   }
   root.replaceChildren(...rows.map(({ t, headings }) => renderDocCard(t, terms, headings, epicsById)));

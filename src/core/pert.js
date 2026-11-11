@@ -45,8 +45,6 @@ let calibration = 1;
 export function setCalibration(factor) {
   calibration = Number.isFinite(factor) && factor > 0 ? factor : 1;
 }
-export const getCalibration = () => calibration;
-
 const CALIBRATION = { minSamples: 3, maxSamples: 30, maxAgeDays: 60, prior: 5, min: 0.5, max: 2 };
 
 const trackedMinutes = (task, now) => (task.time_entries || []).reduce((sum, e) => {

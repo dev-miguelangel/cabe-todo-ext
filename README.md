@@ -33,7 +33,8 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 
 - **Crear una tarea en menos de 3 segundos**: una caja de texto y Enter (`Informe 2h ? pm #web`).
 - **Bloques personalizables**: hasta 5 por día, cada uno con título, ícono y horario, sin superponerse.
-- **Vistas**: *Hoy* (lista simple de las tareas de hoy, por bloque, con su propio campo para agregar), *Plan* (tablero por bloques), *Épicas*, *Hechas* (completadas por día), *Docs* y *Ajustes*.
+- **Vistas**: *Hoy* (las tareas de hoy por bloque, con su campo para agregar, pronóstico y avance), *Épicas*, *Hechas* (completadas por día), *Docs* (tareas con documentación) y *Ajustes*.
+- **Tema claro / oscuro** con el botón ☾ / ☀︎ de arriba a la derecha (también en la documentación).
 - **Pronóstico por bloque**: probabilidad de terminar a tiempo, calculada con PERT y calibrada con tu tiempo real.
 - **Dependencias** ("va después de…") que ordenan el bloque y marcan la ruta crítica.
 - **Temporizador por tarea** con alarma sonora y temporizador flotante en las páginas que visitas.
@@ -70,6 +71,9 @@ Requiere Chrome 116 o superior (Side Panel API y documentos *offscreen*).
 | `Revisar PR 1h ?` | No estoy seguro: más margen en el pronóstico |
 | `Pagar luz 10m !` | Estoy seguro: menos margen |
 | `Ideas para la charla bl` | Al backlog, sin fecha ni bloque |
+| `Revisar informe mañana am` | Mañana (el día siguiente), en el bloque de la mañana. `mañana` es siempre un día; el horario es `am` / `pm` / `tarde` |
+| `Enviar factura el viernes` | El próximo viernes (hoy si coincide) |
+| `Reunión proyecto 1 miércoles desde la 1pm 1h` | Reunión "proyecto 1" el miércoles de 13:00 a 14:00 (`a las 15`, `hasta las 16:30`, `13:00` también sirven) |
 | `Diseño home 3h #web` | Asignada a la épica *web* |
 | `Standup 15m am cada día` | Rutina diaria |
 
@@ -98,7 +102,7 @@ cabe-todo/
 │   │   ├── panel/             # Side panel: panel.html · panel.js · panel.css (estilos base)
 │   │   ├── doc/               # Pestaña de documentación de una tarea
 │   │   └── offscreen/         # Documento offscreen para reproducir sonido
-│   ├── views/                 # Vistas del panel: día, épicas, docs y ajustes
+│   ├── views/                 # Vistas del panel: Hoy, Épicas, Hechas, Docs y Ajustes
 │   ├── components/            # Piezas de UI reutilizables: tarjeta, modal, comentarios, editor
 │   ├── core/                  # Lógica de dominio pura: PERT, bloques, parser, rutinas, temporizador
 │   ├── services/              # Estado y persistencia: store, storage, sonido

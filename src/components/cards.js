@@ -1,4 +1,4 @@
-// Tarjeta de tarea, compartida por la vista del día, la bandeja y la vista de épicas.
+// Tarjeta de tarea, compartida por las vistas Hoy, Hechas y Épicas.
 
 import { formatMinutes, formatClock } from '../core/parser.js';
 import { blockersOf, timerBlockedBy } from '../core/pert.js';
@@ -47,10 +47,10 @@ export function whenLabel(task) {
 
 /**
  * opts:
- *  ctx       { byId, epicsById, critical:Set, planDate }
- *  item      resultado de scheduleBlock para esta tarea (hora estimada, holgura)
- *  draggable, link, plan (botones → de cada bloque), unplan (↩︎ al backlog), when (mostrar fecha), dim
- *  ended     { date, block, label, title } si el bloque ya terminó: → siguiente bloque / ⤓ backlog
+ *  ctx         { byId, epicsById, critical:Set, planDate }
+ *  item        resultado de scheduleBlock para esta tarea (hora estimada, holgura)
+ *  blockEnded  el bloque ya terminó: no marcar como atrasadas (irían todas)
+ *  draggable, plan (botones → de cada bloque), unplan (↩︎ al backlog), when (mostrar fecha), showEpic
  */
 export function renderCard(task, opts) {
   const { ctx } = opts;
@@ -61,7 +61,6 @@ export function renderCard(task, opts) {
   li.draggable = Boolean(opts.draggable) && !meeting;
   li.classList.toggle('meeting', Boolean(meeting));
   li.classList.toggle('done', task.done);
-  li.classList.toggle('dim', Boolean(opts.dim));
   li.querySelector('.check').checked = task.done;
   li.querySelector('.title').textContent = task.title;
 
@@ -133,8 +132,6 @@ export function renderCard(task, opts) {
   const critical = ctx.critical?.has(task.id);
   li.querySelector('.critical').hidden = !critical;
 
-  // Dependencias: solo tiene sentido en tareas pendientes.
-  li.querySelector('.link').hidden = opts.link === false || task.done;
   if (opts.plan && !task.done && !meeting) {
     const plan = li.querySelector('.plan');
     plan.hidden = false;
@@ -150,22 +147,13 @@ export function renderCard(task, opts) {
     }));
   }
   li.querySelector('.unplan').hidden = !(opts.unplan && task.date && !task.done && !meeting);
-  if (opts.ended && !task.done && !meeting) {
-    const ended = li.querySelector('.ended');
-    ended.hidden = false;
-    const next = ended.querySelector('.next-btn');
-    next.textContent = opts.ended.label;
-    next.title = opts.ended.title;
-    next.dataset.date = opts.ended.date;
-    next.dataset.block = opts.ended.block;
-  }
 
   const item = opts.item;
   if (meeting) {
     li.title = li.dataset.meetingTitle + (task.done ? ' · hecha' : '');
   } else if (item && !task.done) {
-    // En un bloque ya terminado todas irían "tarde": no marcarlas, ya hay botones para moverlas.
-    li.classList.toggle('late', item.slack < 0 && !opts.ended);
+    // En un bloque ya terminado todas irían "tarde": no marcarlas.
+    li.classList.toggle('late', item.slack < 0 && !opts.blockEnded);
     const lines = [
       `Terminarías ~${formatClock(item.finish)} · holgura ${signed(item.slack)}`,
       `Estimado ${formatMinutes(item.est.te)} (entre ${formatMinutes(item.est.o)} y ${formatMinutes(item.est.p)})`,

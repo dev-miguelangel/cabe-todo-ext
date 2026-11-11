@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const root = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const { parseQuickAdd: p, formatMinutes: f, formatClock, toQuickAddText } = await import(root + '/src/core/parser.js');
 const P = await import(root + '/src/core/pert.js');
-const T = (title, minutes, block = null, certainty = null, epicTag = null) => ({ title, minutes, block, certainty, epicTag, repeat: null });
+const T = (title, minutes, block = null, certainty = null, epicTag = null) => ({ title, minutes, block, certainty, epicTag, repeat: null, date: null, meeting: null });
 const cases = [
   ['Responder correos', T('Responder correos', null)],
   ['Informe mensual 2h', T('Informe mensual', 120)],
@@ -519,7 +519,6 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(R.dueInstances(tue.routines, '2026-11-17', opts).tasks.length, 0, 'no se duplica (aunque se mueva o borre)');
   assert.equal(R.dueInstances([r], '2026-11-21', opts).tasks.length, 0, 'sábado: no toca');
   assert.equal(R.dueInstances([r], '2026-11-13', opts).tasks.length, 0, 'antes de empezar: no');
-  assert.deepEqual(R.materializableDates('2026-11-16', '2026-12-30'), ['2026-11-16'], 'no llena días lejanos');
   console.log('OK: rutinas (cada día / hábiles / cada lun,jue)');
 }
 
@@ -628,4 +627,65 @@ console.log('OK: parser + PERT + épicas');
   S.editFromText(u.id, 'Informe 30m bl');
   assert.deepEqual([S.findTask(u.id).date, S.findTask(u.id).block], [null, null], 'editar con bl la manda al backlog');
   console.log('OK: "bl" deja la tarea en el backlog');
+}
+
+// ---------- Días y reuniones en el quick-add ----------
+{
+  const { parseQuickAdd: p } = await import(root + '/src/core/parser.js');
+  const B = await import(root + '/src/core/blocks.js');
+  const w = B.blockWords({ blocks: B.DEFAULT_BLOCKS });
+  const o = { today: '2026-11-11' }; // miércoles
+  const q = (s) => p(s, w, o);
+
+  // el ejemplo pedido
+  const r = q('reunion proyecto 1 miercoles desde la 1pm 1h');
+  assert.deepEqual([r.title, r.date, r.meeting, r.minutes], ['proyecto 1', '2026-11-11', { start: '13:00', end: '14:00' }, 60]);
+  // otras formas de hora
+  assert.deepEqual(q('Reunión con Juan mañana a las 15 hasta las 16:30').meeting, { start: '15:00', end: '16:30' });
+  assert.equal(q('Reunión con Juan mañana a las 15').title, 'Juan', '"con" no va en el título');
+  assert.deepEqual(q('Reunión cliente viernes de 3pm a 4pm').meeting, { start: '15:00', end: '16:00' });
+  assert.deepEqual(q('reu standup 9:30 am 15m').meeting, { start: '09:30', end: '09:45' }, '"9:30 am" con espacio');
+  assert.deepEqual([q('Junta 12pm').title, q('Junta 12pm').meeting], ['Junta', { start: '12:00', end: null }], 'sin duración: la pone el store; sin nombre, se llama como la palabra');
+  assert.equal(q('Junta 12am').meeting.start, '00:00');
+  // sin hora o sin la palabra: tarea normal
+  assert.deepEqual([q('Reunión de la tarde').title, q('Reunión de la tarde').meeting], ['Reunión de la tarde', null]);
+  assert.deepEqual([q('Reunión sin hora mañana').title, q('Reunión sin hora mañana').date], ['Reunión sin hora', '2026-11-12']);
+  assert.equal(q('reunion x hasta las 2pm').title, 'reunion x hasta las 2pm', 'solo fin: no es reunión');
+  assert.equal(q('Llamar a Juan a las 3pm').meeting, null, 'sin "reunión" al inicio no hay reunión');
+  // rutina de reunión
+  const weekly = q('Reunión semanal lunes 10am 1h cada lunes');
+  assert.deepEqual([weekly.title, weekly.date, weekly.repeat, weekly.meeting.start], ['semanal', '2026-11-16', [1], '10:00']);
+
+  // "mañana" siempre es el día siguiente; am / pm / tarde, el bloque
+  assert.deepEqual([q('tarea para mañana am').title, q('tarea para mañana am').date, q('tarea para mañana am').block], ['tarea', '2026-11-12', 'am']);
+  assert.deepEqual([q('tarea para mañana tarde').date, q('tarea para mañana tarde').block], ['2026-11-12', 'pm']);
+  assert.deepEqual([q('tarea para mañana pm').date, q('tarea para mañana pm').block], ['2026-11-12', 'pm']);
+  assert.deepEqual([q('Informe mañana').block, q('Informe mañana').date], [null, '2026-11-12'], 'mañana ya no es el bloque');
+  assert.deepEqual([q('Llamar por la mañana').title, q('Llamar por la mañana').date], ['Llamar por la mañana', null], '"la mañana" es parte del título');
+  assert.equal(q('Informe pasado mañana').date, '2026-11-13');
+  assert.equal(q('Informe hoy').date, '2026-11-11');
+  assert.deepEqual([q('Enviar factura el viernes').title, q('Enviar factura el viernes').date], ['Enviar factura', '2026-11-13']);
+  assert.equal(q('Informe miércoles').date, '2026-11-11', 'el mismo día de la semana: hoy');
+  assert.equal(q('Informe martes').date, '2026-11-17', 'un día que ya pasó: la semana siguiente');
+  assert.deepEqual([q('Standup 15m cada lunes').repeat, q('Standup 15m cada lunes').date], [[1], null], 'después de "cada" es repetición');
+  assert.equal(q('Leer 2h viernes am #web ?').date, '2026-11-13');
+  assert.equal(B.blockWords({ blocks: B.DEFAULT_BLOCKS }).tags.manana, 'am', '@mañana sigue eligiendo el bloque');
+  console.log('OK: días (hoy, mañana, viernes) y reuniones en el quick-add');
+}
+
+// ---------- Store: reuniones y días desde el texto ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const { todayISO, shiftDate } = await import(root + '/src/utils/dates.js');
+  const today = todayISO();
+  const m = S.addFromText('Reunión proyecto 1 mañana desde la 1pm 1h', { date: today, block: 'am' });
+  assert.deepEqual([m.title, m.date, m.meeting.start, m.meeting.end, m.meeting.blocking, m.certainty, m.minutes, m.block],
+    ['proyecto 1', shiftDate(today, 1), '13:00', '14:00', true, 'fixed', 60, 'pm']);
+  const d = S.addFromText('Comprar pan 15m mañana', { date: today, block: 'pm' });
+  assert.deepEqual([d.date, d.block], [shiftDate(today, 1), 'am'], 'otro día sin bloque: el primero');
+  const short = S.addFromText('Junta corta 9am', { date: today, block: 'pm' });
+  assert.equal(short.meeting.end, '09:30', 'sin duración: la de Ajustes (30m)');
+  S.editFromText(d.id, 'Comprar pan 15m pasado mañana tarde');
+  assert.deepEqual([S.findTask(d.id).date, S.findTask(d.id).block], [shiftDate(today, 2), 'pm']);
+  console.log('OK: el store crea reuniones y tareas de otros días desde el texto');
 }

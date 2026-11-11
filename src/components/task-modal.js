@@ -226,7 +226,7 @@ function newMeetingForm(task) {
       mode: 'end', duration: task.minutes, blocking: task.meeting.blocking, error: null,
     };
   }
-  const date = task.date || state.viewDate;
+  const date = task.date || todayISO();
   // Hoy: próxima media hora; otro día: inicio del bloque de la tarea (o del primero)
   let start = toMinutes(blockRange(state.settings, task.block).start);
   if (date === todayISO()) start = Math.max(start, Math.ceil(nowMinutes() / 30) * 30);

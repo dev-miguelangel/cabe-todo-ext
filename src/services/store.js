@@ -11,8 +11,8 @@ import {
 } from '../core/pert.js';
 import { parseQuickAdd, tagKey } from '../core/parser.js';
 import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBlock, BACKLOG } from '../core/blocks.js';
-import { routineFrom, dueInstances, materializableDates, repeatLabel } from '../core/routines.js';
-import { todayISO } from '../utils/dates.js';
+import { routineFrom, dueInstances, repeatLabel } from '../core/routines.js';
+import { todayISO, shortLabel } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
 
 export { PALETTE } from './storage.js';
@@ -22,9 +22,7 @@ export const state = {
   epics: [],
   routines: [],     // tareas que se repiten (moldes)
   settings: null,
-  viewDate: todayISO(),
-  tab: 'day',        // 'day' | 'epics'
-  filter: null,      // id de épica para resaltar en la vista del día
+  tab: 'minimal',    // vista abierta: 'minimal' (Hoy) | 'epics' | 'done' | 'docs' | 'settings'
 };
 
 // ---------- Suscripción y avisos ----------
@@ -57,7 +55,6 @@ export async function initStore() {
   recalibrate();
   onDataChanged((changed) => {
     Object.assign(state, changed);
-    if (state.filter && !findEpic(state.filter)) state.filter = null;
     emit({ external: true });
   });
 }
@@ -73,10 +70,9 @@ export async function refreshFromStorage() {
   state.routines = data.routines;
 }
 
-/** Cambios solo de vista (pestaña, día, filtro): no se guardan. */
+/** Cambios solo de vista (pestaña): no se guardan. */
 export function setView(changes) {
   Object.assign(state, changes);
-  if (changes.viewDate && ensureRoutines()) return; // ensureRoutines ya guardó y avisó
   emit();
 }
 
@@ -117,8 +113,8 @@ export const findTask = (id) => state.tasks.find((t) => t.id === id);
 export const findEpic = (id) => state.epics.find((e) => e.id === id);
 export const activeEpics = () => state.epics.filter((e) => !e.archived);
 export const archivedEpics = () => state.epics.filter((e) => e.archived);
-export const dayTasks = (date = state.viewDate) => state.tasks.filter((t) => t.date === date);
-export const blockTasks = (block, date = state.viewDate) => dayTasks(date).filter((t) => t.block === block);
+export const dayTasks = (date = todayISO()) => state.tasks.filter((t) => t.date === date);
+export const blockTasks = (block, date = todayISO()) => dayTasks(date).filter((t) => t.block === block);
 export const backlogTasks = (epicId) =>
   state.tasks.filter((t) => t.date === null && (epicId === undefined || t.epic_id === epicId));
 export const epicTasks = (epicId) => state.tasks.filter((t) => t.epic_id === epicId);
@@ -194,7 +190,6 @@ export function archiveEpic(id) {
   if (!epic) return;
   epic.archived = true;
   for (const t of epicTasks(id)) if (!t.done) t.epic_id = null;
-  if (state.filter === id) state.filter = null;
   commit();
 }
 
@@ -209,7 +204,6 @@ export function restoreEpic(id) {
 export function deleteEpic(id) {
   for (const t of epicTasks(id)) t.epic_id = null;
   state.epics = state.epics.filter((e) => e.id !== id);
-  if (state.filter === id) state.filter = null;
   commit();
 }
 
@@ -227,6 +221,7 @@ function checkEpicComplete(epicId) {
  * where: { date, block } para el día, o { epicId } para la bandeja de una épica
  * (en la bandeja, escribir am/pm la planifica directo en el día que se está viendo).
  * "bl" al final la deja en el backlog, se escriba donde se escriba.
+ * Un día escrito ("mañana", "viernes") la planifica ese día; "Reunión … 1pm" crea una reunión.
  */
 export function addFromText(text, where) {
   const parsed = parseQuickAdd(text, blockWords(state.settings));
@@ -235,14 +230,23 @@ export function addFromText(text, where) {
   let epicId = where.epicId || null;
   if (!epicId && parsed.epicTag) epicId = resolveEpicTag(parsed.epicTag)?.id || null;
 
+  const today = todayISO();
+  const meeting = parsed.meeting;
   let date;
   let block;
-  const toBacklog = parsed.block === BACKLOG;
-  if (toBacklog) {
+  const toBacklog = parsed.block === BACKLOG && !meeting; // una reunión siempre tiene día y hora
+  if (meeting) {
+    date = parsed.date || (where.epicId ? null : where.date) || today;
+    block = blockForTime(meeting.start, state.settings);
+  } else if (toBacklog) {
     date = null;
     block = null;
+  } else if (parsed.date) {
+    // "mañana", "viernes"…: ese día, en el bloque escrito, o en el de este campo si es el mismo día, o en el primero
+    date = parsed.date;
+    block = parsed.block || (date === where.date && where.block) || firstBlock(state.settings).id;
   } else if (where.epicId) {
-    date = parsed.block ? state.viewDate : null;
+    date = parsed.block ? todayISO() : null;
     block = parsed.block || null;
   } else {
     date = where.date;
@@ -257,15 +261,22 @@ export function addFromText(text, where) {
     block,
     order: nextOrder(date, block),
     minutes: parsed.minutes || state.settings.default_minutes,
-    certainty: parsed.certainty || 'normal',
+    certainty: meeting ? 'fixed' : parsed.certainty || 'normal',
     epic_id: epicId,
     dependencies: [],
     done: false,
     done_at: null,
     time_entries: [],
     comments: [],
+    meeting: null,
     created_at: new Date().toISOString(),
   };
+  if (meeting) {
+    // Sin fin ni duración: dura lo de siempre (Ajustes)
+    const end = meeting.end || minutesToHHMM(Math.min(toMin(meeting.start) + task.minutes, 23 * 60 + 59));
+    task.meeting = { start: meeting.start, end, blocking: true };
+    task.minutes = toMin(end) - toMin(meeting.start);
+  }
   // "cada día" / "hábiles" / "cada lun,jue": crear la rutina
   if (parsed.repeat) {
     const routine = routineFrom(task, { id: newId('r'), days: parsed.repeat, startDate: date || todayISO(), block: firstBlock(state.settings).id });
@@ -282,8 +293,11 @@ export function addFromText(text, where) {
   state.tasks.push(task);
   if (task.routine_id) ensureRoutines(false);
   commit();
+  const day = (iso) => (iso === today ? 'hoy' : shortLabel(iso));
   if (task.routine_id) notify(`↻ "${task.title}" se repite ${repeatLabel(parsed.repeat)}.`);
+  else if (meeting) notify(`◷ Reunión "${task.title}": ${day(date)}, ${task.meeting.start}–${task.meeting.end}.`);
   else if (toBacklog && !where.epicId) notify(`"${task.title}" quedó en el backlog.`);
+  else if (parsed.date && date !== where.date) notify(`"${task.title}" → ${day(date)}, ${blockName(state.settings, block)}.`);
   return task;
 }
 
@@ -292,18 +306,17 @@ export function addFromText(text, where) {
 export const findRoutine = (id) => (id ? state.routines.find((r) => r.id === id) : null);
 
 /**
- * Crea las tareas de las rutinas que tocan hoy (y el día que se está mirando, si es próximo).
+ * Crea las tareas de las rutinas que tocan hoy.
  * save=false: solo prepara (quien llama hace commit). Devuelve true si creó algo.
  */
 export function ensureRoutines(save = true) {
   if (!state.routines.length) return false;
   let created = 0;
-  for (const date of materializableDates(todayISO(), state.viewDate)) {
-    const { tasks, routines } = dueInstances(state.routines, date, { newId: () => newId('t'), orderFor: nextOrder });
-    if (!tasks.length) continue;
+  const { tasks, routines } = dueInstances(state.routines, todayISO(), { newId: () => newId('t'), orderFor: nextOrder });
+  if (tasks.length) {
     state.tasks.push(...tasks);
     state.routines = routines;
-    created += tasks.length;
+    created = tasks.length;
   }
   if (created && save) commit();
   return created > 0;
@@ -343,6 +356,15 @@ export function setRepeat(taskId, days) {
 export function editFromText(id, text) {
   const parsed = parseQuickAdd(text, blockWords(state.settings));
   if (!parsed) return false;
+  // "Reunión … 1pm": pasa a ser (o se reprograma como) reunión
+  if (parsed.meeting) {
+    const task = findTask(id);
+    if (!task) return false;
+    updateTask(id, { title: parsed.title, epic_id: parsed.epicTag ? resolveEpicTag(parsed.epicTag)?.id || null : task.epic_id });
+    const start = parsed.meeting.start;
+    const end = parsed.meeting.end || minutesToHHMM(Math.min(toMin(start) + (parsed.minutes || task.minutes), 23 * 60 + 59));
+    return setMeeting(id, { date: parsed.date || task.date || todayISO(), start, end, blocking: task.meeting?.blocking ?? true }) === null;
+  }
   // Reunión: su horario se cambia en el modal; aquí solo título y épica
   if (isMeeting(findTask(id) || {})) {
     updateTask(id, {
@@ -360,9 +382,13 @@ export function editFromText(id, text) {
   if (parsed.block === BACKLOG) {
     changes.date = null;
     changes.block = null;
+  } else if (parsed.date) {
+    // "mañana", "viernes"…: a ese día (en el bloque escrito, o en el que tenía)
+    changes.date = parsed.date;
+    changes.block = parsed.block || findTask(id)?.block || firstBlock(state.settings).id;
   } else if (parsed.block) {
     changes.block = parsed.block;
-    if (!findTask(id)?.date) changes.date = state.viewDate;
+    if (!findTask(id)?.date) changes.date = todayISO();
   }
   updateTask(id, changes);
   return true;
@@ -384,28 +410,8 @@ export function updateTask(id, changes) {
   if (changes.done && t.epic_id) checkEpicComplete(t.epic_id);
 }
 
-export function planTask(id, block, date = state.viewDate) {
+export function planTask(id, block, date = todayISO()) {
   updateTask(id, { date, block });
-}
-
-/** Mueve varias tareas de una vez (un solo guardado: las dependencias entre ellas se conservan). */
-export function planMany(ids, block, date = state.viewDate) {
-  let order = nextOrder(date, block);
-  for (const id of ids) {
-    const t = findTask(id);
-    if (t) Object.assign(t, { date, block, order: order++ });
-  }
-  commit();
-}
-
-/** Envía varias tareas al backlog (sin fecha) de una vez. */
-export function unplanMany(ids) {
-  let order = nextOrder(null, null);
-  for (const id of ids) {
-    const t = findTask(id);
-    if (t) Object.assign(t, { date: null, block: null, order: order++ });
-  }
-  commit();
 }
 
 /** Pendientes de días anteriores a `today` (las reuniones pasadas no se arrastran). */
@@ -468,7 +474,6 @@ export function restoreBackup(data) {
   state.epics = data.epics;
   state.routines = data.routines;
   state.settings = data.settings;
-  if (state.filter && !findEpic(state.filter)) state.filter = null;
   saveSettingsRaw(state.settings);
   commit();
 }
@@ -548,6 +553,7 @@ const toMin = (hhmm) => {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
 };
+const minutesToHHMM = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
 /**
  * Convierte la tarea en reunión (o actualiza su horario).

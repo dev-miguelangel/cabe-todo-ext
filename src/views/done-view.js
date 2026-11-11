@@ -31,7 +31,7 @@ export function renderDone() {
     byId: new Map(state.tasks.map((t) => [t.id, t])),
     epicsById: new Map(state.epics.map((e) => [e.id, e])),
     critical: new Set(),
-    planDate: state.viewDate,
+    planDate: todayISO(),
   };
   const list = document.getElementById('done-list');
   if (!total) {
@@ -40,7 +40,7 @@ export function renderDone() {
   }
   list.replaceChildren(...groups.flatMap(({ date, tasks }) => [
     dayDivider(date, tasks),
-    ...tasks.map((task) => renderCard(task, { ctx, link: false })),
+    ...tasks.map((task) => renderCard(task, { ctx })),
   ]));
 }
 

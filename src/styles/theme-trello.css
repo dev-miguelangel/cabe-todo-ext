@@ -89,7 +89,6 @@
 [data-theme="trello"] .list > .task + .task::before { display: none; } /* las sombras ya separan */
 [data-theme="trello"] .list > .task.done { background: color-mix(in srgb, var(--card) 60%, var(--raised)); box-shadow: none; }
 [data-theme="trello"] .list > .task.dragging { box-shadow: var(--elev-overlay); transform: rotate(2deg); }
-[data-theme="trello"] .task.link-target { background: var(--ds-blue-subtle); }
 [data-theme="trello"] .list .empty { color: var(--muted); }
 
 /* Docs: cada tarea como tarjeta */
@@ -100,15 +99,12 @@
 /* ---------- Etiquetas tipo píldora y estados ---------- */
 [data-theme="trello"] .forecast.good,
 [data-theme="trello"] .forecast.warn,
-[data-theme="trello"] .forecast.bad,
-[data-theme="trello"] .now-badge {
+[data-theme="trello"] .forecast.bad {
   padding: 0 8px; border-radius: var(--radius-pill); border: 0; font-weight: 600;
 }
 [data-theme="trello"] .forecast.good { background: var(--ds-green-subtle); color: var(--ds-green-text); }   /* a tiempo */
 [data-theme="trello"] .forecast.warn { background: var(--ds-yellow-subtle); color: var(--ds-yellow-text); } /* en riesgo */
-[data-theme="trello"] .forecast.bad,
-[data-theme="trello"] .block-head .forecast.bad { background: var(--ds-red); color: #ffffff; }              /* urgente */
-[data-theme="trello"] .now-badge { background: var(--ds-blue-subtle); color: var(--ds-blue-text); }        /* en curso */
+[data-theme="trello"] .forecast.bad { background: var(--ds-red); color: #ffffff; }        /* en curso */
 
 /* Temporizador en la tarjeta */
 [data-theme="trello"] .task .timer-btn.running { background: var(--ds-blue-subtle); color: var(--ds-blue-text); }
@@ -133,10 +129,7 @@
 
 /* ---------- Botones y campos ---------- */
 [data-theme="trello"] .primary,
-[data-theme="trello"] .suggest-btn,
-[data-theme="trello"] .close-btn.primary { border-radius: 6px; }
-[data-theme="trello"] .chip { border-radius: var(--radius-pill); }
-[data-theme="trello"] .chip.active { background: var(--ds-blue); color: #ffffff; }
+[data-theme="trello"] .suggest-btn { border-radius: 6px; }
 
 /* Campos: blancos con borde, como los de Atlassian */
 [data-theme="trello"] .quick-add input,
@@ -151,15 +144,11 @@
 [data-theme="trello"] .meeting-form select {
   background-color: var(--card); box-shadow: inset 0 0 0 1px var(--border);
 }
-[data-theme="trello"] .block .quick-add input { background-color: transparent; box-shadow: none; }
-[data-theme="trello"] .block .quick-add input:hover { background-color: var(--hover); }
-[data-theme="trello"] .block .quick-add input:focus { background-color: var(--card); box-shadow: var(--elev-card); }
 
 [data-theme="trello"] .danger-btn:hover { background: var(--ds-red-subtle); color: var(--ds-red-text); }
 
 /* ---------- Capas flotantes ---------- */
 [data-theme="trello"] .modal { background: var(--surface); box-shadow: var(--elev-overlay); }
-[data-theme="trello"] .menu,
 [data-theme="trello"] .autocomplete,
 [data-theme="trello"] .task .actions { background: var(--surface); box-shadow: var(--elev-overlay); }
 [data-theme="trello"] .ac-item.active { background: var(--ds-blue-subtle); }
@@ -187,3 +176,5 @@
 [data-theme="trello"] .pick-btn.bad .pick-pct { color: var(--ds-red-text); }
 [data-theme="trello"] .pick-empty { background: var(--ds-n20); }
 [data-theme="trello"] .pick-search { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .theme-toggle { background: var(--ds-n20); color: var(--ds-n500); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .theme-toggle:hover { background: var(--ds-n30); }

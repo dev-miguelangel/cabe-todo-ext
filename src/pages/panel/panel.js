@@ -1,49 +1,38 @@
 // Punto de entrada del side panel: carga datos, conecta las vistas y las pestañas.
 
-import { state, initStore, subscribe, setNotifier, setView, ensureRoutines } from '../../services/store.js';
-import { renderDay, setupDay, isDayBusy, closeDepsMenu } from '../../views/day-view.js';
+import { state, initStore, subscribe, setNotifier, setView, ensureRoutines, findTask } from '../../services/store.js';
 import { renderEpics, setupEpics, isEpicsBusy } from '../../views/epics-view.js';
 import { renderSettings, setupSettings } from '../../views/settings-view.js';
 import { renderDocs, setupDocs } from '../../views/docs-view.js';
 import { renderDone, setupDone } from '../../views/done-view.js';
 import { renderMinimal, setupMinimal, isMinimalBusy } from '../../views/minimal-view.js';
-import { currentBlock } from '../../core/pert.js';
-import { firstBlock } from '../../core/blocks.js';
+import { updateTimerChip } from '../../components/cards.js';
+import { setupThemeToggle, renderThemeToggle } from '../../components/theme-toggle.js';
 import { showToast, applyTheme } from '../../utils/ui.js';
-import { todayISO } from '../../utils/dates.js';
 
 const TAB_KEY = 'cabetodo:tab';
-const TABS = ['day', 'minimal', 'epics', 'done', 'docs', 'settings'];
+const TABS = ['minimal', 'epics', 'done', 'docs', 'settings'];
+const VIEWS = { minimal: renderMinimal, epics: renderEpics, done: renderDone, docs: renderDocs, settings: renderSettings };
 
 function isBusy() {
-  return isDayBusy() || isEpicsBusy() || isMinimalBusy();
+  return isEpicsBusy() || isMinimalBusy();
 }
 
 function render() {
   applyTheme(state.settings.theme);
+  renderThemeToggle();
   document.querySelectorAll('.tab').forEach((btn) => {
     const active = btn.dataset.tab === state.tab;
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', String(active));
   });
-  document.getElementById('view-day').hidden = state.tab !== 'day';
-  document.getElementById('view-epics').hidden = state.tab !== 'epics';
-  document.getElementById('view-minimal').hidden = state.tab !== 'minimal';
-  document.getElementById('view-done').hidden = state.tab !== 'done';
-  document.getElementById('view-docs').hidden = state.tab !== 'docs';
-  document.getElementById('view-settings').hidden = state.tab !== 'settings';
-  if (state.tab === 'day') renderDay();
-  else if (state.tab === 'epics') renderEpics();
-  else if (state.tab === 'minimal') renderMinimal();
-  else if (state.tab === 'done') renderDone();
-  else if (state.tab === 'docs') renderDocs();
-  else renderSettings();
+  for (const tab of TABS) document.getElementById(`view-${tab}`).hidden = state.tab !== tab;
+  VIEWS[state.tab]();
 }
 
 function setupTabs() {
   document.querySelectorAll('.tab').forEach((btn) => {
     btn.addEventListener('click', () => {
-      closeDepsMenu();
       try { localStorage.setItem(TAB_KEY, btn.dataset.tab); } catch { /* ignorar */ }
       setView({ tab: btn.dataset.tab });
     });
@@ -65,12 +54,12 @@ async function init() {
   });
 
   setupTabs();
-  setupDay();
-  setupEpics();
-  setupSettings();
-  setupDocs();
-  setupDone();
+  setupThemeToggle(document.getElementById('theme-toggle'));
   setupMinimal();
+  setupEpics();
+  setupDone();
+  setupDocs();
+  setupSettings();
   setupKeyboard();
   ensureRoutines(); // tareas que se repiten y tocan hoy
   render();
@@ -81,27 +70,31 @@ async function init() {
     if (!isBusy()) render();
   }, 60 * 1000);
 
-  if (state.tab === 'day' || state.tab === 'minimal') focusQuickAdd();
+  // Los chips de temporizador se actualizan solos (sin re-renderizar todo): el tiempo de los que
+  // corren y el bloqueo de los pausados cuando una reunión que bloquea empieza o termina.
+  setInterval(() => {
+    document.querySelectorAll('.timer-btn:not([hidden])').forEach((chip) => {
+      const task = findTask(chip.closest('.task')?.dataset.id);
+      if (task) updateTimerChip(chip, task, state.tasks);
+    });
+  }, 5 * 1000);
+
+  if (state.tab === 'minimal') focusQuickAdd();
 }
 
-/** Foco en el quick-add: el de la vista Hoy, o en Plan el del bloque en curso (el primero si es otro día). */
+/** Foco en el campo de nueva tarea de la vista Hoy. */
 function focusQuickAdd() {
-  if (state.tab === 'minimal') {
-    document.querySelector('#minimal-add input')?.focus();
-    return;
-  }
-  const block = state.viewDate === todayISO() ? currentBlock(state.settings) : firstBlock(state.settings).id;
-  document.querySelector(`.block[data-block="${block}"] .quick-add input`)?.focus();
+  document.querySelector('#minimal-add input')?.focus();
 }
 
 /** "N" (fuera de un campo de texto) = nueva tarea. */
 function setupKeyboard() {
   document.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
     if (document.querySelector('dialog[open]')) return;
     e.preventDefault();
-    if (state.tab !== 'day' && state.tab !== 'minimal') setView({ tab: 'minimal' });
+    if (state.tab !== 'minimal') setView({ tab: 'minimal' });
     focusQuickAdd();
   });
 }

@@ -2,7 +2,7 @@
 
 import { formatMinutes } from '../core/parser.js';
 import { epicForecast, criticalIds } from '../core/pert.js';
-import { todayISO, dayLabel } from '../utils/dates.js';
+import { todayISO } from '../utils/dates.js';
 import {
   state, findEpic, activeEpics, archivedEpics, epicTasks,
   createEpic, renameEpic, setEpicTarget, archiveEpic, restoreEpic, deleteEpic,
@@ -63,7 +63,7 @@ function renderEpic(epic, ctx) {
       title: `Necesitas ~${formatMinutes(fc.mu)} ± ${formatMinutes(fc.sigma)} · libres hasta esa fecha: ${formatMinutes(fc.capacity)} (descontando otras tareas ya planificadas)`,
     }, forecast[0]) : null);
 
-  const cardOpts = { ctx, link: false, plan: true, unplan: true, showEpic: false };
+  const cardOpts = { ctx, plan: true, unplan: true, showEpic: false };
   const backlogList = h('ul', { class: 'list' }, ...backlog.map((t) => renderCard(t, cardOpts)));
   if (!backlog.length) backlogList.append(h('li', { class: 'empty' }, 'Sin tareas en el backlog'));
 
@@ -126,7 +126,7 @@ export function renderEpics() {
     byId: new Map(state.tasks.map((t) => [t.id, t])),
     epicsById: new Map(state.epics.map((e) => [e.id, e])),
     critical: criticalIds(state.tasks),
-    planDate: state.viewDate,
+    planDate: todayISO(),
   };
   const epics = activeEpics();
   const nodes = epics.map((e) => renderEpic(e, ctx));
@@ -140,7 +140,7 @@ export function renderEpics() {
   root.replaceChildren(...nodes);
 
   document.getElementById('plan-date-hint').textContent =
-    `Los botones → ${blocksOf(state.settings).map((b) => b.icon).join(' ')} planifican en: ${dayLabel(state.viewDate).toLowerCase()}`;
+    `Los botones → ${blocksOf(state.settings).map((b) => b.icon).join(' ')} la planifican hoy en ese bloque.`;
 
   root.querySelectorAll('[data-focus-key]').forEach((el) => {
     if (drafts.has(el.dataset.focusKey)) el.value = drafts.get(el.dataset.focusKey);

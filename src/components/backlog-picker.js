@@ -1,12 +1,13 @@
-// Modal "Backlog → hoy": lista las tareas sin fecha y las planifica en un bloque de hoy con un clic.
+// Modal "Pendientes → hoy": las tareas que quedaron de días anteriores y las del backlog (sin fecha);
+// cada una se planifica en un bloque de hoy con un clic.
 // Cada botón de bloque muestra cómo quedaría ese bloque (su pronóstico) si se agrega la tarea.
 
-import { state, backlogTasks, planTask, subscribe, findEpic } from '../services/store.js';
+import { state, backlogTasks, overdueTasks, planTask, subscribe, findEpic } from '../services/store.js';
 import { h, openModal, isModalOpen, showToast } from '../utils/ui.js';
 import { blocksOf } from '../core/blocks.js';
 import { scheduleBlock } from '../core/pert.js';
 import { formatMinutes } from '../core/parser.js';
-import { todayISO, nowMinutes } from '../utils/dates.js';
+import { todayISO, nowMinutes, shortLabel } from '../utils/dates.js';
 
 let isOpen = false;
 let query = '';
@@ -14,7 +15,7 @@ let listening = false; // el <dialog> del modal es uno solo y compartido: escuch
 
 const fold = (text) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-/** Tareas pendientes del backlog, ordenadas como en Plan (por épica y luego por orden). */
+/** Tareas pendientes del backlog, ordenadas por épica y luego por orden. */
 function pendingBacklog() {
   const epicsOrder = new Map(state.epics.map((e, i) => [e.id, i]));
   return backlogTasks()
@@ -32,6 +33,7 @@ function forecastWith(block, task, today, nowMin) {
 
 function taskRow(task, blocks, today, nowMin) {
   const epic = findEpic(task.epic_id);
+  const from = task.date ? `de ${shortLabel(task.date)}` : null; // pendiente de un día anterior
   const buttons = blocks.map((b) => {
     const p = forecastWith(b, task, today, nowMin);
     const ended = p === null;
@@ -53,16 +55,18 @@ function taskRow(task, blocks, today, nowMin) {
         epic ? h('span', { class: 'dot', style: `background:${epic.color}`, title: epic.name }) : null,
         task.title),
       h('span', { class: 'pick-meta' },
-        [formatMinutes(task.minutes), epic ? epic.name : null, task.certainty === 'unsure' ? 'poca certeza' : null]
+        [from, formatMinutes(task.minutes), epic ? epic.name : null, task.certainty === 'unsure' ? 'poca certeza' : null]
           .filter(Boolean).join(' · '))),
     h('div', { class: 'pick-actions', role: 'group', 'aria-label': `Agregar "${task.title}" a un bloque de hoy` }, ...buttons));
 }
 
 function render() {
-  const all = pendingBacklog();
-  const terms = fold(query).split(/\s+/).filter(Boolean);
-  const list = terms.length ? all.filter((t) => terms.every((w) => fold(t.title).includes(w) || fold(findEpic(t.epic_id)?.name || '').includes(w))) : all;
   const today = todayISO();
+  const overdue = overdueTasks(today).sort((a, b) => a.date.localeCompare(b.date) || a.order - b.order);
+  const all = [...overdue, ...pendingBacklog()];
+  const terms = fold(query).split(/\s+/).filter(Boolean);
+  const matches = (t) => terms.every((w) => fold(t.title).includes(w) || fold(findEpic(t.epic_id)?.name || '').includes(w));
+  const list = terms.length ? all.filter(matches) : all;
   const nowMin = nowMinutes();
   const blocks = blocksOf(state.settings);
   const hadFocus = document.activeElement?.id === 'pick-search';
@@ -77,20 +81,25 @@ function render() {
     render();
   });
 
+  const section = (title, tasks) => (tasks.length
+    ? [h('h3', { class: 'pick-section' }, title), h('ul', { class: 'pick-list' }, ...tasks.map((t) => taskRow(t, blocks, today, nowMin)))]
+    : []);
+  const late = list.filter((t) => t.date);
+  const undated = list.filter((t) => !t.date);
   const body = all.length === 0
-    ? h('p', { class: 'pick-empty' }, 'El backlog está vacío. Escribe bl al final de una tarea para dejarla aquí.')
+    ? [h('p', { class: 'pick-empty' }, 'Nada pendiente fuera de hoy. Escribe bl al final de una tarea para dejarla en el backlog.')]
     : list.length === 0
-      ? h('p', { class: 'pick-empty' }, `Nada coincide con "${query}".`)
-      : h('ul', { class: 'pick-list' }, ...list.map((t) => taskRow(t, blocks, today, nowMin)));
+      ? [h('p', { class: 'pick-empty' }, `Nada coincide con "${query}".`)]
+      : [...section(`« De días anteriores (${late.length})`, late), ...section(`⤓ Backlog (${undated.length})`, undated)];
 
-  openModal(`⤓ Backlog → hoy`, [
+  openModal('Pendientes → hoy', [
     h('div', { class: 'backlog-picker' },
       h('p', { class: 'pick-lead' },
         all.length
-          ? `${all.length} tarea${all.length === 1 ? '' : 's'} sin fecha. Elige el bloque de hoy donde quieres hacerla; el % es cómo quedaría ese bloque.`
-          : 'Aquí aparecen las tareas sin fecha.'),
+          ? 'Elige el bloque de hoy donde quieres hacer cada una; el % es cómo quedaría ese bloque.'
+          : 'Aquí aparecen las tareas sin fecha y las que quedaron pendientes de días anteriores.'),
       all.length > 5 ? search : null,
-      body),
+      ...body),
   ], () => { isOpen = false; });
 
   if (hadFocus) {

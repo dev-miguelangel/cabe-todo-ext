@@ -42,54 +42,10 @@ body {
 }
 
 button { font: inherit; cursor: pointer; }
-
-/* Barra superior */
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.day { flex: 1; text-align: center; }
-.day h1 { margin: 0; }
-.today-link {
-  border: 0; background: none; padding: 0;
-  font-size: 12px;
-}
-.nav {
-  width: 28px; height: 28px;
-  border: 1px solid var(--border); 
-  font-size: 16px; line-height: 1;
-}
-.nav:hover { border-color: var(--accent); }
-
-/* Tablero: mañana arriba y tarde abajo, siempre, sin importar el ancho */
-.board {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.block {
-  min-width: 0;
-}
-
-.block-head { display: flex; }
-.block-head h2 { margin: 0; }
-.range { color: var(--muted); font-size: 12px; }
-.now-badge {
-  font-size: 11px; 
-  border: 1px solid currentColor; border-radius: 999px; padding: 0 6px;
-}
-
-/* Capacidad */
-.capacity { display: flex; align-items: center; gap: 8px; }
 .bar {
   flex: 1; display: flex;
   border-radius: 999px; overflow: hidden;
 }
-
-.capacity.over .bar-pending { background: var(--over); }
-
-.capacity.over .capacity-label { color: var(--over); font-weight: 600; }
 
 /* Pronóstico PERT del bloque */
 .forecast { color: var(--muted); }
@@ -107,7 +63,6 @@ button { font: inherit; cursor: pointer; }
   display: flex; flex-direction: column; 
   border-radius: 6px;
 }
-.list.drag-over { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
 .task {
   display: flex; 
@@ -144,18 +99,6 @@ button { font: inherit; cursor: pointer; }
 .task.late { border-color: color-mix(in srgb, var(--over) 55%, var(--border)); }
 .task.late .minutes { color: var(--over); }
 
-/* Arrastrar sobre una tarjeta = "va después de esta" */
-.task.link-target {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
-}
-.task.link-target::after {
-  content: "va después de esta";
-  font-size: 11px; color: var(--accent-text);
-}
-.task.link-invalid { border-color: var(--over); }
-.task.link-invalid::after { content: "crearía un ciclo"; font-size: 11px; color: var(--over); }
-
 .task .edit-input {
   flex: 1; min-width: 0;
   font: inherit; color: var(--text);
@@ -170,21 +113,6 @@ button { font: inherit; cursor: pointer; }
   color: var(--muted); font-size: 11px; text-align: center;
 }
 .hint p { margin: 2px 0; }
-
-/* Menú "Va después de…" */
-.menu {
-  position: absolute; z-index: 10;
-  width: 240px; max-height: 280px; overflow-y: auto;
-  padding: 6px;
-}
-.menu h3 { margin: 2px 4px 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
-.menu label {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 6px; border-radius: 4px; cursor: pointer; font-size: 13px;
-}
-.menu label:hover { background: var(--bg); }
-.menu label.disabled { opacity: 0.45; cursor: not-allowed; }
-.menu .menu-empty { padding: 6px; font-size: 12px; color: var(--muted); }
 
 /* Aviso temporal */
 .toast {
@@ -229,39 +157,10 @@ body { padding-bottom: var(--nav-h); }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--accent-text); font-weight: 600; }
 
-/* Filtro por épica */
-.filters {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  padding: 0 16px 4px;
-}
-.chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  border-radius: 999px;
-}
-.chip.active { border-color: var(--accent); }
-
-/* Resumen por épica dentro del bloque */
-.epic-summary {
-  display: flex; flex-wrap: wrap; gap: 4px 12px;
-  margin: -4px 0 8px; font-size: 11px; color: var(--muted);
-}
-.sum-item { display: inline-flex; align-items: center; gap: 5px; }
-
-/* Tarjetas: extras */
-.task.dim { opacity: 0.35; }
-
 .task .plan-btn {
   white-space: nowrap;
 }
 .task .plan-btn:hover { border-color: var(--accent); color: var(--accent-text); }
-.task.link-invalid::after { content: attr(data-link-problem); }
-
-/* Bandeja en la vista del día */
-.backlog { padding: 0 16px 8px; }
-
-.backlog summary { cursor: pointer; font-size: 13px; }
-.backlog .count { color: var(--muted); font-weight: 400; }
-.backlog-hint { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
 
 /* Vista de épicas */
 .epics-top { padding: 12px 16px 0; }
@@ -338,17 +237,11 @@ body { padding-bottom: var(--nav-h); }
   font-size: 12px;
 }
 .suggestion span { flex: 1; }
-.suggest-btn, .bulk-btn {
+.suggest-btn {
   flex: none;
   padding: 2px 8px; font-size: 12px;
 }
-.suggest-btn:hover, .bulk-btn:hover { border-color: var(--accent); color: var(--accent-text); }
-
-/* Pendientes de días anteriores */
-
-.overdue-head { display: flex; align-items: center; gap: 6px; }
-.overdue-head h2 { flex: 1; margin: 0; }
-.overdue .count { color: var(--muted); font-weight: 400; }
+.suggest-btn:hover { border-color: var(--accent); color: var(--accent-text); }
 
 /* Ajustes */
 #view-settings { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -382,39 +275,12 @@ kbd {
 
 /* ================= Vista simplificada: las tareas son lo protagonista ================= */
 
-/* Navegación más liviana */
-
-.nav { border-color: transparent; background: none; }
-.nav:hover { color: var(--text); border-color: var(--border); }
-
-/* Bloques sin caja: solo un encabezado de una línea y una barra fina */
-
-.block-head { justify-content: flex-start; align-items: baseline; gap: 8px; }
-
-.block-head .forecast { margin: 0 0 0 auto; min-height: 0; font-size: 12px; white-space: nowrap; }
-
-.block-head .capacity-label { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.block.over .capacity-label { color: var(--over); font-weight: 600; }
-
 /* Lista: las tarjetas son el único elemento con peso visual */
 .list { margin: 0; }
 body.is-dragging .list[data-list] {
   min-height: 40px;
   outline: 1px dashed var(--border); outline-offset: 2px;
 }
-
-/* "+ Nueva tarea" discreto, debajo de la lista */
-
-.block .quick-add input {
-  border: 1px solid transparent; 
-  padding: 7px 10px;
-}
-.block .quick-add input:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
-.block .quick-add input:focus { background: var(--surface); border-color: var(--accent); }
-
-/* Secciones secundarias más discretas */
-
-.filters { padding-top: 2px; }
 
 /* Ayuda (en Ajustes) */
 .help ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
@@ -424,26 +290,10 @@ body.is-dragging .list[data-list] {
   font-size: 12px; 
   border-radius: 4px; padding: 0 4px;
 }
-
-/* Bloque terminado: mover pendientes al siguiente bloque o al backlog */
-.ended-bar {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  padding: 6px 8px;
-  font-size: 12px; 
-}
-.ended-bar span { flex: 1; }
-.ended-all, .task .ended button {
+.task .ended button {
   white-space: nowrap;
 }
-.ended-all { padding: 2px 8px; }
-.ended-all:hover, .task .ended button:hover { border-color: var(--accent); color: var(--accent-text); }
-
-/* Botón ↳ (dependencia) en la fila, igual que 📥 y → */
-.task .row-btn {
-  flex: none;
-  white-space: nowrap;
-}
-.task .row-btn:hover { border-color: var(--accent); color: var(--accent-text); }
+.task .ended button:hover { border-color: var(--accent); color: var(--accent-text); }
 
 /* Tarea bloqueada: se ve "en espera" y se puede pinchar para ver por qué */
 
@@ -502,39 +352,17 @@ input[type="checkbox"]:disabled { opacity: 0.4; }
 select option { background: var(--bg); }
 
 /* Riesgo sin rojo: insignia Madang (lo más brillante sobre Cod Gray) */
-.forecast.bad, .block-head .forecast.bad {
+.forecast.bad {
   background: var(--over); color: var(--on-accent);
   padding: 0 7px; border-radius: 999px; font-weight: 600;
 }
 .forecast.warn { color: var(--warn); font-weight: 600; }
 .task.late { border-color: var(--over); border-width: 1px 1px 1px 3px; }
 .task.late .minutes { color: var(--over); font-weight: 600; }
-.block.over .bar-pending { background: var(--over); }
 
 .modal::backdrop { background: rgb(0 0 0 / 0.7); }
-
-/* ======================= Estilo Spotify ======================= */
-
-.topbar { padding: 14px 16px 6px; }
-
-.today-link { color: var(--accent-text); font-weight: 600; }
-.nav { color: var(--muted); border-radius: 50%; }
-.nav:hover { color: var(--text); background: var(--hover); border-color: transparent; }
-
-/* Filtros como chips de Spotify */
-.chip {
-  border: 0; 
-  padding: 4px 12px; font-size: 12px; 
-}
-.chip:hover { background: color-mix(in srgb, var(--white) 18%, var(--cod)); }
-
-/* Encabezados de bloque */
-
-.block.is-now .block-head h2 { color: var(--accent-text); }
-.now-badge { color: var(--accent-text); border-color: var(--accent); font-weight: 700; }
 .bar { height: 4px; background: var(--border); }
 .bar-done { background: var(--done); }
-.bar-pending { background: var(--pending); }
 
 /* Tareas como filas de canciones: sin caja, título blanco, detalle gris */
 .list { gap: 2px; }
@@ -545,7 +373,6 @@ select option { background: var(--bg); }
 
 .task .critical { color: var(--accent-text); }
 .task.done .title { color: var(--muted); }
-.task.dim { opacity: 0.3; }
 .task.current { border-left-color: var(--accent); padding-left: 9px; }
 .task.current .title { color: var(--accent-text); }
 .task.late { border-width: 0 0 0 3px; border-style: solid; border-color: var(--over); }
@@ -554,13 +381,9 @@ select option { background: var(--bg); }
 .task.blocked { border-style: solid; }
 .task.blocked .title { color: var(--muted); }
 
-.task.link-target { background: color-mix(in srgb, var(--meadow) 18%, var(--cod)); box-shadow: inset 0 0 0 1px var(--accent); }
-.task.link-target::after { color: var(--accent-text); }
-.task.link-invalid { border-color: var(--over); }
-
 /* Botones de fila: píldoras con borde gris, blancas al pasar el mouse */
 
-.task .row-btn:hover, .task .plan-btn:hover, .task .ended button:hover, .ended-all:hover, .bulk-btn:hover {
+.task .plan-btn:hover, .task .ended button:hover {
   border-color: var(--text); color: var(--text); transform: scale(1.04);
 }
 .task .actions { box-shadow: 0 4px 12px var(--shadow); }
@@ -573,9 +396,7 @@ input[type="checkbox"]:checked { background: var(--accent); border-color: var(--
 
 /* "+ Nueva tarea" */
 
-.block .quick-add input::placeholder, .quick-add input::placeholder { color: var(--muted); }
-.block .quick-add input:hover { background: var(--hover); }
-.block .quick-add input:focus { background: var(--raised); border-color: var(--border); }
+.quick-add input::placeholder { color: var(--muted); }
 
 /* Botón principal: píldora verde, texto oscuro en negrita (como "ADD MORE") */
 .primary {
@@ -594,7 +415,7 @@ input[type="checkbox"]:checked { background: var(--accent); border-color: var(--
 .suggest-btn:hover { background: var(--accent-hover); color: var(--on-accent); transform: scale(1.04); }
 
 /* Avisos dentro del bloque */
-.suggestion, .ended-bar { border-radius: 8px; }
+.suggestion { border-radius: 8px; }
 .suggestion span { color: var(--text); }
 
 /* Épicas */
@@ -609,8 +430,8 @@ input[type="checkbox"]:checked { background: var(--accent); border-color: var(--
 .link-btn { color: var(--accent-text); font-weight: 600; }
 
 /* Capas flotantes */
-.menu, .autocomplete { border: 0; box-shadow: 0 8px 24px var(--shadow); }
-.menu label:hover, .ac-item:hover { background: var(--hover); }
+.autocomplete { border: 0; box-shadow: 0 8px 24px var(--shadow); }
+.ac-item:hover { background: var(--hover); }
 .ac-item.active { background: color-mix(in srgb, var(--white) 18%, var(--cod)); }
 .modal { border: 0; box-shadow: 0 16px 48px var(--shadow); }
 .modal::backdrop { background: rgb(0 0 0 / 0.7); }
@@ -621,24 +442,8 @@ kbd { color: var(--text); }
 /* ======================= Tema Chrome (manda sobre lo anterior) ======================= */
 
 body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-
-
-.day h1 { font-size: 18px; font-weight: 600; }
-.nav:hover { background: var(--hover); }
-
-/* Bloques como tarjetas de Chrome: encabezado + divisor + contenido */
-.board { gap: 14px; padding: 12px 16px 16px; }
-.block {
-  background: var(--raised); border-radius: var(--radius);
-}
-.block-head { padding: 14px 16px 10px; }
-.block-head h2 { font-size: 16px; font-weight: 600; }
-.capacity { padding: 0 16px 12px; border-bottom: 1px solid var(--border); }
-.suggestion, .ended-bar { margin: 10px 12px 0; background: var(--hover); color: var(--label); }
+.suggestion { margin: 10px 12px 0; background: var(--hover); color: var(--label); }
 .list { padding: 6px 6px 0; }
-.block .quick-add { padding: 2px 6px 8px; }
-
-.block .quick-add input:focus { background: var(--field); border-color: transparent; }
 
 /* Filas de tarea */
 .task { border-radius: 8px; }
@@ -648,10 +453,10 @@ body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 .task .minutes { color: var(--label); }
 
 /* Botones tonales (como los campos de Chrome): relleno gris, sin borde */
-.task .row-btn, .task .plan-btn, .task .ended button, .ended-all, .bulk-btn, .ghost {
+.task .plan-btn, .task .ended button, .ghost {
   border: 0; border-radius: 8px; background: var(--field); color: var(--text); font-weight: 500;
 }
-.task .row-btn:hover, .task .plan-btn:hover, .task .ended button:hover, .ended-all:hover, .bulk-btn:hover, .ghost:hover {
+.task .plan-btn:hover, .task .ended button:hover, .ghost:hover {
   background: color-mix(in srgb, var(--field) 70%, var(--white)); color: var(--text); transform: none;
 }
 .task .actions { background: var(--surface); border-radius: 8px; }
@@ -672,26 +477,7 @@ body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 .quick-add input:focus, .edit-input:focus, .settings input:focus, .settings select:focus, .epic-target input:focus {
   outline: 2px solid var(--accent); outline-offset: 0;
 }
-.block .quick-add input { background: transparent; }
-.block .quick-add input:hover { background: var(--hover); }
-.block .quick-add input:focus { background: var(--field); }
 .settings label, .epic-target { color: var(--label); }
-
-/* Chips */
-.chip { background: var(--field); color: var(--text); font-weight: 500; }
-.chip:hover { background: color-mix(in srgb, var(--field) 70%, var(--white)); }
-.chip.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-
-/* Tarjetas secundarias con el mismo estilo */
-.overdue {
-  background: var(--raised); border-radius: var(--radius);
-  margin: 12px 16px 0; 
-}
-.overdue-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
-.overdue-head h2 { font-size: 16px; font-weight: 600; }
-.overdue .list { padding: 6px 6px 8px; }
-.backlog details { background: var(--raised); border-radius: var(--radius); padding: 12px 16px; }
-.backlog summary { font-weight: 600; }
 .epic { background: var(--raised); border-radius: var(--radius); border-left: 4px solid var(--epic); }
 .epic-name { font-size: 16px; font-weight: 600; }
 .epic h4 { font-weight: 600; color: var(--label); }
@@ -699,7 +485,7 @@ body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 .settings legend, .shortcuts h2, .backup h2, .help h2 { font-weight: 600; }
 
 /* Capas flotantes */
-.menu, .autocomplete { background: var(--surface); border-radius: 8px; }
+.autocomplete { background: var(--surface); border-radius: 8px; }
 .modal { background: var(--raised); border-radius: var(--radius); }
 .modal-head { padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
 .modal-head h2 { font-size: 16px; font-weight: 600; }
@@ -800,9 +586,6 @@ kbd { background: var(--field); }
 .md-input::placeholder { color: var(--muted); }
 .md-input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
 
-.md-actions { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
-.md-hint { flex: 1; font-size: 11px; color: var(--muted); }
-
 /* Contenido Markdown renderizado (vista lectura) */
 .md { overflow-wrap: anywhere; }
 
@@ -874,11 +657,6 @@ kbd { background: var(--field); }
 .task .doc-mark { font-size: 12px; color: var(--muted); }
 
 /* ======================= Reuniones ======================= */
-
-/* Barra del bloque: tiempo ocupado por reuniones que bloquean */
-.bar-meeting {
-  background: repeating-linear-gradient(135deg, var(--pastel) 0 3px, color-mix(in srgb, var(--pastel) 45%, var(--raised)) 3px 6px);
-}
 
 /* Fila de reunión: horario fijo destacado */
 .task.meeting { cursor: pointer; }
@@ -996,21 +774,13 @@ kbd { background: var(--field); }
 
 /* Chips y botones más compactos */
 .task .timer-btn, .task .meeting-time { padding: 0 7px; line-height: 18px; }
-.task .row-btn, .task .plan-btn, .task .ended button {
+.task .plan-btn, .task .ended button {
   min-width: 24px; padding: 0 7px; font-size: 11px; line-height: 20px; border-radius: 6px;
 }
 
 /* Cada sección mide su propio ancho (para las reglas @container de abajo) */
-.block, .backlog details, .overdue, .epic { container-type: inline-size; }
-
-/* Encabezado del bloque: si no cabe, el horario baja a una segunda línea */
-.block-head { flex-wrap: wrap; row-gap: 2px; }
-.block-head h2 { white-space: nowrap; }
-.range { white-space: nowrap; }
+.epic { container-type: inline-size; }
 @container (max-width: 380px) {
-  .block-head .range { order: 9; flex-basis: 100%; margin: 0; font-size: 11px; }
-  .ended-bar > span { display: none; }           /* "Bloque terminado" ya lo dice el encabezado */
-  .ended-bar { justify-content: flex-end; }
   .suggestion { font-size: 11px; }
 }
 
@@ -1044,7 +814,6 @@ kbd { background: var(--field); }
   font-size: 12px; line-height: 1.4; color: var(--label);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.doc-card-excerpt.none { color: var(--muted); font-style: italic; }
 .doc-card-headings { list-style: none; padding: 0; font-size: 12px; color: var(--label); }
 .doc-card-headings li {
   padding-left: calc(var(--lvl, 0) * 10px + 12px); position: relative;
@@ -1055,29 +824,6 @@ kbd { background: var(--field); }
 .doc-card-foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .doc-card-meta { font-size: 11px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .doc-card-detail { margin-left: auto; flex: none; font-size: 11px; }
-
-/* ======================= Cierre del día ======================= */
-.day-close {
-  margin: 12px 16px 0; padding: 12px 14px;
-  background: var(--raised); border-radius: var(--radius);
-  border-left: 3px solid var(--accent);
-  display: flex; flex-direction: column; gap: 6px;
-}
-.day-close h2 { margin: 0; font-size: 15px; font-weight: 600; }
-.day-close p { margin: 0; }
-.close-stat { font-size: 13px; color: var(--label); }
-.close-done { color: var(--accent-text); font-weight: 600; }
-.close-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; }
-.close-actions { display: inline-flex; gap: 6px; margin-left: auto; }
-.close-btn {
-  border: 0; border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 500;
-  background: var(--field); color: var(--text); white-space: nowrap;
-}
-.close-btn:hover { background: color-mix(in srgb, var(--field) 70%, var(--white)); }
-.close-btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-.close-btn.primary:hover { background: var(--accent-hover); }
-.close-clear { font-size: 13px; color: var(--label); }
-.close-learn { font-size: 12px; color: var(--muted); }
 
 .settings .calibrate { display: flex; flex-direction: column; gap: 2px; }
 .settings-note { margin: 0 0 0 24px; font-size: 11px; color: var(--muted); }
@@ -1125,7 +871,6 @@ kbd { background: var(--field); }
 .block-remove:disabled { opacity: 0.3; cursor: not-allowed; }
 .blocks-editor #add-block { align-self: flex-start; padding: 4px 0; }
 .blocks-editor #add-block:disabled { color: var(--muted); cursor: not-allowed; }
-.overdue-head .bulk-actions { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .task .plan { flex-wrap: wrap; }
 /* En el panel angosto: horas debajo del título */
 @container (max-width: 460px) {
@@ -1317,3 +1062,22 @@ kbd { background: var(--field); }
 .pick-btn.bad .pick-pct { color: var(--over); }
 .pick-btn.warn .pick-pct { color: var(--warn); }
 .pick-empty { margin: 8px 0; padding: 18px 12px; text-align: center; font-size: 12px; color: var(--muted); border-radius: 10px; background: var(--bg); }
+.pick-section { margin: 4px 0 -2px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Botón luna / sol: tema oscuro ↔ claro (arriba a la derecha) ---------- */
+.theme-toggle {
+  position: absolute; top: 12px; right: 16px; z-index: 12;
+  display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 0; border-radius: 50%; background: var(--field); color: var(--text);
+  transition: background 0.15s ease, transform 0.2s ease;
+}
+.theme-toggle:hover { background: var(--hover); transform: rotate(-15deg) scale(1.06); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle[data-mode="light"] svg { fill: currentColor; stroke-width: 1.4; } /* luna rellena */
+/* Que nada quede debajo del botón */
+.done-top, .epics-top, .docs-top { padding-right: 60px; }
+.view-title { margin: 0 52px -2px 0; font-size: 18px; font-weight: 600; line-height: 32px; }
+/* Página de documentación: no se desplaza, el botón queda fijo arriba a la derecha */
+.doc-page .theme-toggle { position: fixed; top: 16px; right: 20px; }
+.doc-page .doc-header { padding-right: 48px; }

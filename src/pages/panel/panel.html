@@ -9,40 +9,8 @@
   <script src="../../utils/theme-boot.js"></script>
 </head>
 <body>
-  <!-- ===== Vista del día ===== -->
-  <div id="view-day">
-    <header class="topbar">
-      <button class="nav" id="prev-day" title="Día anterior" aria-label="Día anterior">‹</button>
-      <div class="day">
-        <h1 id="day-label"></h1>
-        <button class="today-link" id="go-today" hidden>Volver a hoy</button>
-      </div>
-      <button class="nav" id="next-day" title="Día siguiente" aria-label="Día siguiente">›</button>
-    </header>
-
-    <div class="filters" id="filters" hidden></div>
-
-    <section class="overdue" id="overdue" hidden>
-      <header class="overdue-head">
-        <h2>« Pendientes anteriores <span class="count"></span></h2>
-        <span class="bulk-actions"></span>
-      </header>
-      <ul class="list" aria-label="Pendientes de días anteriores"></ul>
-    </section>
-
-    <section class="day-close" id="day-close" hidden aria-label="Cierre del día"></section>
-
-    <main class="board" id="board" aria-label="Bloques del día"></main>
-
-    <section class="backlog" id="backlog" hidden>
-      <details id="backlog-details">
-        <summary>⤓ Backlog <span class="count"></span></summary>
-        <p class="backlog-hint">Tareas sin fecha. Arrástralas a un bloque del día, o usa sus botones →.</p>
-        <ul class="list" data-list="backlog" aria-label="Backlog"></ul>
-      </details>
-    </section>
-
-  </div>
+  <!-- Cambiar tema claro / oscuro (arriba a la derecha) -->
+  <button type="button" class="theme-toggle" id="theme-toggle"></button>
 
   <!-- ===== Vista de épicas ===== -->
   <div id="view-epics" hidden>
@@ -94,6 +62,7 @@
 
   <!-- ===== Ajustes ===== -->
   <div id="view-settings" hidden>
+    <h1 class="view-title">Ajustes</h1>
     <form id="settings-form" class="settings" novalidate>
       <fieldset class="blocks-editor">
         <legend>Bloques del día</legend>
@@ -176,13 +145,15 @@
       <p>Escribe el título y, al final, lo que quieras (todo es opcional):</p>
       <ul>
         <li><code>15m</code> <code>1h</code> <code>1h30</code> duración</li>
-        <li><code>tarde</code> <code>gym</code> el nombre del bloque (o <code>@gym</code>, <code>am</code> / <code>pm</code>)</li>
+        <li><code>am</code> / <code>pm</code> <code>tarde</code> <code>gym</code> el bloque (o <code>@gym</code>)</li>
+        <li><code>hoy</code> <code>mañana</code> <code>viernes</code> el día ("mañana" es el día siguiente)</li>
+        <li><code>Reunión … 1pm 1h</code> una reunión con su hora</li>
         <li><code>bl</code> dejarla en el backlog</li>
         <li><code>?</code> no estoy seguro · <code>!</code> muy seguro</li>
         <li><code>#épica</code> agrupar en una épica</li>
         <li><code>cada día</code> <code>hábiles</code> <code>cada lun,jue</code> se repite</li>
       </ul>
-      <p>Arrastra una tarea <strong>sobre</strong> otra para que vaya después · doble clic para editar · ◆ otras dependen de ella · ⧖ bloqueada</p>
+      <p>Arrastra una tarea para moverla de bloque · doble clic para editar · ◆ otras dependen de ella · ⧖ bloqueada</p>
     </section>
   </div>
 
@@ -193,10 +164,6 @@
     <button class="tab" role="tab" data-tab="minimal">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.75" cy="6.5" r="1"/><circle cx="4.75" cy="12" r="1"/><circle cx="4.75" cy="17.5" r="1"/></svg>
       <span>Hoy</span>
-    </button>
-    <button class="tab" role="tab" data-tab="day">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
-      <span>Plan</span>
     </button>
     <button class="tab" role="tab" data-tab="epics">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 7.5v9M12 7.5v5M16 7.5v7"/></svg>
@@ -216,25 +183,6 @@
     </button>
   </nav>
 
-  <template id="block-template">
-    <section class="block">
-      <header class="block-head">
-        <h2><span class="block-icon"></span> <span class="block-title"></span></h2>
-        <span class="range"></span>
-        <span class="now-badge" hidden>ahora</span>
-        <span class="forecast" aria-live="polite"></span>
-        <span class="capacity-label"></span>
-      </header>
-      <div class="capacity"><div class="bar"><div class="bar-done"></div><div class="bar-meeting"></div><div class="bar-pending"></div></div></div>
-      <div class="ended-bar" hidden></div>
-      <div class="suggestion" hidden></div>
-      <ul class="list"></ul>
-      <form class="quick-add" autocomplete="off">
-        <input type="text" placeholder="+ Nueva tarea" title="Ej: Informe 2h · Llamar a Juan 15m tarde · Revisar PR 1h ? · Logo #web">
-      </form>
-    </section>
-  </template>
-
   <template id="task-template">
     <li class="task">
       <input type="checkbox" class="check" aria-label="Marcar como hecha">
@@ -250,14 +198,9 @@
             <span class="locked" hidden>⧖</span>
             <span class="comment-count" hidden></span>
             <span class="doc-mark" hidden>▤</span>
-              <span class="repeat-mark" title="Se repite" hidden>↻</span>
+            <span class="repeat-mark" title="Se repite" hidden>↻</span>
           </span>
           <span class="foot-actions">
-            <button class="link row-btn" title="Va después de… (agregar dependencia)" aria-label="Elegir de qué tareas depende">↳</button>
-            <span class="ended" hidden>
-              <button class="next-btn"></button>
-              <button class="backlog-btn" title="Enviar al backlog" aria-label="Enviar al backlog">⤓</button>
-            </span>
             <span class="plan" hidden></span>
           </span>
         </div>

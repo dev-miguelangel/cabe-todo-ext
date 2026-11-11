@@ -1,15 +1,18 @@
 // Vista "Hoy" (mínima): la lista de tareas de hoy, sin tablero. Cada bloque empieza con una línea
 // horizontal y a la derecha su pronóstico, nombre y horario: ───────── 85% | Mañana | 08:00 - 13:00
 // Clic en el porcentaje: tooltip con el detalle del pronóstico y, si el bloque va mal, la misma
-// sugerencia de Plan ("✦ Si mueves…") con su botón Mover. Un ✦ junto al % avisa que hay sugerencia.
+// sugerencia ("✦ Si mueves…") con su botón Mover. Un ✦ junto al % avisa que hay sugerencia.
 // Arriba, un quick-add con la misma sintaxis de siempre; va al bloque en curso o al que se nombre.
 // Las tareas se arrastran para reordenarlas o pasarlas a otro bloque (las reuniones tienen hora fija).
 
-import { state, blockTasks, backlogTasks, updateTask, toggleTimer, findTask, addFromText, activeEpics, planTask, applyOrder } from '../services/store.js';
-import { computeSuggestion, renderSuggestion } from './day-view.js';
+import {
+  state, blockTasks, backlogTasks, overdueTasks, updateTask, toggleTimer, findTask, findEpic, addFromText, editFromText,
+  activeEpics, planTask, applyOrder,
+} from '../services/store.js';
+import { computeSuggestion, renderSuggestion } from '../components/suggestion.js';
 import { h, attachEpicAutocomplete, showToast } from '../utils/ui.js';
 import { todayISO, dayLabel, nowMinutes, toMinutes } from '../utils/dates.js';
-import { formatMinutes } from '../core/parser.js';
+import { formatMinutes, toQuickAddText } from '../core/parser.js';
 import { scheduleBlock, criticalIds, isNowInBlock, currentBlock } from '../core/pert.js';
 import { blocksOf, blockById } from '../core/blocks.js';
 import { renderCard } from '../components/cards.js';
@@ -122,6 +125,7 @@ export function renderMinimal() {
   const today = todayISO();
   document.getElementById('minimal-day').textContent = dayLabel(today);
   const ctx = {
+    allTasks: state.tasks,
     byId: new Map(state.tasks.map((t) => [t.id, t])),
     epicsById: new Map(state.epics.map((e) => [e.id, e])),
     critical: criticalIds(state.tasks),
@@ -138,9 +142,10 @@ export function renderMinimal() {
     total += items.length;
     pending += items.filter((i) => !i.task.done).length;
     const now = isNowInBlock(block);
-    const cards = items.map((item) => renderCard(item.task, { ctx, link: false, draggable: true }));
+    const blockEnded = sched.remaining <= 0;
+    const cards = items.map((item) => renderCard(item.task, { ctx, item, blockEnded, draggable: true }));
     if (now) cards.find((li) => !li.classList.contains('done'))?.classList.add('current');
-    // Misma sugerencia que en Plan (si el bloque terminó no hay nada que reacomodar)
+    // Sugerencia para mejorar el bloque (si ya terminó no hay nada que reacomodar)
     const sug = sched.remaining > 0 ? computeSuggestion(block.id, ctx, today) : null;
     return [blockDivider(block, now, sched, nowMin, sug), ...(cards.length ? cards : [h('li', { class: 'minimal-empty' }, 'Sin tareas')])];
   });
@@ -153,24 +158,55 @@ export function renderMinimal() {
   const target = blockById(state.settings, currentBlock(state.settings));
   document.querySelector('#minimal-add input').placeholder = `+ Nueva tarea en ${target.title}`;
 
-  // Cuántas tareas esperan en el backlog (en el botón que las trae a hoy)
-  const inBacklog = backlogTasks().filter((t) => !t.done).length;
+  // Cuántas tareas esperan en el backlog o quedaron de días anteriores (en el botón que las trae a hoy)
+  const inBacklog = backlogTasks().filter((t) => !t.done).length + overdueTasks(today).length;
   const badge = document.getElementById('backlog-count');
   badge.hidden = !inBacklog;
   badge.textContent = inBacklog > 99 ? '99+' : String(inBacklog);
   document.getElementById('backlog-picker-btn').title = inBacklog
-    ? `Backlog: ${inBacklog} tarea${inBacklog === 1 ? '' : 's'} para pasar a hoy`
-    : 'Backlog vacío';
+    ? `${inBacklog} tarea${inBacklog === 1 ? '' : 's'} pendiente${inBacklog === 1 ? '' : 's'} para pasar a hoy (backlog y días anteriores)`
+    : 'Nada pendiente fuera de hoy';
 }
 
 // ---------- Drag & drop: reordenar y mover entre bloques ----------
 
 let dragId = null;
 let dropped = false;
+let clickTimer = null;
 
-/** ¿Hay un arrastre en curso? (el panel no re-renderiza mientras tanto) */
+/** ¿Hay un arrastre o una edición en curso? (el panel no re-renderiza mientras tanto) */
 export function isMinimalBusy() {
-  return Boolean(dragId);
+  return Boolean(dragId || document.querySelector('#minimal-list .edit-input'));
+}
+
+// ---------- Edición en línea (doble clic): mismo formato del quick-add ----------
+
+function startEdit(li) {
+  const task = findTask(li.dataset.id);
+  if (!task || li.querySelector('.edit-input')) return;
+  const titleEl = li.querySelector('.title');
+  const input = h('input', { class: 'edit-input', 'aria-label': 'Editar tarea' });
+  // Se puede cambiar título, duración, certeza, bloque, día o épica escribiendo
+  input.value = toQuickAddText(task, findEpic(task.epic_id));
+  titleEl.replaceWith(input);
+  li.draggable = false;
+  attachEpicAutocomplete(input, activeEpics);
+  input.focus();
+  input.select();
+
+  let finished = false;
+  const finish = (save) => {
+    if (finished) return;
+    finished = true;
+    const value = input.value;
+    input.replaceWith(titleEl);
+    if (!save || !editFromText(task.id, value)) renderMinimal();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finish(true);
+    if (e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
 }
 
 /** Guarda el orden de la lista tal como quedó: cada tarea pertenece al bloque del separador anterior. */
@@ -238,7 +274,7 @@ export function setupMinimal() {
   attachEpicAutocomplete(input, activeEpics);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    // Hoy, en el bloque en curso; "… tarde", "@gym", "am"/"pm" lo cambian (igual que en Plan)
+    // Hoy, en el bloque en curso; "… tarde", "@gym", "am"/"pm", "mañana" o "viernes" lo cambian
     const task = addFromText(input.value, { date: todayISO(), block: currentBlock(state.settings) });
     if (task) input.value = '';
   });
@@ -295,6 +331,15 @@ export function setupMinimal() {
       else toggleTimer(id);
       return;
     }
-    if (!e.target.closest('button, input, textarea')) showTaskModal(id);
+    if (!e.target.closest('button, input, textarea')) {
+      // Clic = detalle (espera un instante: si es doble clic, se edita en línea)
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(() => showTaskModal(id), 220);
+    }
+  });
+  list.addEventListener('dblclick', (e) => {
+    clearTimeout(clickTimer);
+    const li = e.target.closest('.task');
+    if (li && !e.target.closest('button, input')) startEdit(li);
   });
 }
