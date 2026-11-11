@@ -28,7 +28,7 @@ export function applyTheme(theme) {
   const root = document.documentElement;
   if (t === 'chrome') delete root.dataset.theme;
   else root.dataset.theme = t;
-  try { localStorage.setItem('pertday:theme', t); } catch { /* ignorar */ }
+  try { localStorage.setItem('cabetodo:theme', t); } catch { /* ignorar */ }
 }
 
 // ---------- Aviso temporal ----------

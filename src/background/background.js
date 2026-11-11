@@ -19,7 +19,7 @@ const MAX_DELAY_MS = 60 * 60 * 1000;
 function setupPanel() {
   chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: true })
-    .catch((err) => console.error('Pert-day: no se pudo configurar el side panel', err));
+    .catch((err) => console.error('Cabe Todo: no se pudo configurar el side panel', err));
 }
 
 /** Próxima vez (timestamp) que el reloj marca hh:mm. */
@@ -60,7 +60,7 @@ async function notifyBlockEnd(block) {
     title = `Terminaste todo lo de la ${name}`;
     message = `${own.length} tarea${own.length > 1 ? 's' : ''} hecha${own.length > 1 ? 's' : ''}.`;
   }
-  chrome.notifications.create(`pertday-${today}-${block}`, {
+  chrome.notifications.create(`cabetodo-${today}-${block}`, {
     type: 'basic',
     iconUrl: ICON_URL,
     title,
@@ -88,7 +88,7 @@ async function scheduleTimerAlarm() {
 async function playAlarmSound() {
   try {
     if (await chrome.offscreen.hasDocument()) {
-      chrome.runtime.sendMessage({ type: 'pertday-casio' });
+      chrome.runtime.sendMessage({ type: 'cabetodo-casio' });
     } else {
       // offscreen.js suena apenas carga
       await chrome.offscreen.createDocument({
@@ -99,7 +99,7 @@ async function playAlarmSound() {
     }
     setTimeout(() => chrome.offscreen.closeDocument().catch(() => {}), 4000);
   } catch (err) {
-    console.error('Pert-day: no se pudo reproducir el sonido', err);
+    console.error('Cabe Todo: no se pudo reproducir el sonido', err);
   }
 }
 
@@ -110,7 +110,7 @@ async function onTimerZero(alarm) {
   await scheduleTimerAlarm(); // la siguiente que llegue a cero (si hay dos corriendo)
   if (!task || Date.now() - alarm.scheduledTime > MAX_DELAY_MS) return;
   if (settings.timer_sound !== false) playAlarmSound();
-  chrome.notifications.create(`pertday-timer-${task.id}`, {
+  chrome.notifications.create(`cabetodo-timer-${task.id}`, {
     type: 'basic',
     iconUrl: ICON_URL,
     title: 'Tiempo cumplido',
@@ -121,7 +121,7 @@ async function onTimerZero(alarm) {
 }
 
 // ---------- Rutinas: crear las tareas del día aunque el panel no se abra ----------
-// (así una reunión diaria avisa y muestra su botón flotante sin abrir Pert-day)
+// (así una reunión diaria avisa y muestra su botón flotante sin abrir Cabe Todo)
 
 const ROUTINES_ALARM = 'routines-daily';
 
@@ -328,7 +328,7 @@ async function onMeetingEnd() {
   });
   await chrome.storage.local.set({ tasks: next, meta: { writer: 'background', at: Date.now() } });
   for (const meeting of ending) {
-    chrome.notifications.create(`pertday-meeting-end-${meeting.id}`, {
+    chrome.notifications.create(`cabetodo-meeting-end-${meeting.id}`, {
       type: 'basic',
       iconUrl: ICON_URL,
       title: `Terminó la reunión: ${meeting.title}`,
@@ -347,7 +347,7 @@ async function onMeetingStart() {
     && meetingAt(t, 'start') <= now + 1000 && now - meetingAt(t, 'start') < MEETING_GRACE_MS);
   for (const meeting of starting) {
     const started = enforced?.meeting.id === meeting.id && enforced.startedNow;
-    chrome.notifications.create(`pertday-meeting-${meeting.id}`, {
+    chrome.notifications.create(`cabetodo-meeting-${meeting.id}`, {
       type: 'basic',
       iconUrl: ICON_URL,
       title: `Empezó la reunión: ${meeting.title}`,
@@ -388,14 +388,14 @@ async function finishMeetingFromFloat(taskId) {
 }
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg?.type === 'pertday-open-panel') {
+  if (msg?.type === 'cabetodo-open-panel') {
     // Debe llamarse de inmediato (sin await antes) para que Chrome lo cuente como gesto del usuario
     const windowId = sender.tab?.windowId;
     if (windowId !== undefined) chrome.sidePanel.open({ windowId }).catch(() => {});
   }
-  if (msg?.type === 'pertday-pause-timer') pauseRunningTimer();
-  if (msg?.type === 'pertday-start-timer' && msg.taskId) startTimerFor(msg.taskId);
-  if (msg?.type === 'pertday-finish-meeting' && msg.taskId) finishMeetingFromFloat(msg.taskId);
+  if (msg?.type === 'cabetodo-pause-timer') pauseRunningTimer();
+  if (msg?.type === 'cabetodo-start-timer' && msg.taskId) startTimerFor(msg.taskId);
+  if (msg?.type === 'cabetodo-finish-meeting' && msg.taskId) finishMeetingFromFloat(msg.taskId);
 });
 
 // Clic en el aviso: intentar abrir el panel en la ventana activa.

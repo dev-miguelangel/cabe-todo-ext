@@ -1,4 +1,10 @@
-# Pert-day
+<img src="assets/icons/icon128.png" alt="" width="64" align="left">
+
+# Cabe Todo
+
+**¿Te cabe todo en el día?** Planifica tus tareas en mañana y tarde, y sabe si te alcanza el tiempo.
+
+<br clear="left">
 
 Extensión de Chrome (Manifest V3) para planificar **un solo día** en dos bloques: **mañana (AM)** y **tarde (PM)**.
 
@@ -42,10 +48,10 @@ No hay *build*: el código se carga tal cual.
 
 1. Clona el repositorio:
    ```bash
-   git clone <url-del-repositorio> pert-day
+   git clone <url-del-repositorio> cabe-todo
    ```
 2. Abre `chrome://extensions` y activa el **Modo de desarrollador**.
-3. Pulsa **Cargar descomprimida** y elige la carpeta `pert-day/` (la que contiene `manifest.json`).
+3. Pulsa **Cargar descomprimida** y elige la carpeta del proyecto (la que contiene `manifest.json`).
 4. Abre el panel con el icono de la extensión o con <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>.
 
 Requiere Chrome 116 o superior (Side Panel API y documentos *offscreen*).
@@ -67,7 +73,7 @@ Atajos dentro del panel: <kbd>N</kbd> crea una tarea nueva en el bloque actual.
 ## Estructura del proyecto
 
 ```
-pert-day/
+cabe-todo/
 ├── manifest.json              # Definición de la extensión (único archivo requerido en la raíz)
 ├── README.md
 ├── assets/
@@ -121,7 +127,7 @@ pages → views → components → services → core · utils
 ## Desarrollo
 
 1. Edita los archivos en `src/`.
-2. En `chrome://extensions`, pulsa **↻ Recargar** en Pert-day. Si cambiaste el service worker o el manifiesto, cierra y vuelve a abrir el panel.
+2. En `chrome://extensions`, pulsa **↻ Recargar** en Cabe Todo. Si cambiaste el service worker o el manifiesto, cierra y vuelve a abrir el panel.
 3. Para iterar en la UI sin recargar la extensión, sirve el proyecto y abre la página directamente:
    ```bash
    python3 -m http.server 8000
@@ -156,4 +162,4 @@ Cada grupo imprime `OK: …`. Si falla una aserción, el proceso termina con có
 
 ## Privacidad
 
-Pert-day no tiene backend ni cuentas, y no envía datos a ningún servidor. Todo queda en el almacenamiento local de tu navegador. El respaldo JSON se descarga en tu equipo y solo tú decides dónde guardarlo.
+Cabe Todo no tiene backend ni cuentas, y no envía datos a ningún servidor. Todo queda en el almacenamiento local de tu navegador. El respaldo JSON se descarga en tu equipo y solo tú decides dónde guardarlo.

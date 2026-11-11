@@ -16,7 +16,7 @@ import { toQuickAddText } from '../core/parser.js';
 
 const BLOCKS = ['am', 'pm'];
 const BLOCK_ICON = { am: '☀︎', pm: '☾' };
-const BACKLOG_OPEN_KEY = 'pertday:backlogOpen';
+const BACKLOG_OPEN_KEY = 'cabetodo:backlogOpen';
 
 /** "Ahora" en minutos para el día que se está viendo: null si es futuro, fin del día si es pasado. */
 function nowMinutesFor(iso) {

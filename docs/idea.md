@@ -1,7 +1,7 @@
-# Plan de Desarrollo: Pert-day (Chrome Extension)
+# Plan de Desarrollo: Cabe Todo (Chrome Extension)
 
 ## 🎯 Objetivo
-**Pert-day** es una extensión de Chrome (Manifest V3) para planificar **un solo día**, dividido en dos bloques: **AM (mañana)** y **PM (tarde)**.
+**Cabe Todo** es una extensión de Chrome (Manifest V3) para planificar **un solo día**, dividido en dos bloques: **AM (mañana)** y **PM (tarde)**.
 
 Por fuera se ve como un tablero tipo Trello de dos columnas. Por dentro usa PERT para responder la pregunta que de verdad importa:
 
@@ -18,7 +18,7 @@ Por fuera se ve como un tablero tipo Trello de dos columnas. Por dentro usa PERT
 
 PERT clásico supone tareas en **paralelo** con varios recursos. Una persona hace **una cosa a la vez**, así que:
 
-| Concepto PERT | En Pert-day significa |
+| Concepto PERT | En Cabe Todo significa |
 |---|---|
 | Dependencias | Solo definen el **orden** dentro del bloque (orden topológico) |
 | Duración del proyecto | Suma de los TE del bloque (las tareas son secuenciales) |
@@ -119,7 +119,7 @@ Cada épica tiene una lista de tareas **sin fecha**: cosas que hay que hacer "al
 ## 🖥️ Interfaz
 
 ```
-┌──────────────── Pert-day · Martes 10 nov ────────────────┐
+┌──────────────── Cabe Todo · Martes 10 nov ────────────────┐
 │  ☀️ MAÑANA 08:00–13:00          🌙 TARDE 14:00–19:00       │
 │  [+ Escribe una tarea…    ]     [+ Escribe una tarea…    ] │
 │  ████████████░░  4h10 / 5h      ██████████████▓▓ 5h40 / 5h │

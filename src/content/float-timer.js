@@ -8,8 +8,8 @@
 // Es un script clásico (los content scripts no pueden ser módulos), por eso repite unas pocas
 // funciones de timer.js. Solo lee chrome.storage de la extensión; no lee nada de la página.
 (() => {
-  if (window.__pertdayFloatTimer) return;
-  window.__pertdayFloatTimer = true;
+  if (window.__cabetodoFloatTimer) return;
+  window.__cabetodoFloatTimer = true;
   if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
 
   const TIMER_MIN_KEY = 'float_timer_min';          // botón del temporizador minimizado (todas las pestañas)
@@ -128,7 +128,7 @@
 
   function mountHost() {
     if (host) return;
-    host = document.createElement('pertday-timer');
+    host = document.createElement('cabetodo-timer');
     const shadow = host.attachShadow({ mode: 'closed' });
     const style = document.createElement('style');
     style.textContent = CSS;
@@ -150,7 +150,7 @@
   /** Crea un botón flotante. kind: 'timer' | 'meeting'. */
   function createWidget(kind) {
     const wrap = el('div', `wrap${kind === 'meeting' ? ' meeting' : ''}`, { role: 'timer', 'aria-live': 'off' });
-    const main = el('button', 'main', { type: 'button', title: 'Abrir Pert-day' });
+    const main = el('button', 'main', { type: 'button', title: 'Abrir Cabe Todo' });
     const dot = el('span', 'dot', { 'aria-hidden': 'true' });
     const label = el('span', 'label');
     const time = el('span', 'time');
@@ -158,20 +158,20 @@
     main.append(dot, label, time, title);
     const w = { kind, wrap, main, label, time, title };
 
-    main.addEventListener('click', () => send({ type: 'pertday-open-panel' }));
+    main.addEventListener('click', () => send({ type: 'cabetodo-open-panel' }));
     wrap.append(main);
 
     if (kind === 'timer') {
       w.pause = el('button', 'icon pause', { type: 'button', title: 'Pausar', 'aria-label': 'Pausar temporizador' });
-      w.pause.addEventListener('click', () => send({ type: 'pertday-pause-timer' }));
+      w.pause.addEventListener('click', () => send({ type: 'cabetodo-pause-timer' }));
       // Las reuniones no se pausan: en su lugar, ■ Finalizar
       w.stop = el('button', 'icon stop', { type: 'button', title: 'Finalizar reunión', 'aria-label': 'Finalizar reunión' });
-      w.stop.addEventListener('click', () => w.taskId && send({ type: 'pertday-finish-meeting', taskId: w.taskId }));
+      w.stop.addEventListener('click', () => w.taskId && send({ type: 'cabetodo-finish-meeting', taskId: w.taskId }));
       wrap.append(w.pause, w.stop);
     } else {
       // Reunión ya empezada sin temporizador (p. ej. paralela): permitir iniciarlo
       w.play = el('button', 'icon play', { type: 'button', title: 'Iniciar temporizador de la reunión', 'aria-label': 'Iniciar temporizador de la reunión' });
-      w.play.addEventListener('click', () => w.taskId && send({ type: 'pertday-start-timer', taskId: w.taskId }));
+      w.play.addEventListener('click', () => w.taskId && send({ type: 'cabetodo-start-timer', taskId: w.taskId }));
       wrap.append(w.play);
     }
 
@@ -237,7 +237,7 @@
     w.title.textContent = t.title;
     const text = over ? `${t.title}: tiempo cumplido, ${clock(-left)} extra` : `${t.title}: quedan ${ceilClock(left)}`;
     w.wrap.setAttribute('aria-label', text);
-    w.main.title = `${t.title} · ${over ? 'tiempo cumplido' : 'cuenta atrás'} · clic para abrir Pert-day`;
+    w.main.title = `${t.title} · ${over ? 'tiempo cumplido' : 'cuenta atrás'} · clic para abrir Cabe Todo`;
     w.close.title = 'Minimizar';
     w.close.setAttribute('aria-label', 'Minimizar temporizador');
     w.expand.title = `${text} · clic para mostrar`;
@@ -259,7 +259,7 @@
       ? `La reunión "${m.task.title}" empezó (${range})`
       : `La reunión "${m.task.title}" empieza en ${ceilClock(m.start - now)} (${range})`;
     w.wrap.setAttribute('aria-label', text);
-    w.main.title = `${text} · clic para abrir Pert-day`;
+    w.main.title = `${text} · clic para abrir Cabe Todo`;
     w.close.title = started ? 'Cerrar' : 'Minimizar';
     w.close.setAttribute('aria-label', started ? 'Cerrar aviso de reunión' : 'Minimizar aviso de reunión');
     w.expand.title = `${text} · clic para mostrar`;

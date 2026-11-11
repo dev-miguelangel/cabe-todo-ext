@@ -5,5 +5,5 @@ import { playCasio } from '../../services/casio.js';
 playCasio();
 
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg?.type === 'pertday-casio') playCasio();
+  if (msg?.type === 'cabetodo-casio') playCasio();
 });

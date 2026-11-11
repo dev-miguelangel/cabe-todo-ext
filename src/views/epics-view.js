@@ -12,7 +12,7 @@ import { h } from '../utils/ui.js';
 import { renderCard } from '../components/cards.js';
 import { showTaskModal } from '../components/task-modal.js';
 
-const OPEN_PLANNED_KEY = 'pertday:openPlanned';
+const OPEN_PLANNED_KEY = 'cabetodo:openPlanned';
 let openPlanned = new Set();
 try {
   openPlanned = new Set(JSON.parse(localStorage.getItem(OPEN_PLANNED_KEY) || '[]'));

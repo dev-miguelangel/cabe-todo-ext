@@ -1,26 +1,31 @@
-"""Genera assets/icons/icon{16,32,48,128}.png: círculo mitad sol (mañana) / mitad noche (tarde).
+"""Genera assets/icons/icon{16,32,48,128}.png: círculo verde, círculo blanco interior y un check verde.
 Sin dependencias: escribe PNG con zlib. Uso: python3 scripts/make_icons.py"""
 import struct, zlib, math, os
 
-SUN = (29, 185, 84)      # mañana: Mountain Meadow #1db954
-NIGHT = (32, 33, 36)     # tarde: gris oscuro de Chrome #202124
-LINE = (177, 242, 177)   # Madang #b1f2b1
+GREEN = (29, 185, 84)    # verde de la app #1db954
+WHITE = (255, 255, 255)
+
+def seg_dist(px, py, ax, ay, bx, by):
+    """Distancia del punto al segmento AB."""
+    dx, dy = bx - ax, by - ay
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+    return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+
+# Check en coordenadas normalizadas [-1, 1], trazo con puntas redondeadas
+CHECK = [(-0.36, 0.02), (-0.1, 0.28), (0.38, -0.22)]
 
 def pixel(x, y, size):
-    # coordenadas normalizadas en [-1, 1]
     u = (x / size) * 2 - 1
     v = (y / size) * 2 - 1
     r = math.hypot(u, v)
-    if r > 0.92:
+    if r > 0.96:
         return None
-    if abs(u) < 0.06:            # línea divisoria AM | PM
-        return LINE
-    if u < 0:
-        return SUN
-    # luna creciente sobre la mitad derecha
-    if math.hypot(u - 0.52, v + 0.18) < 0.26 and math.hypot(u - 0.62, v + 0.26) > 0.22:
-        return LINE
-    return NIGHT
+    if r > 0.7:                  # anillo verde exterior
+        return GREEN
+    # trazo más grueso en tamaños chicos para que se lea
+    width = 0.13 if size >= 48 else 0.17
+    d = min(seg_dist(u, v, *CHECK[0], *CHECK[1]), seg_dist(u, v, *CHECK[1], *CHECK[2]))
+    return GREEN if d < width else WHITE
 
 def render(size, ss=4):
     rows = []

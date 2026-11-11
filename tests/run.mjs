@@ -309,7 +309,7 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(notes.length, 2, 'aviso de ambas reuniones');
   assert.ok(notes[0].message.includes('ya está corriendo'));
   // ▶ del botón celeste en la paralela mientras corre la reunión que bloquea → rechazado
-  L.message({ type: 'pertday-start-timer', taskId: 'p' }, {});
+  L.message({ type: 'cabetodo-start-timer', taskId: 'p' }, {});
   await new Promise((r) => setTimeout(r, 20));
   assert.equal(running('p'), false, 'durante una reunión que bloquea no se inicia otra cosa');
   assert.equal(running('m'), true, 'la reunión sigue corriendo');
@@ -403,11 +403,11 @@ console.log('OK: parser + PERT + épicas');
   mem.tasks = structuredClone(S.state.tasks);
   mem.tasks.find((t) => t.id === 'm').done = false;
   mem.tasks.find((t) => t.id === 'm').time_entries.push({ start: new Date().toISOString(), end: null });
-  L.message({ type: 'pertday-pause-timer' }, {});
+  L.message({ type: 'cabetodo-pause-timer' }, {});
   await new Promise((r) => setTimeout(r, 20));
   const runM = (id) => { const e = mem.tasks.find((t) => t.id === id).time_entries; return e.length > 0 && !e.at(-1).end; };
   assert.equal(runM('m'), true, '❚❚ no pausa la reunión'); assert.equal(runM('b'), false, '❚❚ sí pausa la tarea');
-  L.message({ type: 'pertday-finish-meeting', taskId: 'm' }, {});
+  L.message({ type: 'cabetodo-finish-meeting', taskId: 'm' }, {});
   await new Promise((r) => setTimeout(r, 20));
   assert.equal(runM('m'), false); assert.equal(mem.tasks.find((t) => t.id === 'm').done, true, '■ finaliza la reunión');
   console.log('OK: reuniones no se pausan (finalizar / reprogramar, paralela junto a una tarea)');
@@ -484,7 +484,9 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(back.settings.am.start, '08:00', 'ajustes faltantes toman su valor por defecto');
   assert.throws(() => S.parseBackup('no es json'), /JSON válido/);
   assert.throws(() => S.parseBackup('{"tasks":[],"epics":[]}'), /no es un respaldo/);
-  assert.throws(() => S.parseBackup(JSON.stringify({ app: 'pert-day', tasks: [{ id: 1 }], epics: [] })), /dañadas/);
+  assert.throws(() => S.parseBackup(JSON.stringify({ app: 'cabe-todo', tasks: [{ id: 1 }], epics: [] })), /dañadas/);
+  // respaldos de cuando se llamaba Pert-day siguen sirviendo
+  assert.equal(S.parseBackup(JSON.stringify({ app: 'pert-day', tasks: [], epics: [] })).tasks.length, 0);
   console.log('OK: respaldo (exportar / importar)');
 }
 

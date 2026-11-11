@@ -136,11 +136,11 @@ function renderEditor() {
 }
 
 function renderMissing() {
-  document.title = 'Tarea no encontrada · Pert-day';
+  document.title = 'Tarea no encontrada · Cabe Todo';
   document.querySelector('.doc-main').replaceChildren(
     h('div', { class: 'doc-card doc-missing' },
       h('h1', {}, 'No se encontró la tarea'),
-      h('p', {}, 'Puede que se haya borrado. Cierra esta pestaña y vuelve al panel de Pert-day.')),
+      h('p', {}, 'Puede que se haya borrado. Cierra esta pestaña y vuelve al panel de Cabe Todo.')),
   );
 }
 

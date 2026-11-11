@@ -32,7 +32,7 @@ async function getRaw(keys) {
   const out = {};
   for (const k of keys) {
     try {
-      const v = localStorage.getItem(`pertday:${k}`);
+      const v = localStorage.getItem(`cabetodo:${k}`);
       if (v !== null) out[k] = JSON.parse(v);
     } catch {
       /* almacenamiento no disponible: se parte vacío */
@@ -45,7 +45,7 @@ async function setRaw(obj) {
   if (hasChromeStorage) return chrome.storage.local.set(obj);
   for (const [k, v] of Object.entries(obj)) {
     try {
-      localStorage.setItem(`pertday:${k}`, JSON.stringify(v));
+      localStorage.setItem(`cabetodo:${k}`, JSON.stringify(v));
     } catch {
       /* ignorar */
     }
@@ -98,7 +98,9 @@ export function saveSettings(settings) {
 
 // ---------- Respaldo (exportar / importar) ----------
 
-export const BACKUP_APP = 'pert-day';
+export const BACKUP_APP = 'cabe-todo';
+/** Respaldos hechos cuando la app se llamaba Pert-day: se siguen aceptando. */
+const LEGACY_BACKUP_APPS = ['pert-day'];
 
 /** Objeto listo para JSON.stringify con todo lo guardado. */
 export function makeBackup({ tasks, epics, settings, routines = [] }) {
@@ -116,8 +118,8 @@ export function parseBackup(text) {
   } catch {
     throw new Error('El archivo no es un JSON válido.');
   }
-  if (!data || data.app !== BACKUP_APP || !Array.isArray(data.tasks) || !Array.isArray(data.epics)) {
-    throw new Error('El archivo no es un respaldo de Pert-day.');
+  if (!data || ![BACKUP_APP, ...LEGACY_BACKUP_APPS].includes(data.app) || !Array.isArray(data.tasks) || !Array.isArray(data.epics)) {
+    throw new Error('El archivo no es un respaldo de Cabe Todo.');
   }
   const okTask = (t) => t && typeof t.id === 'string' && typeof t.title === 'string' && Number.isFinite(t.minutes);
   const okEpic = (e) => e && typeof e.id === 'string' && typeof e.name === 'string';

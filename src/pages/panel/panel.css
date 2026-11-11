@@ -832,10 +832,10 @@ kbd { background: var(--field); }
 .timer.over .timer-clock { color: var(--madang); }
 .timer.over .timer-sub { color: var(--madang); font-weight: 600; }
 .timer.over .timer-bar-fill { background: var(--madang); }
-.timer.over.running .timer-clock { animation: pertday-pulse 1s ease-in-out infinite; }
+.timer.over.running .timer-clock { animation: cabetodo-pulse 1s ease-in-out infinite; }
 .task .timer-btn.over { background: var(--madang); color: var(--on-accent); }
-.task .timer-btn.over.running { animation: pertday-pulse 1s ease-in-out infinite; }
-@keyframes pertday-pulse { 50% { opacity: 0.45; } }
+.task .timer-btn.over.running { animation: cabetodo-pulse 1s ease-in-out infinite; }
+@keyframes cabetodo-pulse { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) {
   .timer.over.running .timer-clock, .task .timer-btn.over.running { animation: none; }
 }

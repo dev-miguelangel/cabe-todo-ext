@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Pert-day",
+  "name": "Cabe Todo",
   "version": "0.4.0",
-  "description": "Planifica tu día en dos bloques: mañana y tarde.",
+  "description": "Planifica tus tareas en mañana y tarde, y sabe si te alcanza el día.",
   "permissions": [
     "storage",
     "sidePanel",
@@ -18,7 +18,7 @@
     "default_path": "src/pages/panel/panel.html"
   },
   "action": {
-    "default_title": "Abrir Pert-day",
+    "default_title": "Abrir Cabe Todo",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "32": "assets/icons/icon32.png",
@@ -37,7 +37,7 @@
         "default": "Alt+Shift+P",
         "mac": "Alt+Shift+P"
       },
-      "description": "Abrir Pert-day"
+      "description": "Abrir Cabe Todo"
     }
   },
   "content_scripts": [

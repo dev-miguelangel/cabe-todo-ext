@@ -111,7 +111,7 @@ function setupBackup() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pert-day-${todayISO()}.json`;
+    a.download = `cabe-todo-${todayISO()}.json`;
     document.body.append(a);
     a.click();
     a.remove();

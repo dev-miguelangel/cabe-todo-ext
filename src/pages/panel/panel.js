@@ -9,7 +9,7 @@ import { currentBlock } from '../../core/pert.js';
 import { showToast, applyTheme } from '../../utils/ui.js';
 import { todayISO } from '../../utils/dates.js';
 
-const TAB_KEY = 'pertday:tab';
+const TAB_KEY = 'cabetodo:tab';
 const TABS = ['day', 'epics', 'docs', 'settings'];
 
 function isBusy() {
