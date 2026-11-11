@@ -4,12 +4,13 @@ import { state, initStore, subscribe, setNotifier, setView } from './store.js';
 import { renderDay, setupDay, isDayBusy, closeDepsMenu } from './day-view.js';
 import { renderEpics, setupEpics, isEpicsBusy } from './epics-view.js';
 import { renderSettings, setupSettings } from './settings-view.js';
+import { renderDocs, setupDocs } from './docs-view.js';
 import { currentBlock } from './pert.js';
 import { showToast } from './ui.js';
 import { todayISO } from './dates.js';
 
 const TAB_KEY = 'pertday:tab';
-const TABS = ['day', 'epics', 'settings'];
+const TABS = ['day', 'epics', 'docs', 'settings'];
 
 function isBusy() {
   return isDayBusy() || isEpicsBusy();
@@ -23,9 +24,11 @@ function render() {
   });
   document.getElementById('view-day').hidden = state.tab !== 'day';
   document.getElementById('view-epics').hidden = state.tab !== 'epics';
+  document.getElementById('view-docs').hidden = state.tab !== 'docs';
   document.getElementById('view-settings').hidden = state.tab !== 'settings';
   if (state.tab === 'day') renderDay();
   else if (state.tab === 'epics') renderEpics();
+  else if (state.tab === 'docs') renderDocs();
   else renderSettings();
 }
 
@@ -57,6 +60,7 @@ async function init() {
   setupDay();
   setupEpics();
   setupSettings();
+  setupDocs();
   setupKeyboard();
   render();
 

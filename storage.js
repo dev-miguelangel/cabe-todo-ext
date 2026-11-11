@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   notify: true,
   timer_sound: true,
   float_timer: true,
+  meeting_lead: 10, // minutos antes de una reunión en que aparece su cuenta regresiva
 };
 
 // Colores de épicas: solo los tonos de la paleta (Cod Gray es el fondo, no sirve como color de épica).

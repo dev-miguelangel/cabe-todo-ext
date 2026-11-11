@@ -18,6 +18,7 @@ export function renderSettings() {
   f.elements.notify.checked = Boolean(s.notify);
   f.elements['timer-sound'].checked = s.timer_sound !== false;
   f.elements['float-timer'].checked = s.float_timer !== false;
+  f.elements['meeting-lead'].value = String(s.meeting_lead ?? 10);
   loadShortcut();
 }
 
@@ -54,6 +55,7 @@ export function setupSettings() {
       notify: f.elements.notify.checked,
       timer_sound: f.elements['timer-sound'].checked,
       float_timer: f.elements['float-timer'].checked,
+      meeting_lead: Number(f.elements['meeting-lead'].value),
     });
     error.textContent = problem || '';
     error.hidden = !problem;

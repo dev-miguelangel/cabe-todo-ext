@@ -1,6 +1,6 @@
 // Botones flotantes (abajo a la derecha de la página activa):
 //  · Temporizador (verde en cuenta atrás, rojo al pasarse) mientras una tarea tiene el temporizador corriendo.
-//  · Reunión (celeste): aparece 10 min antes de que empiece una reunión, con cuenta regresiva.
+//  · Reunión (celeste): aparece N min antes de que empiece una reunión (Ajustes, 10 por defecto), con cuenta regresiva.
 //    Al empezar se puede cerrar; si bloquea, el service worker inicia su temporizador y el botón
 //    verde pasa a mostrar el tiempo de la reunión.
 //
@@ -15,11 +15,17 @@
   const TIMER_MIN_KEY = 'float_timer_min';          // botón del temporizador minimizado (todas las pestañas)
   const MEETING_MIN_KEY = 'float_meeting_min';      // botón de reunión minimizado
   const DISMISSED_KEY = 'float_meeting_dismissed';  // reuniones cuyo botón se cerró
-  const LEAD_MS = 10 * 60 * 1000;                   // aparece 10 min antes
+  const DEFAULT_LEAD_MIN = 10;                      // aparece 10 min antes, salvo que Ajustes diga otra cosa
   const IDLE_CHECK_MS = 15 * 1000;                  // sin botones: revisar cada 15 s si se acerca una reunión
 
   let tasks = [];
   let enabled = true;
+  let leadMs = DEFAULT_LEAD_MIN * 60000;
+  const readSettings = (s = {}) => {
+    enabled = s.float_timer !== false;
+    const lead = Number(s.meeting_lead);
+    leadMs = (Number.isFinite(lead) && lead >= 0 ? lead : DEFAULT_LEAD_MIN) * 60000;
+  };
   let timerMin = false;
   let meetingMin = false;
   let dismissed = [];
@@ -55,12 +61,12 @@
   // Si corren una tarea y una reunión paralela a la vez, el botón verde muestra la tarea
   const runningTask = () => tasks.find((t) => isRunning(t) && !t.meeting) || tasks.find(isRunning);
 
-  /** Reunión más próxima que está a ≤10 min de empezar o en curso (y cuyo botón no se cerró). */
+  /** Reunión más próxima que está a ≤N min de empezar o en curso (y cuyo botón no se cerró). */
   function nextMeeting(now) {
     return tasks
       .filter((t) => t.meeting && !t.done && t.date && !dismissed.includes(t.id))
       .map((t) => ({ task: t, start: at(t.date, t.meeting.start), end: at(t.date, t.meeting.end) }))
-      .filter((m) => now >= m.start - LEAD_MS && now < m.end)
+      .filter((m) => now >= m.start - leadMs && now < m.end)
       .sort((a, b) => a.start - b.start)[0] || null;
   }
 
@@ -298,7 +304,7 @@
     }
   }
 
-  // Sin botones visibles igual hay que notar cuando una reunión entra en sus últimos 10 min
+  // Sin botones visibles igual hay que notar cuando una reunión entra en su cuenta regresiva
   function startIdleCheck() {
     clearInterval(idle);
     idle = setInterval(() => {
@@ -314,7 +320,7 @@
 
   chrome.storage.local.get(['tasks', 'settings', TIMER_MIN_KEY, MEETING_MIN_KEY, DISMISSED_KEY]).then((data) => {
     tasks = data.tasks || [];
-    enabled = (data.settings || {}).float_timer !== false;
+    readSettings(data.settings || {});
     timerMin = Boolean(data[TIMER_MIN_KEY]);
     meetingMin = Boolean(data[MEETING_MIN_KEY]);
     dismissed = data[DISMISSED_KEY] || [];
@@ -325,7 +331,7 @@
     if (area !== 'local') return;
     let dirty = false;
     if (changes.tasks) { tasks = changes.tasks.newValue || []; dirty = true; }
-    if (changes.settings) { enabled = (changes.settings.newValue || {}).float_timer !== false; dirty = true; }
+    if (changes.settings) { readSettings(changes.settings.newValue || {}); dirty = true; }
     if (changes[TIMER_MIN_KEY]) { timerMin = Boolean(changes[TIMER_MIN_KEY].newValue); dirty = true; }
     if (changes[MEETING_MIN_KEY]) { meetingMin = Boolean(changes[MEETING_MIN_KEY].newValue); dirty = true; }
     if (changes[DISMISSED_KEY]) { dismissed = changes[DISMISSED_KEY].newValue || []; dirty = true; }

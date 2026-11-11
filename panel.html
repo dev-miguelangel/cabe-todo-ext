@@ -10,6 +10,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" data-tab="day">Hoy</button>
     <button class="tab" role="tab" data-tab="epics">Épicas</button>
+    <button class="tab" role="tab" data-tab="docs">Docs</button>
     <button class="tab tab-icon" role="tab" data-tab="settings" title="Ajustes" aria-label="Ajustes">⚙︎</button>
   </nav>
 
@@ -92,6 +93,15 @@
     <div id="epics-list"></div>
   </div>
 
+  <!-- ===== Documentación ===== -->
+  <div id="view-docs" hidden>
+    <div class="docs-top">
+      <input type="search" id="docs-search" class="docs-search" placeholder="Buscar en títulos y documentación…" aria-label="Buscar en la documentación" autocomplete="off">
+      <p class="docs-count" id="docs-count"></p>
+    </div>
+    <ul class="docs-list" id="docs-list"></ul>
+  </div>
+
   <!-- ===== Ajustes ===== -->
   <div id="view-settings" hidden>
     <form id="settings-form" class="settings" novalidate>
@@ -127,6 +137,16 @@
       <label class="row check-row">
         <input type="checkbox" name="float-timer">
         Mostrar el temporizador flotante en las páginas mientras corre
+      </label>
+      <label class="row">Cuenta regresiva de la próxima reunión
+        <select name="meeting-lead">
+          <option value="0">al empezar</option>
+          <option value="5">5 min antes</option>
+          <option value="10">10 min antes</option>
+          <option value="15">15 min antes</option>
+          <option value="30">30 min antes</option>
+          <option value="60">1 h antes</option>
+        </select>
       </label>
       <p class="settings-error" id="settings-error" role="alert" hidden></p>
       <div class="settings-actions">

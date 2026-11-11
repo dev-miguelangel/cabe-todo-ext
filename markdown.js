@@ -136,3 +136,18 @@ export function markdownExcerpt(src, max = 180) {
     .trim();
   return text.length > max ? `${text.slice(0, max - 1).replace(/\s+\S*$/, '')}…` : text;
 }
+
+/** Títulos y subtítulos (# … ######) en texto plano, ignorando los bloques de código. */
+export function markdownHeadings(src) {
+  const out = [];
+  let inCode = false;
+  for (const line of (src || '').replace(/\r\n?/g, '\n').split('\n')) {
+    if (/^\s*```/.test(line)) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    const m = line.match(/^\s*(#{1,6})\s+(.*)$/);
+    if (!m) continue;
+    const text = markdownExcerpt(m[2].replace(/\s#+\s*$/, ''), 200);
+    if (text) out.push({ level: m[1].length, text });
+  }
+  return out;
+}

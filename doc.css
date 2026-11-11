@@ -41,3 +41,25 @@ body.doc-page { min-height: 100vh; }
 .doc-missing h1 { margin: 0 0 8px; font-size: 20px; }
 .doc-missing p { margin: 0; color: var(--muted); }
 .doc-editor > .md pre { background: var(--raised); }
+
+/* ===== Ocupar toda la ventana: ancho completo y el editor estira hasta abajo ===== */
+html, body.doc-page { height: 100%; }
+body.doc-page { min-height: 0; margin: 0; overflow: hidden; }
+.doc-main {
+  max-width: none; height: 100%; box-sizing: border-box;
+  margin: 0; padding: 20px 24px; gap: 14px;
+}
+.doc-header { flex: none; }
+.doc-card { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px; }
+.doc-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.doc-editor .md-tabs, .doc-editor .md-toolbar, .doc-editor .md-actions { flex: none; }
+.doc-editor .md-input, .doc-editor > .md {
+  flex: 1; min-height: 0; height: auto; resize: none; overflow: auto; box-sizing: border-box;
+}
+/* Si la ventana es muy baja, la página vuelve a desplazarse en lugar de aplastar el editor */
+@media (max-height: 420px) {
+  body.doc-page { overflow: auto; }
+  .doc-main { height: auto; }
+  .doc-editor .md-input, .doc-editor > .md { min-height: 260px; }
+}
+@media (max-width: 600px) { .doc-main { padding: 12px; } }
