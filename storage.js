@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   notify: true,
   timer_sound: true,
   float_timer: true,
+  theme: 'chrome',  // 'chrome' (oscuro) | 'trello' (claro)
   calibrate: true,  // ajustar el pronóstico según cuánto tardas de verdad
   meeting_lead: 10, // minutos antes de una reunión en que aparece su cuenta regresiva
 };

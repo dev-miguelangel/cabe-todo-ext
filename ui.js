@@ -18,6 +18,19 @@ export function h(tag, props = {}, ...children) {
   return el;
 }
 
+// ---------- Tema ----------
+
+export const THEMES = ['chrome', 'trello'];
+
+/** Aplica el tema (atributo data-theme en <html>) y lo recuerda para el próximo arranque. */
+export function applyTheme(theme) {
+  const t = THEMES.includes(theme) ? theme : 'chrome';
+  const root = document.documentElement;
+  if (t === 'chrome') delete root.dataset.theme;
+  else root.dataset.theme = t;
+  try { localStorage.setItem('pertday:theme', t); } catch { /* ignorar */ }
+}
+
 // ---------- Aviso temporal ----------
 
 let toastTimer;

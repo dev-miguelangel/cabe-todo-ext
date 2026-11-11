@@ -6,7 +6,7 @@ import { renderEpics, setupEpics, isEpicsBusy } from './epics-view.js';
 import { renderSettings, setupSettings } from './settings-view.js';
 import { renderDocs, setupDocs } from './docs-view.js';
 import { currentBlock } from './pert.js';
-import { showToast } from './ui.js';
+import { showToast, applyTheme } from './ui.js';
 import { todayISO } from './dates.js';
 
 const TAB_KEY = 'pertday:tab';
@@ -17,6 +17,7 @@ function isBusy() {
 }
 
 function render() {
+  applyTheme(state.settings.theme);
   document.querySelectorAll('.tab').forEach((btn) => {
     const active = btn.dataset.tab === state.tab;
     btn.classList.toggle('active', active);

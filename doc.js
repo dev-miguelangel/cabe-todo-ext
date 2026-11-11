@@ -2,12 +2,12 @@
 // con guardado automático. Los comentarios viven solo en el modal de la tarea.
 
 import {
-  initStore, subscribe, setNotifier, findTask, findEpic, setDoc, refreshFromStorage,
+  state, initStore, subscribe, setNotifier, findTask, findEpic, setDoc, refreshFromStorage,
 } from './store.js';
 import { formatMinutes } from './parser.js';
 import { todayISO, shortLabel } from './dates.js';
 import { isRunning, remainingMs, formatCountdown } from './timer.js';
-import { h, showToast } from './ui.js';
+import { h, showToast, applyTheme } from './ui.js';
 import { markdownEditor } from './md-editor.js';
 
 const SAVE_DELAY = 700;
@@ -149,6 +149,7 @@ function renderMissing() {
 async function init() {
   await initStore();
   setNotifier(showToast);
+  applyTheme(state.settings.theme);
   const task = findTask(taskId);
   if (!task) {
     renderMissing();
@@ -164,6 +165,7 @@ async function init() {
   if (tab === 'code') document.querySelector('#doc-editor .md-input')?.focus();
 
   subscribe(() => {
+    applyTheme(state.settings.theme);
     const current = findTask(taskId);
     if (!current) {
       renderMissing();

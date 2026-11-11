@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pert-day</title>
   <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="theme-trello.css">
+  <script src="theme-boot.js"></script>
 </head>
 <body>
   <nav class="tabs" role="tablist">
@@ -117,6 +119,12 @@
         <label>Desde <input type="time" name="pm-start" required></label>
         <label>Hasta <input type="time" name="pm-end" required></label>
       </fieldset>
+      <label class="row">Tema
+        <select name="theme">
+          <option value="chrome">Oscuro (Chrome)</option>
+          <option value="trello">Claro (estilo Trello)</option>
+        </select>
+      </label>
       <label class="row">Duración si no escribes una
         <select name="default-minutes">
           <option value="15">15m</option>

@@ -1,0 +1,174 @@
+/* Tema claro estilo Trello (Atlassian Design System).
+   Se activa con <html data-theme="trello"> (Ajustes → Tema). Reusa los mismos tokens de panel.css:
+   solo redefine variables y agrega lo propio de Trello (tarjetas blancas con elevación, etiquetas
+   tipo píldora y estados de color). Sin el atributo, la app queda con el tema oscuro de siempre.
+
+   Contenedores #F4F5F7 · tarjetas #FFFFFF · texto #172B4D · acento azul #0052CC */
+
+:root[data-theme="trello"] {
+  color-scheme: light;
+
+  /* ---- Paleta Atlassian ---- */
+  --ds-n0: #ffffff;
+  --ds-n20: #f4f5f7;
+  --ds-n30: #ebecf0;
+  --ds-n40: #dfe1e6;
+  --ds-n60: #b3bac5;
+  --ds-n70: #c1c7d0;
+  --ds-n500: #42526e;
+  --ds-n300: #5e6c84;
+  --ds-n800: #172b4d;
+
+  --ds-blue: #0052cc;        /* acento / en progreso */
+  --ds-blue-hover: #0065ff;
+  --ds-blue-subtle: #deebff;
+  --ds-blue-text: #0747a6;
+  --ds-green: #36b37e;       /* completado */
+  --ds-green-subtle: #e3fcef;
+  --ds-green-text: #006644;
+  --ds-yellow-subtle: #fff0b3;  /* en riesgo */
+  --ds-yellow-text: #974f0c;
+  --ds-red: #de350b;         /* urgente / atrasado */
+  --ds-red-subtle: #ffebe6;
+  --ds-red-text: #bf2600;
+  --ds-purple: #6554c0;      /* reuniones */
+  --ds-purple-subtle: #eae6ff;
+  --ds-purple-text: #403294;
+
+  /* ---- Tokens de la app (mismos nombres que panel.css) ---- */
+  --bg: var(--ds-n0);              /* fondo general */
+  --raised: var(--ds-n20);         /* columnas / contenedores (bloques, épicas, ajustes) */
+  --card: var(--ds-n0);            /* tarjetas de tarea */
+  --hover: var(--ds-n30);
+  --surface: var(--ds-n0);         /* menús, modal, píldoras flotantes */
+  --field: var(--ds-n30);          /* botones tonales y chips */
+  --border: var(--ds-n40);
+  --text: var(--ds-n800);          /* texto primario */
+  --label: var(--ds-n500);         /* texto secundario */
+  --muted: var(--ds-n300);         /* texto terciario */
+  --accent: var(--ds-blue);
+  --accent-hover: var(--ds-blue-hover);
+  --accent-text: var(--ds-blue);
+  --on-accent: #ffffff;
+  --done: var(--ds-green);
+  --pending: var(--ds-n70);
+  --over: var(--ds-red);
+  --warn: var(--ds-yellow-text);
+
+  /* Alias de la paleta que panel.css usa directo */
+  --meadow: var(--ds-blue);        /* selección, temporizador en marcha */
+  --malachite: var(--ds-blue-hover);
+  --pastel: var(--ds-purple);      /* reuniones */
+  --madang: var(--ds-red);         /* tiempo excedido */
+  --cod: #ffffff;                  /* "lo opuesto al texto": texto sobre acento, avisos */
+  --white: var(--ds-n60);          /* tinte para oscurecer al pasar el mouse */
+
+  /* Elevación, opacidades y radios (Trello móvil: tarjetas táctiles redondeadas) */
+  --shadow: rgb(9 30 66 / 0.25);
+  --elev-card: 0 1px 1px rgb(9 30 66 / 0.25), 0 0 1px rgb(9 30 66 / 0.31);
+  --elev-raised: 0 4px 8px -2px rgb(9 30 66 / 0.25), 0 0 1px rgb(9 30 66 / 0.31);
+  --elev-overlay: 0 8px 12px rgb(9 30 66 / 0.15), 0 0 1px rgb(9 30 66 / 0.31);
+  --blanket: rgb(9 30 66 / 0.54);
+  --radius: 12px;                  /* contenedores */
+  --radius-card: 8px;              /* tarjetas */
+  --radius-pill: 999px;            /* etiquetas */
+}
+
+/* ---------- Base ---------- */
+[data-theme="trello"] :focus-visible { outline-color: var(--accent); }
+[data-theme="trello"] .modal::backdrop { background: var(--blanket); }
+
+/* ---------- Tarjetas: blancas, con elevación, sobre la columna gris ---------- */
+[data-theme="trello"] .list { gap: 6px; }
+[data-theme="trello"] .list > .task {
+  background: var(--card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--elev-card);
+}
+[data-theme="trello"] .list > .task:hover { background: var(--card); box-shadow: var(--elev-raised); }
+[data-theme="trello"] .list > .task + .task::before { display: none; } /* las sombras ya separan */
+[data-theme="trello"] .list > .task.done { background: color-mix(in srgb, var(--card) 60%, var(--raised)); box-shadow: none; }
+[data-theme="trello"] .list > .task.dragging { box-shadow: var(--elev-overlay); transform: rotate(2deg); }
+[data-theme="trello"] .task.link-target { background: var(--ds-blue-subtle); }
+[data-theme="trello"] .list .empty { color: var(--muted); }
+
+/* Docs: cada tarea como tarjeta */
+[data-theme="trello"] .doc-card { background: var(--card); border-radius: var(--radius-card); box-shadow: var(--elev-card); }
+[data-theme="trello"] .doc-card:hover { background: var(--card); box-shadow: var(--elev-raised); }
+[data-theme="trello"] .doc-card mark { background: var(--ds-yellow-subtle); color: var(--text); }
+
+/* ---------- Etiquetas tipo píldora y estados ---------- */
+[data-theme="trello"] .forecast.good,
+[data-theme="trello"] .forecast.warn,
+[data-theme="trello"] .forecast.bad,
+[data-theme="trello"] .now-badge {
+  padding: 0 8px; border-radius: var(--radius-pill); border: 0; font-weight: 600;
+}
+[data-theme="trello"] .forecast.good { background: var(--ds-green-subtle); color: var(--ds-green-text); }   /* a tiempo */
+[data-theme="trello"] .forecast.warn { background: var(--ds-yellow-subtle); color: var(--ds-yellow-text); } /* en riesgo */
+[data-theme="trello"] .forecast.bad,
+[data-theme="trello"] .block-head .forecast.bad { background: var(--ds-red); color: #ffffff; }              /* urgente */
+[data-theme="trello"] .now-badge { background: var(--ds-blue-subtle); color: var(--ds-blue-text); }        /* en curso */
+
+/* Temporizador en la tarjeta */
+[data-theme="trello"] .task .timer-btn.running { background: var(--ds-blue-subtle); color: var(--ds-blue-text); }
+[data-theme="trello"] .task .timer-btn.over { background: var(--ds-red); color: #ffffff; }
+[data-theme="trello"] .task .timer-btn.blocked { background: var(--ds-n30); color: var(--muted); }
+
+/* Reuniones: etiqueta morada */
+[data-theme="trello"] .task .meeting-time { background: var(--ds-purple-subtle); color: var(--ds-purple-text); }
+[data-theme="trello"] .task .meeting-time.parallel { background: transparent; box-shadow: inset 0 0 0 1px var(--ds-purple); color: var(--ds-purple-text); }
+[data-theme="trello"] .meeting-badge { background: var(--ds-purple); color: #ffffff; }
+[data-theme="trello"] .meeting-badge.parallel { background: transparent; color: var(--ds-purple-text); box-shadow: inset 0 0 0 1px var(--ds-purple); }
+
+/* Atrasada / bloqueada / completada */
+[data-theme="trello"] .task.late { border-left-color: var(--ds-red); }
+[data-theme="trello"] .task.late .minutes { color: var(--ds-red-text); }
+[data-theme="trello"] .task.blocked .locked { color: var(--ds-yellow-text); }
+[data-theme="trello"] input[type="checkbox"]:checked { background: var(--ds-green); border-color: var(--ds-green); }
+[data-theme="trello"] .bar-done { background: var(--ds-green); }
+[data-theme="trello"] .timer.over { background: var(--ds-red-subtle); box-shadow: inset 0 0 0 1px var(--ds-red); }
+[data-theme="trello"] .timer.over .timer-clock,
+[data-theme="trello"] .timer.over .timer-sub { color: var(--ds-red-text); }
+
+/* ---------- Botones y campos ---------- */
+[data-theme="trello"] .primary,
+[data-theme="trello"] .suggest-btn,
+[data-theme="trello"] .close-btn.primary { border-radius: 6px; }
+[data-theme="trello"] .chip { border-radius: var(--radius-pill); }
+[data-theme="trello"] .chip.active { background: var(--ds-blue); color: #ffffff; }
+
+/* Campos: blancos con borde, como los de Atlassian */
+[data-theme="trello"] .quick-add input,
+[data-theme="trello"] .docs-search,
+[data-theme="trello"] .settings input[type="time"],
+[data-theme="trello"] .settings select,
+[data-theme="trello"] .epic-target input,
+[data-theme="trello"] .edit-input,
+[data-theme="trello"] .comment-input,
+[data-theme="trello"] .meeting-form input,
+[data-theme="trello"] .meeting-form select {
+  background-color: var(--card); box-shadow: inset 0 0 0 1px var(--border);
+}
+[data-theme="trello"] .block .quick-add input { background-color: transparent; box-shadow: none; }
+[data-theme="trello"] .block .quick-add input:hover { background-color: var(--hover); }
+[data-theme="trello"] .block .quick-add input:focus { background-color: var(--card); box-shadow: var(--elev-card); }
+
+[data-theme="trello"] .danger-btn:hover { background: var(--ds-red-subtle); color: var(--ds-red-text); }
+
+/* ---------- Capas flotantes ---------- */
+[data-theme="trello"] .modal { background: var(--surface); box-shadow: var(--elev-overlay); }
+[data-theme="trello"] .menu,
+[data-theme="trello"] .autocomplete,
+[data-theme="trello"] .task .actions { background: var(--surface); box-shadow: var(--elev-overlay); }
+[data-theme="trello"] .ac-item.active { background: var(--ds-blue-subtle); }
+[data-theme="trello"] .toast { background: var(--ds-n800); color: #ffffff; box-shadow: var(--elev-overlay); }
+[data-theme="trello"] .toast-action { color: #4c9aff; }
+
+/* ---------- Página de documentación ---------- */
+[data-theme="trello"] .doc-page .doc-card { background: var(--raised); box-shadow: none; }
+[data-theme="trello"] .doc-editor .md-input { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .doc-editor > .md { background: var(--card); box-shadow: var(--elev-card); }
+[data-theme="trello"] .doc-editor > .md pre,
+[data-theme="trello"] .md pre,
+[data-theme="trello"] .md code { background: var(--ds-n20); }

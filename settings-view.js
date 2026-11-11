@@ -17,6 +17,7 @@ export function renderSettings() {
   f.elements['pm-start'].value = s.pm.start;
   f.elements['pm-end'].value = s.pm.end;
   f.elements['default-minutes'].value = String(s.default_minutes);
+  f.elements.theme.value = s.theme || 'chrome';
   f.elements.notify.checked = Boolean(s.notify);
   f.elements['timer-sound'].checked = s.timer_sound !== false;
   f.elements['float-timer'].checked = s.float_timer !== false;
@@ -65,6 +66,7 @@ export function setupSettings() {
       am: { start: amStart, end: amEnd },
       pm: { start: pmStart, end: pmEnd },
       default_minutes: Number(f.elements['default-minutes'].value),
+      theme: f.elements.theme.value,
       notify: f.elements.notify.checked,
       timer_sound: f.elements['timer-sound'].checked,
       float_timer: f.elements['float-timer'].checked,
@@ -79,6 +81,11 @@ export function setupSettings() {
       clearTimeout(savedTimer);
       savedTimer = setTimeout(() => { saved.hidden = true; }, 2000);
     }
+  });
+
+  // El tema se aplica y guarda al elegirlo (sin esperar a "Guardar")
+  f.elements.theme.addEventListener('change', () => {
+    saveSettings({ ...state.settings, theme: f.elements.theme.value });
   });
 
   document.getElementById('test-sound').addEventListener('click', () => playCasio());
