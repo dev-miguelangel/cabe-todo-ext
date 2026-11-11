@@ -3,12 +3,12 @@
 
 import {
   state, initStore, subscribe, setNotifier, findTask, findEpic, setDoc, refreshFromStorage,
-} from './store.js';
-import { formatMinutes } from './parser.js';
-import { todayISO, shortLabel } from './dates.js';
-import { isRunning, remainingMs, formatCountdown } from './timer.js';
-import { h, showToast, applyTheme } from './ui.js';
-import { markdownEditor } from './md-editor.js';
+} from '../../services/store.js';
+import { formatMinutes } from '../../core/parser.js';
+import { todayISO, shortLabel } from '../../utils/dates.js';
+import { isRunning, remainingMs, formatCountdown } from '../../core/timer.js';
+import { h, showToast, applyTheme } from '../../utils/ui.js';
+import { markdownEditor } from '../../components/md-editor.js';
 
 const SAVE_DELAY = 700;
 const BLOCK_NAME = { am: '☀︎ mañana', pm: '☾ tarde' };

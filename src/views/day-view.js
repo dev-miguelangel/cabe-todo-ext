@@ -1,18 +1,18 @@
 // Vista "Hoy": bloques AM/PM, filtro por épica, bandeja, dependencias y drag & drop.
 
-import { formatMinutes } from './parser.js';
-import { scheduleBlock, isNowInBlock, criticalIds, wouldCreateCycle, canDepend, suggestMove } from './pert.js';
-import { todayISO, shiftDate, dayLabel, shortLabel, nowMinutes, toMinutes } from './dates.js';
+import { formatMinutes } from '../core/parser.js';
+import { scheduleBlock, isNowInBlock, criticalIds, wouldCreateCycle, canDepend, suggestMove } from '../core/pert.js';
+import { todayISO, shiftDate, dayLabel, shortLabel, nowMinutes, toMinutes } from '../utils/dates.js';
 import {
   state, setView, findTask, findEpic, activeEpics, blockTasks, dayTasks, calibrationInfo, backlogTasks, overdueTasks,
   addFromText, editFromText, updateTask, setDependency, planTask, planMany, unplanTask, unplanMany, applyOrder,
   toggleTimer,
-} from './store.js';
-import { h, showToast, attachEpicAutocomplete } from './ui.js';
-import { renderCard, updateTimerChip } from './cards.js';
-import { trackedMs } from './timer.js';
-import { showTaskModal } from './task-modal.js';
-import { toQuickAddText } from './parser.js';
+} from '../services/store.js';
+import { h, showToast, attachEpicAutocomplete } from '../utils/ui.js';
+import { renderCard, updateTimerChip } from '../components/cards.js';
+import { trackedMs } from '../core/timer.js';
+import { showTaskModal } from '../components/task-modal.js';
+import { toQuickAddText } from '../core/parser.js';
 
 const BLOCKS = ['am', 'pm'];
 const BLOCK_ICON = { am: '☀︎', pm: '☾' };

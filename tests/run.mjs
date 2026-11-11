@@ -1,8 +1,8 @@
 // Pruebas de la lógica pura (parser + PERT + épicas). Ejecutar: node tests/run.mjs
 import assert from 'node:assert/strict';
 const root = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-const { parseQuickAdd: p, formatMinutes: f, formatClock, toQuickAddText } = await import(root + '/parser.js');
-const P = await import(root + '/pert.js');
+const { parseQuickAdd: p, formatMinutes: f, formatClock, toQuickAddText } = await import(root + '/src/core/parser.js');
+const P = await import(root + '/src/core/pert.js');
 const T = (title, minutes, block = null, certainty = null, epicTag = null) => ({ title, minutes, block, certainty, epicTag, repeat: null });
 const cases = [
   ['Responder correos', T('Responder correos', null)],
@@ -57,7 +57,7 @@ day[0].block = 'pm';
 const moved = P.enforceBlockOrder(day);
 assert.deepEqual(moved.map((m) => m.task.id), ['b', 'c']); assert.ok(day.every((t) => t.block === 'pm'));
 // ----- Fase 3: épicas -----
-const { slugify, tagKey } = await import(root + '/parser.js');
+const { slugify, tagKey } = await import(root + '/src/core/parser.js');
 assert.deepEqual(p('Diseñar logo 2h #web'), T('Diseñar logo', 120, null, null, 'web'));
 assert.deepEqual(p('Diseñar logo #web 2h ? pm'), T('Diseñar logo', 120, 'pm', 'unsure', 'web'));
 assert.deepEqual(p('Arreglar issue #42'), T('Arreglar issue #42', null));
@@ -122,8 +122,8 @@ console.log('OK: parser + PERT + épicas');
 }
 // ----- Comentarios (markdown) y temporizador -----
 {
-  const { renderMarkdown: md } = await import(root + '/markdown.js');
-  const T = await import(root + '/timer.js');
+  const { renderMarkdown: md } = await import(root + '/src/utils/markdown.js');
+  const T = await import(root + '/src/core/timer.js');
   assert.equal(md('Hola **mundo** y *tú* y `x<y`'), '<p>Hola <strong>mundo</strong> y <em>tú</em> y <code>x&lt;y</code></p>');
   assert.equal(md('<script>alert(1)</script>'), '<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>');
   assert.equal(md('[clic](javascript:alert(1))').includes('<a'), false, 'javascript: no debe ser enlace');
@@ -153,7 +153,7 @@ console.log('OK: parser + PERT + épicas');
 }
 // ----- Cuenta atrás -----
 {
-  const T = await import(root + '/timer.js');
+  const T = await import(root + '/src/core/timer.js');
   const start = Date.parse('2026-11-10T10:00:00Z');
   const t = { minutes: 30, time_entries: [{ start: '2026-11-10T10:00:00Z', end: null }] };
   assert.equal(T.remainingMs(t, start + 6000), 30 * 60000 - 6000);
@@ -172,7 +172,7 @@ console.log('OK: parser + PERT + épicas');
 }
 // ----- Sonido Casio (con un AudioContext simulado que registra lo programado) -----
 {
-  const { scheduleCasio } = await import(root + '/casio.js');
+  const { scheduleCasio } = await import(root + '/src/services/casio.js');
   const beeps = [];
   const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} });
   const node = () => ({ gain: param(), connect(n) { return n; } });
@@ -194,8 +194,8 @@ console.log('OK: parser + PERT + épicas');
 }
 // ----- Documentación: barra de formato y extracto -----
 {
-  const { applyFormat: F } = await import(root + '/md-format.js');
-  const { renderMarkdown: md, markdownExcerpt: ex } = await import(root + '/markdown.js');
+  const { applyFormat: F } = await import(root + '/src/utils/md-format.js');
+  const { renderMarkdown: md, markdownExcerpt: ex } = await import(root + '/src/utils/markdown.js');
   const sel = (r) => r.text.slice(r.start, r.end);
   // Títulos: sobre la línea actual, reemplazan el prefijo previo y alternan
   let r = F('hola\nmundo', 7, 7, 'h2'); assert.equal(r.text, 'hola\n## mundo');
@@ -264,7 +264,7 @@ console.log('OK: parser + PERT + épicas');
 }
 // ----- Service worker: reuniones que empiezan (con la API de Chrome simulada) -----
 {
-  const { toISO } = await import(root + '/dates.js');
+  const { toISO } = await import(root + '/src/utils/dates.js');
   const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   const now = new Date();
   const startD = new Date(now.getTime() - 60 * 1000); // empezó hace 1 min
@@ -298,7 +298,7 @@ console.log('OK: parser + PERT + épicas');
     offscreen: { hasDocument: async () => false, createDocument: async () => {}, closeDocument: async () => {} },
     windows: { getLastFocused: async () => ({ id: 1 }) },
   };
-  await import(root + '/background.js');
+  await import(root + '/src/background/background.js');
   globalThis.__bg = { mem, L }; // para pruebas posteriores del service worker
   const running = (id) => { const e = mem.tasks.find((t) => t.id === id).time_entries; return e.length > 0 && !e.at(-1).end; };
 
@@ -355,7 +355,7 @@ console.log('OK: parser + PERT + épicas');
 }
 // ----- Las reuniones no se pausan: solo se finalizan o se reprograman -----
 {
-  const T = await import(root + '/timer.js');
+  const T = await import(root + '/src/core/timer.js');
   const run = (id, extra = {}) => ({ id, meeting: null, time_entries: [{ start: '2026-11-10T10:00:00Z', end: null }], ...extra });
   const idle = (id, extra = {}) => ({ id, meeting: null, time_entries: [], ...extra });
   const blockingM = { start: '10:00', end: '11:00', blocking: true };
@@ -372,8 +372,8 @@ console.log('OK: parser + PERT + épicas');
   assert.deepEqual(T.timerConflicts(idle('m', { meeting: blockingM }), [run('a'), run('p', { meeting: parallelM }), idle('m', { meeting: blockingM })]).pause.map((t) => t.id), ['a']);
 
   // Store (usa la API de Chrome simulada de la prueba anterior para guardar)
-  const S = await import(root + '/store.js');
-  const { toISO } = await import(root + '/dates.js');
+  const S = await import(root + '/src/services/store.js');
+  const { toISO } = await import(root + '/src/utils/dates.js');
   const notes = []; S.setNotifier((m) => notes.push(m));
   const tomorrow = toISO(new Date(Date.now() + 86400000));
   S.state.settings = { am: { start: '08:00', end: '13:00' }, pm: { start: '14:00', end: '19:00' }, default_minutes: 30 };
@@ -415,7 +415,7 @@ console.log('OK: parser + PERT + épicas');
 
 // ---------- Calibración (real vs estimado) ----------
 {
-  const P = await import('../pert.js');
+  const P = await import('../src/core/pert.js');
   const now = Date.parse('2026-11-11T18:00:00Z');
   const doneT = (min, real, daysAgo = 1, extra = {}) => ({
     minutes: min, done: true, done_at: new Date(now - daysAgo * 86400000).toISOString(), meeting: null,
@@ -472,7 +472,7 @@ console.log('OK: parser + PERT + épicas');
 
 // ---------- Respaldo (exportar / importar) ----------
 {
-  const S = await import('../storage.js');
+  const S = await import('../src/services/storage.js');
   const tasks = [{ id: 't1', title: 'Uno', minutes: 30, date: null, block: null, done: false, dependencies: [] }];
   const epics = [{ id: 'e1', name: 'Web', color: '#123456' }];
   const text = JSON.stringify(S.makeBackup({ tasks, epics, settings: { default_minutes: 45 } }));
@@ -490,8 +490,8 @@ console.log('OK: parser + PERT + épicas');
 
 // ---------- Rutinas (tareas que se repiten) ----------
 {
-  const { parseQuickAdd } = await import('../parser.js');
-  const R = await import('../routines.js');
+  const { parseQuickAdd } = await import('../src/core/parser.js');
+  const R = await import('../src/core/routines.js');
   assert.deepEqual(parseQuickAdd('Standup 15m am cada día').repeat, [1, 2, 3, 4, 5, 6, 0]);
   assert.deepEqual(parseQuickAdd('Pagar 10m días hábiles ?').repeat, [1, 2, 3, 4, 5]);
   assert.equal(parseQuickAdd('Pagar 10m días hábiles ?').title, 'Pagar');

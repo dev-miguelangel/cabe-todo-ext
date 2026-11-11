@@ -4,7 +4,7 @@
 // tarea normal con `routine_id`, que se planifica, cronometra y marca como cualquier otra.
 // `generated` recuerda qué días ya se crearon: si mueves o borras esa tarea, no vuelve a aparecer.
 
-import { parseISO, toISO, shiftDate } from './dates.js';
+import { parseISO, toISO, shiftDate } from '../utils/dates.js';
 
 export const ALL_DAYS = [1, 2, 3, 4, 5, 6, 0];      // lunes primero (como se muestra)
 export const WEEKDAYS = [1, 2, 3, 4, 5];

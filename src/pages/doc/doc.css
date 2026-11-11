@@ -44,7 +44,8 @@ body.doc-page { min-height: 100vh; }
 
 /* ===== Ocupar toda la ventana: ancho completo y el editor estira hasta abajo ===== */
 html, body.doc-page { height: 100%; }
-body.doc-page { min-height: 0; margin: 0; overflow: hidden; }
+body.doc-page { min-height: 0; margin: 0; overflow: hidden; padding-bottom: 0; } /* sin menú inferior */
+.doc-page .toast { bottom: 16px; }
 .doc-main {
   max-width: none; height: 100%; box-sizing: border-box;
   margin: 0; padding: 20px 24px; gap: 14px;

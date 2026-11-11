@@ -8,11 +8,11 @@ import {
 import {
   calibrationFrom, setCalibration,
   enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
-} from './pert.js';
-import { parseQuickAdd, tagKey } from './parser.js';
-import { routineFrom, dueInstances, materializableDates, repeatLabel } from './routines.js';
-import { todayISO } from './dates.js';
-import { isRunning, timerConflicts } from './timer.js';
+} from '../core/pert.js';
+import { parseQuickAdd, tagKey } from '../core/parser.js';
+import { routineFrom, dueInstances, materializableDates, repeatLabel } from '../core/routines.js';
+import { todayISO } from '../utils/dates.js';
+import { isRunning, timerConflicts } from '../core/timer.js';
 
 export { PALETTE } from './storage.js';
 

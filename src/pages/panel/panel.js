@@ -1,13 +1,13 @@
 // Punto de entrada del side panel: carga datos, conecta las vistas y las pestañas.
 
-import { state, initStore, subscribe, setNotifier, setView, ensureRoutines } from './store.js';
-import { renderDay, setupDay, isDayBusy, closeDepsMenu } from './day-view.js';
-import { renderEpics, setupEpics, isEpicsBusy } from './epics-view.js';
-import { renderSettings, setupSettings } from './settings-view.js';
-import { renderDocs, setupDocs } from './docs-view.js';
-import { currentBlock } from './pert.js';
-import { showToast, applyTheme } from './ui.js';
-import { todayISO } from './dates.js';
+import { state, initStore, subscribe, setNotifier, setView, ensureRoutines } from '../../services/store.js';
+import { renderDay, setupDay, isDayBusy, closeDepsMenu } from '../../views/day-view.js';
+import { renderEpics, setupEpics, isEpicsBusy } from '../../views/epics-view.js';
+import { renderSettings, setupSettings } from '../../views/settings-view.js';
+import { renderDocs, setupDocs } from '../../views/docs-view.js';
+import { currentBlock } from '../../core/pert.js';
+import { showToast, applyTheme } from '../../utils/ui.js';
+import { todayISO } from '../../utils/dates.js';
 
 const TAB_KEY = 'pertday:tab';
 const TABS = ['day', 'epics', 'docs', 'settings'];

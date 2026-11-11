@@ -1,11 +1,11 @@
 // Vista "Docs": todas las tareas, de la más nueva a la más antigua, con un buscador
 // que filtra por el título de la tarea y por los títulos/subtítulos de su documentación.
 
-import { state } from './store.js';
-import { h } from './ui.js';
-import { markdownExcerpt, markdownHeadings } from './markdown.js';
-import { whenLabel } from './cards.js';
-import { showTaskModal, openDocTab } from './task-modal.js';
+import { state } from '../services/store.js';
+import { h } from '../utils/ui.js';
+import { markdownExcerpt, markdownHeadings } from '../utils/markdown.js';
+import { whenLabel } from '../components/cards.js';
+import { showTaskModal, openDocTab } from '../components/task-modal.js';
 
 let query = '';
 

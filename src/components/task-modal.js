@@ -1,19 +1,19 @@
 // Detalle de una tarea (al pincharla): por qué está bloqueada, temporizador y comentarios en Markdown.
 
-import { blockersOf, timerBlockedBy } from './pert.js';
-import { formatMinutes } from './parser.js';
-import { todayISO, shortLabel, toMinutes, nowMinutes } from './dates.js';
+import { blockersOf, timerBlockedBy } from '../core/pert.js';
+import { formatMinutes } from '../core/parser.js';
+import { todayISO, shortLabel, toMinutes, nowMinutes } from '../utils/dates.js';
 import {
   isRunning, trackedMs, formatStopwatch, remainingMs, estimateMs, formatCountdown, formatTracked,
-} from './timer.js';
-import { markdownExcerpt } from './markdown.js';
+} from '../core/timer.js';
+import { markdownExcerpt } from '../utils/markdown.js';
 import {
   state, findTask, findEpic, updateTask, setDependency, subscribe, toggleTimer, resetTimer, deleteTask,
   setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat,
-} from './store.js';
-import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from './routines.js';
+} from '../services/store.js';
+import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
 import { createComments } from './comments.js';
-import { h, openModal, closeModal, isModalOpen, showToast } from './ui.js';
+import { h, openModal, closeModal, isModalOpen, showToast } from '../utils/ui.js';
 
 const BLOCK_NAME = { am: '☀︎ mañana', pm: '☾ tarde' };
 
@@ -353,11 +353,11 @@ function docSection(task) {
 
 /** Abre (en una pestaña) la página de documentación de la tarea. */
 export function openDocTab(taskId) {
-  const url = `doc.html?task=${encodeURIComponent(taskId)}`;
+  const query = `?task=${encodeURIComponent(taskId)}`;
   if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
-    chrome.tabs.create({ url: chrome.runtime.getURL(url) });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/doc/doc.html' + query) });
   } else {
-    window.open(url, '_blank', 'noopener'); // fuera de la extensión (pruebas)
+    window.open('../doc/doc.html' + query, '_blank', 'noopener'); // fuera de la extensión (pruebas), relativo al panel
   }
 }
 

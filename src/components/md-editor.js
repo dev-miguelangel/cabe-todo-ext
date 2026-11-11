@@ -1,9 +1,9 @@
 // Editor Markdown compartido (modal de tarea y pestaña de documentación):
 // pestañas Código / Lectura y, en Código, barra de botones rápidos.
 
-import { renderMarkdown } from './markdown.js';
-import { applyFormat, TOOLBAR, SHORTCUTS } from './md-format.js';
-import { h } from './ui.js';
+import { renderMarkdown } from '../utils/markdown.js';
+import { applyFormat, TOOLBAR, SHORTCUTS } from '../utils/md-format.js';
+import { h } from '../utils/ui.js';
 
 /** Vista de lectura. renderMarkdown escapa todo el HTML, así que innerHTML es seguro. */
 export function markdownView(text, { headingBase, empty = 'Nada que mostrar todavía.' } = {}) {

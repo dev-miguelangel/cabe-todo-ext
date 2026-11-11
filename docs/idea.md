@@ -152,25 +152,7 @@ Cada épica tiene una lista de tareas **sin fecha**: cosas que hay que hacer "al
 - Opcional fase 2: `chrome.alarms` + notificaciones ("se acabó la mañana, te quedan 2 tareas").
 
 ### Estructura de archivos
-```
-pert-day/
-├── manifest.json
-├── background.js        # abre el side panel, avisos de fin de bloque (alarms)
-├── panel.html / .css    # vista principal (pestañas Hoy · Épicas)
-├── panel.js             # punto de entrada: conecta vistas y pestañas
-├── day-view.js          # vista del día: bloques, bandeja, dependencias, drag & drop
-├── epics-view.js        # vista de épicas: progreso, pronóstico, bandeja
-├── settings-view.js     # ajustes: horarios, duración por defecto, avisos, atajo
-├── cards.js             # tarjeta de tarea compartida
-├── ui.js                # helpers de DOM, avisos, autocompletado de #épica
-├── store.js             # estado + acciones (todo cambio pasa por aquí)
-├── parser.js            # quick-add: texto → tarea
-├── pert.js              # cálculos (puro, testeable)
-├── dates.js             # utilidades de fechas
-├── storage.js           # wrapper de chrome.storage
-├── icons/               # generados con tests/make_icons.py
-└── tests/run.mjs        # pruebas de la lógica pura: node tests/run.mjs
-```
+Ver la sección **Estructura del proyecto** del [README](../README.md).
 
 ---
 

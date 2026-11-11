@@ -1,16 +1,16 @@
 // Vista "Épicas": crear épicas, ver progreso y pronóstico, y llenar su backlog.
 
-import { formatMinutes } from './parser.js';
-import { epicForecast, criticalIds } from './pert.js';
-import { todayISO, dayLabel } from './dates.js';
+import { formatMinutes } from '../core/parser.js';
+import { epicForecast, criticalIds } from '../core/pert.js';
+import { todayISO, dayLabel } from '../utils/dates.js';
 import {
   state, findEpic, activeEpics, archivedEpics, epicTasks,
   createEpic, renameEpic, setEpicTarget, archiveEpic, restoreEpic, deleteEpic,
   addFromText, updateTask, planTask, unplanTask, toggleTimer,
-} from './store.js';
-import { h } from './ui.js';
-import { renderCard } from './cards.js';
-import { showTaskModal } from './task-modal.js';
+} from '../services/store.js';
+import { h } from '../utils/ui.js';
+import { renderCard } from '../components/cards.js';
+import { showTaskModal } from '../components/task-modal.js';
 
 const OPEN_PLANNED_KEY = 'pertday:openPlanned';
 let openPlanned = new Set();

@@ -1,6 +1,6 @@
 // Piezas de UI compartidas: helper para crear elementos, aviso temporal y autocompletado de #épicas.
 
-import { slugify, tagKey } from './parser.js';
+import { slugify, tagKey } from '../core/parser.js';
 
 /** h('div', { class: 'x', dataset: { id: 1 }, onclick }, ...hijos) */
 export function h(tag, props = {}, ...children) {

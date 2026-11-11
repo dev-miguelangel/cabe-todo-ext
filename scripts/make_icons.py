@@ -1,5 +1,5 @@
-"""Genera icons/icon{16,32,48,128}.png: círculo mitad sol (mañana) / mitad noche (tarde).
-Sin dependencias: escribe PNG con zlib. Uso: python3 tests/make_icons.py"""
+"""Genera assets/icons/icon{16,32,48,128}.png: círculo mitad sol (mañana) / mitad noche (tarde).
+Sin dependencias: escribe PNG con zlib. Uso: python3 scripts/make_icons.py"""
 import struct, zlib, math, os
 
 SUN = (29, 185, 84)      # mañana: Mountain Meadow #1db954
@@ -45,7 +45,7 @@ def render(size, ss=4):
     return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0))
             + chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b''))
 
-out = os.path.join(os.path.dirname(__file__), '..', 'icons')
+out = os.path.join(os.path.dirname(__file__), '..', 'assets', 'icons')
 for s in (16, 32, 48, 128):
     with open(os.path.join(out, f'icon{s}.png'), 'wb') as f:
         f.write(render(s))

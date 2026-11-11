@@ -1,11 +1,14 @@
 // Service worker: abre el side panel desde el ícono/atajo, avisa cuando termina cada bloque
 // y suena la alarma cuando el temporizador de una tarea llega a cero (aunque el panel esté cerrado).
 
-import { loadData } from './storage.js';
-import { todayISO, toMinutes } from './dates.js';
-import { isRunning, zeroAt, remainingMs, timerConflicts } from './timer.js';
-import { activeBlockingMeeting, timerBlockedBy } from './pert.js';
-import { dueInstances } from './routines.js';
+import { loadData } from '../services/storage.js';
+import { todayISO, toMinutes } from '../utils/dates.js';
+import { isRunning, zeroAt, remainingMs, timerConflicts } from '../core/timer.js';
+import { activeBlockingMeeting, timerBlockedBy } from '../core/pert.js';
+import { dueInstances } from '../core/routines.js';
+
+/** Rutas absolutas desde la raíz de la extensión (el worker vive en src/background/). */
+const ICON_URL = '/assets/icons/icon128.png';
 
 const BLOCKS = ['am', 'pm'];
 const BLOCK_NAME = { am: 'mañana', pm: 'tarde' };
@@ -59,7 +62,7 @@ async function notifyBlockEnd(block) {
   }
   chrome.notifications.create(`pertday-${today}-${block}`, {
     type: 'basic',
-    iconUrl: 'icons/icon128.png',
+    iconUrl: ICON_URL,
     title,
     message,
     priority: 0,
@@ -69,7 +72,7 @@ async function notifyBlockEnd(block) {
 // ---------- Temporizador: alarma al llegar a cero ----------
 
 const TIMER_ALARM = 'timer-zero';
-const OFFSCREEN_URL = 'offscreen.html';
+const OFFSCREEN_URL = '/src/pages/offscreen/offscreen.html';
 
 /** Programa una alarma para el momento en que el temporizador en marcha llega a cero. */
 async function scheduleTimerAlarm() {
@@ -109,7 +112,7 @@ async function onTimerZero(alarm) {
   if (settings.timer_sound !== false) playAlarmSound();
   chrome.notifications.create(`pertday-timer-${task.id}`, {
     type: 'basic',
-    iconUrl: 'icons/icon128.png',
+    iconUrl: ICON_URL,
     title: 'Tiempo cumplido',
     message: `"${task.title}" llegó a su estimado de ${task.minutes} min. El temporizador sigue corriendo.`,
     priority: 2,
@@ -327,7 +330,7 @@ async function onMeetingEnd() {
   for (const meeting of ending) {
     chrome.notifications.create(`pertday-meeting-end-${meeting.id}`, {
       type: 'basic',
-      iconUrl: 'icons/icon128.png',
+      iconUrl: ICON_URL,
       title: `Terminó la reunión: ${meeting.title}`,
       message: `Su tiempo quedó registrado hasta las ${meeting.meeting.end}.`,
       priority: 1,
@@ -346,7 +349,7 @@ async function onMeetingStart() {
     const started = enforced?.meeting.id === meeting.id && enforced.startedNow;
     chrome.notifications.create(`pertday-meeting-${meeting.id}`, {
       type: 'basic',
-      iconUrl: 'icons/icon128.png',
+      iconUrl: ICON_URL,
       title: `Empezó la reunión: ${meeting.title}`,
       message: `${meeting.meeting.start}–${meeting.meeting.end}${started ? ' · su temporizador ya está corriendo' : ''}`,
       priority: 2,

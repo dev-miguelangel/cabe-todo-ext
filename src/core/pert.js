@@ -4,7 +4,7 @@
 // las dependencias solo definen el orden, y la suma de TE/varianzas da la probabilidad
 // de terminar el bloque a tiempo.
 
-import { toISO, shiftDate, toMinutes, nowMinutes } from './dates.js';
+import { toISO, shiftDate, toMinutes, nowMinutes } from '../utils/dates.js';
 
 /** Multiplicadores de O y P sobre M según la certeza del usuario. */
 export const CERTAINTY = {

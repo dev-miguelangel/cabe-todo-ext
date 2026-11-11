@@ -1,9 +1,9 @@
 // Vista "Ajustes": horarios de los bloques, duración por defecto, avisos y atajo de teclado.
 
-import { state, saveSettings, calibrationInfo, exportBackup, readBackup, restoreBackup } from './store.js';
-import { showToast } from './ui.js';
-import { todayISO } from './dates.js';
-import { playCasio } from './casio.js';
+import { state, saveSettings, calibrationInfo, exportBackup, readBackup, restoreBackup } from '../services/store.js';
+import { showToast } from '../utils/ui.js';
+import { todayISO } from '../utils/dates.js';
+import { playCasio } from '../services/casio.js';
 
 const form = () => document.getElementById('settings-form');
 

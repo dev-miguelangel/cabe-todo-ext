@@ -1,8 +1,8 @@
 // Comentarios de una tarea: texto simple (sin Markdown; el Markdown queda para la documentación).
 // Guarda su propio estado (borrador, comentario en edición) para sobrevivir a los re-render del modal.
 
-import { addComment, editComment, deleteComment } from './store.js';
-import { h } from './ui.js';
+import { addComment, editComment, deleteComment } from '../services/store.js';
+import { h } from '../utils/ui.js';
 
 function when(iso) {
   return new Date(iso).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });

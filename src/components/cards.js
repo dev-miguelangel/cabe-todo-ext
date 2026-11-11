@@ -1,10 +1,10 @@
 // Tarjeta de tarea, compartida por la vista del día, la bandeja y la vista de épicas.
 
-import { formatMinutes, formatClock } from './parser.js';
-import { blockersOf, timerBlockedBy } from './pert.js';
-import { markdownExcerpt } from './markdown.js';
-import { shortLabel, dayLabel } from './dates.js';
-import { isRunning, trackedMs, remainingMs, formatTracked, formatLeft } from './timer.js';
+import { formatMinutes, formatClock } from '../core/parser.js';
+import { blockersOf, timerBlockedBy } from '../core/pert.js';
+import { markdownExcerpt } from '../utils/markdown.js';
+import { shortLabel, dayLabel } from '../utils/dates.js';
+import { isRunning, trackedMs, remainingMs, formatTracked, formatLeft } from '../core/timer.js';
 
 /**
  * Chip de tiempo de la fila: cuánto queda (o cuánto se pasó). Clic = pausar/reanudar.
