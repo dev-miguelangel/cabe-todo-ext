@@ -25,6 +25,7 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 - [Arquitectura](#arquitectura)
 - [Desarrollo](#desarrollo)
 - [Pruebas](#pruebas)
+- [Versionar y publicar](#versionar-y-publicar)
 - [Convenciones](#convenciones)
 - [Privacidad](#privacidad)
 
@@ -78,10 +79,12 @@ cabe-todo/
 ├── README.md
 ├── assets/
 │   └── icons/                 # Iconos 16/32/48/128 (generados con scripts/make_icons.py)
+├── releases/                  # Zips de cada versión (cabe-todo-vX.Y.Z.zip)
 ├── docs/
 │   └── idea.md                # Documento de diseño: objetivos, modelo de datos y decisiones
 ├── scripts/
-│   └── make_icons.py          # Genera los iconos sin dependencias
+│   ├── make_icons.py          # Genera los iconos sin dependencias
+│   └── release.mjs            # Versiona: dist/ minificado + zip en releases/
 ├── src/
 │   ├── background/
 │   │   └── background.js      # Service worker: alarmas, notificaciones, reuniones y rutinas
@@ -150,6 +153,23 @@ node tests/run.mjs
 ```
 
 Cada grupo imprime `OK: …`. Si falla una aserción, el proceso termina con código distinto de 0.
+
+## Versionar y publicar
+
+```bash
+node scripts/release.mjs          # patch: 1.0.1 → 1.0.2
+node scripts/release.mjs minor    # 1.0.2 → 1.1.0
+node scripts/release.mjs major    # 1.1.0 → 2.0.0
+node scripts/release.mjs 1.4.0    # versión exacta
+```
+
+El script:
+
+1. Sube la versión en `manifest.json`.
+2. Genera `dist/` con la extensión minificada. Usa [esbuild](https://esbuild.github.io/) vía `npx` para JS y CSS, sin instalar nada en el proyecto. `dist/` no se versiona.
+3. Deja el paquete en `releases/cabe-todo-v<versión>.zip`, listo para subir a la Chrome Web Store.
+
+Para probar la versión minificada antes de publicar, carga la carpeta `dist/` como extensión descomprimida.
 
 ## Convenciones
 
