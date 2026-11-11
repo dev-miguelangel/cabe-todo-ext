@@ -163,25 +163,29 @@
       <div class="body">
         <span class="title-line"><span class="dot" hidden></span><span class="title"></span></span>
         <span class="deps" hidden></span>
+        <div class="foot">
+          <span class="meta">
+            <span class="meeting-time" hidden></span>
+            <span class="minutes"></span>
+            <button class="timer-btn" hidden></button>
+            <span class="critical" title="Otras tareas dependen de esta" hidden>◆</span>
+            <span class="locked" hidden>⧖</span>
+            <span class="comment-count" hidden></span>
+            <span class="doc-mark" hidden>▤</span>
+          </span>
+          <span class="foot-actions">
+            <button class="link row-btn" title="Va después de… (agregar dependencia)" aria-label="Elegir de qué tareas depende">↳</button>
+            <span class="ended" hidden>
+              <button class="next-btn"></button>
+              <button class="backlog-btn" title="Enviar al backlog" aria-label="Enviar al backlog">⤓</button>
+            </span>
+            <span class="plan" hidden>
+              <button class="plan-btn" data-block="am">→ AM</button>
+              <button class="plan-btn" data-block="pm">→ PM</button>
+            </span>
+          </span>
+        </div>
       </div>
-      <span class="meta">
-        <button class="timer-btn" hidden></button>
-        <span class="comment-count" hidden></span>
-        <span class="doc-mark" hidden>▤</span>
-        <span class="meeting-time" hidden></span>
-        <span class="locked" hidden>⧖</span>
-        <span class="critical" title="Otras tareas dependen de esta" hidden>◆</span>
-        <span class="minutes"></span>
-      </span>
-      <button class="link row-btn" title="Va después de… (agregar dependencia)" aria-label="Elegir de qué tareas depende">↳</button>
-      <span class="ended" hidden>
-        <button class="next-btn"></button>
-        <button class="backlog-btn" title="Enviar al backlog" aria-label="Enviar al backlog">⤓</button>
-      </span>
-      <span class="plan" hidden>
-        <button class="plan-btn" data-block="am">→ AM</button>
-        <button class="plan-btn" data-block="pm">→ PM</button>
-      </span>
       <span class="actions">
         <button class="unplan" title="Enviar al backlog" aria-label="Enviar al backlog" hidden>↩︎</button>
       </span>

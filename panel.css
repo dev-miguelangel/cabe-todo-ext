@@ -431,28 +431,6 @@ kbd {
 }
 .link-btn { border: 0; background: none; padding: 0 4px; color: var(--accent-text); font-size: 12px; }
 
-/* Columnas angostas (side panel): la tarjeta pasa a dos líneas —
-   título arriba; duración, indicadores y → AM/PM abajo. */
-.block, .backlog details, .overdue, .epic { container-type: inline-size; }
-@container (max-width: 300px) {
-  .task {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    column-gap: 8px; row-gap: 2px;
-    align-items: start;
-  }
-  .task .check { grid-row: 1 / span 3; margin-top: 3px; }
-  .task > :not(.check):not(.actions) { grid-column: 2; justify-self: start; }
-  .task .actions { top: -12px; }
-  .task .plan { flex-wrap: wrap; }
-  .block { padding: 10px; }
-  .block-head h2 { font-size: 13px; }
-  .range { display: block; margin: 0; }
-  .suggestion { flex-wrap: wrap; }
-  .suggestion span { flex-basis: 100%; }
-  .epic-summary { flex-direction: column; gap: 2px; }
-  .capacity-label { font-size: 11px; }
-}
 
 /* ================= Vista simplificada: las tareas son lo protagonista ================= */
 
@@ -1141,3 +1119,41 @@ input[type="checkbox"] { border-color: var(--muted); }
 
 /* Lista: sin botón de borrar; la píldora flotante solo aparece si tiene algo que mostrar */
 .task .actions:not(:has(button:not([hidden]))) { display: none !important; }
+
+
+/* ======================= Tarjetas mínimas (cualquier ancho) ======================= */
+/* Línea 1: casilla + título (todo el ancho).  Línea 2: chips a la izquierda, botones a la derecha. */
+
+.task { align-items: flex-start; gap: 10px; padding: 8px 10px; }
+.task .check { margin-top: 2px; }
+.task .body { flex: 1; min-width: 0; gap: 2px; }
+.task .title { font-size: 14px; line-height: 1.35; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.task .deps { font-size: 11px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.task .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; }
+.task .meta { gap: 6px; font-size: 11px; }
+.task .minutes { font-size: 11px; }
+.task .foot-actions { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.task .ended, .task .plan { display: inline-flex; gap: 4px; }
+.task .ended[hidden], .task .plan[hidden] { display: none; }
+
+/* Chips y botones más compactos */
+.task .timer-btn, .task .meeting-time { padding: 0 7px; font-size: 11px; line-height: 18px; }
+.task .row-btn, .task .plan-btn, .task .ended button {
+  min-width: 24px; padding: 0 7px; font-size: 11px; line-height: 20px; border-radius: 6px;
+}
+
+/* Cada sección mide su propio ancho (para las reglas @container de abajo) */
+.block, .backlog details, .overdue, .epic { container-type: inline-size; }
+
+/* Encabezado del bloque: si no cabe, el horario baja a una segunda línea */
+.block-head { flex-wrap: wrap; row-gap: 2px; }
+.block-head h2 { white-space: nowrap; }
+.range { white-space: nowrap; }
+@container (max-width: 380px) {
+  .block-head .range { order: 9; flex-basis: 100%; margin: 0; font-size: 11px; }
+  .ended-bar > span { display: none; }           /* "Bloque terminado" ya lo dice el encabezado */
+  .ended-bar { justify-content: flex-end; }
+  .suggestion { font-size: 11px; }
+}
