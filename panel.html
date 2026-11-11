@@ -9,13 +9,6 @@
   <script src="theme-boot.js"></script>
 </head>
 <body>
-  <nav class="tabs" role="tablist">
-    <button class="tab" role="tab" data-tab="day">Hoy</button>
-    <button class="tab" role="tab" data-tab="epics">Épicas</button>
-    <button class="tab" role="tab" data-tab="docs">Docs</button>
-    <button class="tab tab-icon" role="tab" data-tab="settings" title="Ajustes" aria-label="Ajustes">⚙︎</button>
-  </nav>
-
   <!-- ===== Vista del día ===== -->
   <div id="view-day">
     <header class="topbar">
@@ -204,6 +197,26 @@
   </div>
 
   <div class="toast" id="toast" role="status" hidden></div>
+
+  <!-- ===== Menú inferior: vistas de la app ===== -->
+  <nav class="tabs" role="tablist" aria-label="Vistas">
+    <button class="tab" role="tab" data-tab="day">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+      <span>Hoy</span>
+    </button>
+    <button class="tab" role="tab" data-tab="epics">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 7.5v9M12 7.5v5M16 7.5v7"/></svg>
+      <span>Épicas</span>
+    </button>
+    <button class="tab" role="tab" data-tab="docs">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h7l4.5 4.5v10a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M13.5 3.5V8H18M8 12.5h8M8 16h5"/></svg>
+      <span>Docs</span>
+    </button>
+    <button class="tab" role="tab" data-tab="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+      <span>Ajustes</span>
+    </button>
+  </nav>
 
   <template id="task-template">
     <li class="task">

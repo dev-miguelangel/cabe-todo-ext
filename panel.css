@@ -188,7 +188,7 @@ button { font: inherit; cursor: pointer; }
 
 /* Aviso temporal */
 .toast {
-  position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 20;
+  position: fixed; left: 16px; right: 16px; bottom: calc(var(--nav-h) + 12px); z-index: 20;
   max-width: 420px; margin: 0 auto;
   padding: 8px 12px;
   font-size: 12px;
@@ -208,13 +208,26 @@ button { font: inherit; cursor: pointer; }
   width: 8px; height: 8px; border-radius: 50%;
 }
 
-/* Pestañas */
+/* Menú inferior: las vistas de la app, fijo abajo como en las apps móviles */
+:root { --nav-h: 56px; }
+body { padding-bottom: var(--nav-h); }
 .tabs {
-  display: flex; 
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+  display: flex; height: var(--nav-h);
+  background: var(--bg); border-top: 1px solid var(--border);
 }
 .tab {
-  border: 0; background: none;
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: 0; background: none; padding: 4px 0;
+  font-size: 11px; font-weight: 500; color: var(--muted);
 }
+.tab svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent-text); font-weight: 600; }
 
 /* Filtro por épica */
 .filters {
@@ -502,19 +515,6 @@ select option { background: var(--bg); }
 
 /* ======================= Estilo Spotify ======================= */
 
-/* Pestañas como "SONGS / ARTISTS": texto en negrita y subrayado verde en la activa */
-.tabs {
-  margin: 6px 16px 0; gap: 20px;
-  border-bottom: 1px solid var(--border); 
-}
-.tab {
-  flex: none; padding: 10px 0 8px;
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
-}
-.tab:hover { color: var(--text); }
-.tab.active { border-bottom-color: var(--accent); }
-.tab-icon { margin-left: auto; }
-
 .topbar { padding: 14px 16px 6px; }
 
 .today-link { color: var(--accent-text); font-weight: 600; }
@@ -617,15 +617,11 @@ input[type="checkbox"]:checked { background: var(--accent); border-color: var(--
 
 .toast-action { color: var(--cod); }
 kbd { color: var(--text); }
-.tab.tab-icon { font-size: 18px; line-height: 1; padding: 6px 0 4px; }
 
 /* ======================= Tema Chrome (manda sobre lo anterior) ======================= */
 
 body { font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 
-/* Pestañas en texto normal (no mayúsculas), subrayado verde en la activa */
-.tab { font-weight: 500; color: var(--muted); }
-.tab.active { color: var(--text); font-weight: 600; }
 
 .day h1 { font-size: 18px; font-weight: 600; }
 .nav:hover { background: var(--hover); }
@@ -985,7 +981,7 @@ kbd { background: var(--field); }
 /* ======================= Tarjetas mínimas (cualquier ancho) ======================= */
 /* Línea 1: casilla + título (todo el ancho).  Línea 2: chips a la izquierda, botones a la derecha. */
 
-.task { align-items: flex-start; gap: 10px; padding: 8px 10px; }
+.task { align-items: flex-start; gap: 10px; padding: 8px 10px; margin-bottom: 2px; }
 .task .check { margin-top: 2px; }
 .task .body { flex: 1; min-width: 0; gap: 2px; }
 .task .title { line-height: 1.35; overflow-wrap: anywhere;
