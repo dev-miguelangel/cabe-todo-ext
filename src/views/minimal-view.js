@@ -20,6 +20,7 @@ import { showTaskModal } from '../components/task-modal.js';
 import { showSyntaxHelp } from '../components/syntax-help.js';
 import { showBacklogPicker } from '../components/backlog-picker.js';
 import { showUpcoming } from '../components/upcoming.js';
+import { probTag } from '../components/prob-tag.js';
 import { openMoveMenu, nextSlot, slotText } from '../components/move-menu.js';
 
 /**
@@ -28,15 +29,13 @@ import { openMoveMenu, nextSlot, slotText } from '../components/move-menu.js';
  */
 function forecastOf(sched) {
   if (sched.pendingCount === 0) {
-    return sched.items.length ? { text: '✓', cls: 'good', head: 'Todo listo', detail: 'No quedan tareas pendientes en este bloque.' } : null;
+    return sched.items.length ? { p: null, head: 'Todo listo', detail: 'No quedan tareas pendientes en este bloque.' } : null;
   }
   const n = `${sched.pendingCount} pendiente${sched.pendingCount > 1 ? 's' : ''}`;
-  if (sched.remaining <= 0) return { text: '0%', cls: 'bad', head: 'El bloque ya terminó', detail: `Quedaron ${n}.` };
+  if (sched.remaining <= 0) return { p: 0, head: 'El bloque ya terminó', detail: `Quedaron ${n}.` };
   const pct = Math.round(sched.probability * 100);
-  const cls = sched.probability >= 0.8 ? 'good' : sched.probability >= 0.5 ? 'warn' : 'bad';
   return {
-    text: `${pct}%`,
-    cls,
+    p: sched.probability,
     head: `${pct}% de terminar a tiempo`,
     detail: `${n} · estimado ${formatMinutes(sched.mu)} ± ${formatMinutes(sched.sigma)} · quedan ${formatMinutes(sched.remaining)} en el bloque`,
   };
@@ -150,14 +149,18 @@ function blockDivider(block, now, sched, nowMin, sug) {
   const key = `pct:${block.id}`;
   const parts = [];
   if (fc) {
-    parts.push(h('button', {
+    // Etiqueta de probabilidad (✓ si ya no queda nada); clic = detalle y sugerencia
+    const attrs = {
       type: 'button',
-      class: `forecast minimal-pct ${fc.cls}${sug ? ' has-tip' : ''}${openTip === key ? ' open' : ''}`,
       dataset: { tip: key },
       'aria-expanded': String(openTip === key),
       'aria-controls': `pct-tip-${block.id}`,
-      title: sug ? 'Hay una sugerencia para este bloque' : null,
-    }, sug ? `✦ ${fc.text}` : fc.text), ' | ');
+    };
+    const cls = `minimal-pct${sug ? ' has-tip' : ''}${openTip === key ? ' open' : ''}`;
+    const tag = fc.p === null
+      ? h('button', { ...attrs, class: `prob-tag good ${cls}`, 'aria-label': 'Todo listo', dataset: { tip: key, tooltip: 'Todo listo' } }, '✓')
+      : probTag(fc.p, { tag: 'button', class: cls, prefix: sug ? '✦ ' : '', attrs });
+    parts.push(tag, ' | ');
   }
   parts.push(`${block.title} | ${block.start} - ${block.end}`);
   return h('li', { class: `done-divider block-divider${now ? ' is-now' : ''}`, dataset: { block: block.id } },

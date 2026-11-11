@@ -5,7 +5,7 @@
 
 import { formatMinutes } from '../core/parser.js';
 import { epicForecast, criticalIds } from '../core/pert.js';
-import { todayISO, shortLabel } from '../utils/dates.js';
+import { todayISO, shortLabel, parseISO } from '../utils/dates.js';
 import {
   state, findEpic, activeEpics, archivedEpics, epicTasks,
   createEpic, renameEpic, setEpicTarget, archiveEpic, restoreEpic, deleteEpic,
@@ -16,21 +16,30 @@ import { h, attachEpicAutocomplete } from '../utils/ui.js';
 import { renderCard } from '../components/cards.js';
 import { showTaskModal } from '../components/task-modal.js';
 import { openMoveMenu } from '../components/move-menu.js';
+import { probTag } from '../components/prob-tag.js';
 
 // Épicas abiertas en esta sesión (al abrir el panel, todas empiezan cerradas)
 const openEpics = new Set();
 let renaming = null; // id de la épica que se está renombrando
 
-/** Pronóstico a la fecha objetivo: { text, cls, title } o null. */
+/** Probabilidad de terminar a la fecha objetivo (0–1), o null si no aplica. */
 function forecastOf(fc, epic) {
   if (!epic.target_date || !fc.pendingCount) return null;
-  if (epic.target_date < todayISO()) return { text: 'vencida', cls: 'bad', title: 'La fecha objetivo ya pasó' };
-  const pct = Math.round(fc.probability * 100);
-  return {
-    text: `${pct}%`,
-    cls: fc.probability >= 0.8 ? 'good' : fc.probability >= 0.5 ? 'warn' : 'bad',
-    title: `${pct}% de terminar a tiempo · necesitas ~${formatMinutes(fc.mu)} ± ${formatMinutes(fc.sigma)}, libres hasta esa fecha: ${formatMinutes(fc.capacity)}`,
-  };
+  if (epic.target_date < todayISO()) return null; // ya lo dice "Objetivo vencido"
+  return fc.probability;
+}
+
+/** "Objetivo: mié 24 dic (en 13 días)" · "Objetivo: hoy" · "Objetivo vencido: lun 10 nov" · "Sin fecha objetivo" */
+function targetText(target) {
+  if (!target) return 'Sin fecha objetivo';
+  const today = todayISO();
+  const days = Math.round((parseISO(target) - parseISO(today)) / 86400000);
+  const year = target.slice(0, 4) !== today.slice(0, 4) ? ` ${target.slice(0, 4)}` : '';
+  const date = `${shortLabel(target)}${year}`;
+  if (days < 0) return `🎯 Objetivo vencido: ${date}`;
+  if (days === 0) return '🎯 Objetivo: hoy';
+  if (days === 1) return `🎯 Objetivo: mañana, ${date}`;
+  return `🎯 Objetivo: ${date} (en ${days} días)`;
 }
 
 function remainingText(fc) {
@@ -90,7 +99,7 @@ function renderEpic(epic, ctx) {
   const pct = fc.total ? (fc.doneCount / fc.total) * 100 : 0;
   const forecast = forecastOf(fc, epic);
   const open = openEpics.has(epic.id);
-  const when = epic.target_date ? `🎯 ${epic.target_date === todayISO() ? 'hoy' : shortLabel(epic.target_date)}` : 'Sin fecha objetivo';
+  const when = targetText(epic.target_date);
 
   return h('details', { class: 'epic-item', open, dataset: { epicId: epic.id }, style: `--epic:${epic.color}` },
     h('summary', {},
@@ -100,8 +109,8 @@ function renderEpic(epic, ctx) {
         h('span', { class: 'epic-count', title: `${fc.doneCount} hechas de ${fc.total}` }, `${fc.doneCount}/${fc.total} ✓`),
         h('span', { class: 'ss-chevron', 'aria-hidden': 'true' })),
       h('span', { class: 'epic-meta' },
-        h('span', {}, when),
-        forecast ? h('span', { class: `forecast ${forecast.cls}`, title: forecast.title }, forecast.text) : null,
+        h('span', { class: 'epic-target-text', title: epic.target_date ? 'Fecha objetivo (se cambia al abrir la épica)' : null }, when),
+        forecast !== null ? probTag(forecast) : null,
         h('span', { class: 'epic-sep', 'aria-hidden': 'true' }, '·'),
         h('span', {}, remainingText(fc))),
       h('span', { class: 'epic-progress', 'aria-hidden': 'true' }, h('span', { style: `width:${pct}%` }))),

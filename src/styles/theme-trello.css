@@ -81,17 +81,7 @@
 /* Docs: cada tarea como tarjeta */
 [data-theme="trello"] .doc-card { background: var(--card); border-radius: var(--radius-card); box-shadow: var(--elev-card); }
 [data-theme="trello"] .doc-card:hover { background: var(--card); box-shadow: var(--elev-raised); }
-[data-theme="trello"] .doc-card mark { background: var(--ds-yellow-subtle); color: var(--text); }
-
-/* ---------- Etiquetas tipo píldora y estados ---------- */
-[data-theme="trello"] .forecast.good,
-[data-theme="trello"] .forecast.warn,
-[data-theme="trello"] .forecast.bad {
-  padding: 0 8px; border-radius: var(--radius-pill); border: 0; font-weight: 600;
-}
-[data-theme="trello"] .forecast.good { background: var(--ds-green-subtle); color: var(--ds-green-text); }   /* a tiempo */
-[data-theme="trello"] .forecast.warn { background: var(--ds-yellow-subtle); color: var(--ds-yellow-text); } /* en riesgo */
-[data-theme="trello"] .forecast.bad { background: var(--ds-red); color: #ffffff; }        /* en curso */
+[data-theme="trello"] .doc-card mark { background: var(--ds-yellow-subtle); color: var(--text); }        /* en curso */
 
 /* Temporizador en la tarjeta */
 [data-theme="trello"] .task .timer-btn.running { background: var(--ds-blue-subtle); color: var(--ds-blue-text); }
@@ -188,3 +178,9 @@
 [data-theme="trello"] .epic-item { background: var(--card); box-shadow: var(--elev-card); }
 [data-theme="trello"] .epic-tasks .task { background: var(--ds-n20); box-shadow: none; }
 [data-theme="trello"] .epic-target input { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+
+/* ---------- Probabilidad de éxito ---------- */
+[data-theme="trello"] .prob-tag.good { background: var(--ds-green-subtle); color: var(--ds-green-text); }
+[data-theme="trello"] .prob-tag.warn { background: var(--ds-yellow-subtle); color: var(--ds-yellow-text); }
+[data-theme="trello"] .prob-tag.bad { background: var(--ds-red); color: #fff; }
+[data-theme="trello"] .app-tooltip { background: var(--ds-n800); color: #fff; }

@@ -6,6 +6,7 @@ import { state, backlogTasks, overdueTasks, planTask, subscribe, findEpic } from
 import { h, openModal, isModalOpen, showToast } from '../utils/ui.js';
 import { blocksOf } from '../core/blocks.js';
 import { scheduleBlock } from '../core/pert.js';
+import { probTag } from './prob-tag.js';
 import { formatMinutes } from '../core/parser.js';
 import { todayISO, nowMinutes, shortLabel } from '../utils/dates.js';
 
@@ -39,16 +40,15 @@ function taskRow(task, blocks, today, nowMin) {
     const p = forecastWith(b, task, today, nowMin);
     const ended = p === null;
     const pct = ended ? '' : `${Math.round(p * 100)}%`;
-    const cls = ended ? '' : p >= 0.8 ? 'good' : p >= 0.5 ? 'warn' : 'bad';
     return h('button', {
       type: 'button',
-      class: `pick-btn ${cls}`,
+      class: 'pick-btn',
       dataset: { task: task.id, block: b.id },
       disabled: ended,
-      title: ended ? `${b.title} ya terminó` : `Agregar a ${b.icon} ${b.title}: el bloque quedaría en ${pct}`,
+      title: ended ? `${b.title} ya terminó` : null,
       'aria-label': ended ? `${b.title} ya terminó` : `Agregar "${task.title}" a ${b.title} (quedaría en ${pct})`,
     }, h('span', { class: 'pick-icon', 'aria-hidden': 'true' }, b.icon), h('span', { class: 'pick-name' }, b.title),
-    pct ? h('span', { class: 'pick-pct' }, pct) : null);
+    ended ? null : probTag(p, { class: 'pick-pct' }));
   });
   return h('li', { class: 'pick-row' },
     h('div', { class: 'pick-info' },

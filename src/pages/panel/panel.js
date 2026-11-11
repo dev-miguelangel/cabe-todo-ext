@@ -10,6 +10,7 @@ import { renderRoutines, setupRoutines, isRoutinesBusy } from '../../views/routi
 import { updateTimerChip } from '../../components/cards.js';
 import { setupThemeToggle, renderThemeToggle } from '../../components/theme-toggle.js';
 import { showToast, applyTheme } from '../../utils/ui.js';
+import { installTooltips } from '../../utils/tooltip.js';
 import { TAB_IDS, normalizeTabOrder } from '../../core/tabs.js';
 
 const TAB_KEY = 'cabetodo:tab';
@@ -61,6 +62,7 @@ async function init() {
   } catch { /* sin almacenamiento */ }
 
   setNotifier(showToast);
+  installTooltips();
   // Cambios propios: siempre re-render. Cambios de otra ventana: esperar si el usuario está editando o arrastrando.
   subscribe(({ external } = {}) => {
     if (external && isBusy()) return;
