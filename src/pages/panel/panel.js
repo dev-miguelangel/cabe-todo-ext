@@ -10,9 +10,10 @@ import { renderRoutines, setupRoutines, isRoutinesBusy } from '../../views/routi
 import { updateTimerChip } from '../../components/cards.js';
 import { setupThemeToggle, renderThemeToggle } from '../../components/theme-toggle.js';
 import { showToast, applyTheme } from '../../utils/ui.js';
+import { TAB_IDS, normalizeTabOrder } from '../../core/tabs.js';
 
 const TAB_KEY = 'cabetodo:tab';
-const TABS = ['minimal', 'epics', 'done', 'routines', 'docs', 'settings'];
+const TABS = TAB_IDS;
 const VIEWS = {
   minimal: renderMinimal, epics: renderEpics, done: renderDone, routines: renderRoutines, docs: renderDocs, settings: renderSettings,
 };
@@ -21,9 +22,19 @@ function isBusy() {
   return isEpicsBusy() || isMinimalBusy() || isRoutinesBusy();
 }
 
+/** Ordena los botones del menú inferior como se eligió en Ajustes (solo si cambió). */
+function renderTabOrder() {
+  const nav = document.querySelector('.tabs');
+  const order = normalizeTabOrder(state.settings.tab_order);
+  const current = [...nav.querySelectorAll('.tab')].map((b) => b.dataset.tab);
+  if (current.join() === order.join()) return;
+  for (const id of order) nav.append(nav.querySelector(`.tab[data-tab="${id}"]`));
+}
+
 function render() {
   applyTheme(state.settings.theme);
   renderThemeToggle();
+  renderTabOrder();
   document.querySelectorAll('.tab').forEach((btn) => {
     const active = btn.dataset.tab === state.tab;
     btn.classList.toggle('active', active);

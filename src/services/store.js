@@ -530,6 +530,16 @@ export function planTask(id, block, date = todayISO()) {
   updateTask(id, { date, block });
 }
 
+/** Mueve varias tareas a un día y bloque de una vez (un solo guardado; quedan al final, en su orden). */
+export function moveTasks(ids, date, block) {
+  let order = nextOrder(date, block);
+  for (const id of ids) {
+    const t = findTask(id);
+    if (t) Object.assign(t, { date, block, order: order++ });
+  }
+  commit();
+}
+
 /** Pendientes de días anteriores a `today` (las reuniones pasadas no se arrastran). */
 export const overdueTasks = (today) =>
   state.tasks.filter((t) => t.date && t.date < today && !t.done && !isMeeting(t));
@@ -596,6 +606,15 @@ export function restoreBackup(data) {
 
 export function unplanTask(id) {
   updateTask(id, { date: null, block: null });
+}
+
+/** Anclar / desanclar una tarea arriba de la vista Docs. Devuelve si quedó anclada. */
+export function togglePin(id) {
+  const task = findTask(id);
+  if (!task) return false;
+  task.pinned_at = task.pinned_at ? null : new Date().toISOString();
+  commit();
+  return Boolean(task.pinned_at);
 }
 
 export function deleteTask(id) {

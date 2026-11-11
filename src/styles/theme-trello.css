@@ -187,3 +187,13 @@
 [data-theme="trello"] .routine-fields select,
 [data-theme="trello"] .routine-fields input { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
 [data-theme="trello"] .routine-empty { background: var(--ds-n20); }
+
+/* ---------- Mover y pendientes de bloques terminados ---------- */
+[data-theme="trello"] .move-menu { background: var(--surface); box-shadow: var(--elev-overlay); }
+[data-theme="trello"] .move-chip { background: var(--ds-n20); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .move-chip.on { box-shadow: inset 0 0 0 2px var(--ds-blue); }
+[data-theme="trello"] .move-chip:hover:not(:disabled) { background: var(--ds-blue); color: #fff; box-shadow: none; }
+[data-theme="trello"] .done-list .task.stale { background: color-mix(in srgb, var(--ds-red) 6%, var(--card)); }
+[data-theme="trello"] .done-list .task.stale:hover { background: color-mix(in srgb, var(--ds-red) 9%, var(--card)); }
+[data-theme="trello"] .tab-order-row { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .docs-pinned { background: var(--ds-blue-subtle); }

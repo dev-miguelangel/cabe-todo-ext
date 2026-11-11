@@ -49,7 +49,8 @@ export function whenLabel(task) {
  * opts:
  *  ctx         { byId, epicsById, critical:Set, planDate }
  *  item        resultado de scheduleBlock para esta tarea (hora estimada, holgura)
- *  blockEnded  el bloque ya terminó: no marcar como atrasadas (irían todas)
+ *  blockEnded  el bloque ya terminó: no marcar como atrasadas (irían todas) y teñir las pendientes
+ *  move        botón ⇢ (en las acciones al pasar el mouse) para mover a otro bloque o día
  *  draggable, plan (botones → de cada bloque), unplan (↩︎ al backlog), when (mostrar fecha), showEpic,
  *  showBlock (mostrar el bloque: en listas que no van separadas por bloque)
  */
@@ -149,6 +150,9 @@ export function renderCard(task, opts) {
     }));
   }
   li.querySelector('.unplan').hidden = !(opts.unplan && task.date && !task.done && !meeting);
+  li.querySelector('.move-btn').hidden = !(opts.move && !task.done);
+  // Pendiente en un bloque que ya terminó: fondo rojizo muy sutil
+  li.classList.toggle('stale', Boolean(opts.blockEnded) && !task.done);
 
   const item = opts.item;
   if (meeting) {

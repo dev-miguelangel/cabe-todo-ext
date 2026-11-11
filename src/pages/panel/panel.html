@@ -73,104 +73,160 @@
       <input type="search" id="docs-search" class="docs-search" placeholder="Buscar en títulos y documentación…" aria-label="Buscar en la documentación" autocomplete="off">
       <p class="docs-count" id="docs-count"></p>
     </div>
-    <ul class="docs-list" id="docs-list"></ul>
+    <details class="docs-pinned" id="docs-pinned" hidden>
+      <summary>
+        <span class="docs-pinned-title">📌 Ancladas <span class="docs-pinned-count" id="docs-pinned-count"></span></span>
+        <span class="ss-chevron" aria-hidden="true"></span>
+      </summary>
+      <ul class="docs-list" id="docs-pinned-list" aria-label="Tareas ancladas"></ul>
+    </details>
+    <ul class="docs-list" id="docs-list" aria-label="Tareas con documentación"></ul>
   </div>
 
   <!-- ===== Ajustes ===== -->
   <div id="view-settings" hidden>
     <h1 class="view-title">Ajustes</h1>
-    <form id="settings-form" class="settings" novalidate>
-      <fieldset class="blocks-editor">
-        <legend>Bloques del día</legend>
-        <p class="settings-note">Hasta 5 bloques, sin horas superpuestas. Se ordenan solos por hora.</p>
-        <ol class="block-rows" id="block-rows"></ol>
-        <button type="button" class="link-btn" id="add-block">+ Agregar bloque</button>
-      </fieldset>
-      <label class="row">Tema
-        <select name="theme">
-          <option value="chrome">Oscuro (Chrome)</option>
-          <option value="trello">Claro (estilo Trello)</option>
-        </select>
-      </label>
-      <label class="row">Duración si no escribes una
-        <select name="default-minutes">
-          <option value="15">15m</option>
-          <option value="30">30m</option>
-          <option value="45">45m</option>
-          <option value="60">1h</option>
-        </select>
-      </label>
-      <label class="row check-row">
-        <input type="checkbox" name="notify">
-        Avisarme cuando termine cada bloque
-      </label>
-      <div class="row">
-        <label class="row check-row">
-          <input type="checkbox" name="timer-sound">
-          Sonar cuando el temporizador llegue a cero
+    <details class="settings settings-section" data-section="blocks">
+      <summary>
+        <span class="ss-head"><span class="ss-title">Bloques del día</span><span class="ss-chevron" aria-hidden="true"></span></span>
+        <span class="ss-desc" id="blocks-summary">Hasta 5 bloques con título, ícono y horario.</span>
+      </summary>
+      <form class="ss-body" id="blocks-form" novalidate>
+        <fieldset class="blocks-editor">
+          <p class="settings-note">Hasta 5 bloques, sin horas superpuestas. Se ordenan solos por hora.</p>
+          <ol class="block-rows" id="block-rows"></ol>
+          <button type="button" class="link-btn" id="add-block">+ Agregar bloque</button>
+        </fieldset>
+        <p class="settings-error" id="settings-error" role="alert" hidden></p>
+        <div class="settings-actions">
+          <button type="submit" class="primary">Guardar</button>
+          <span class="settings-saved" hidden>Guardado ✓</span>
+        </div>
+      </form>
+    </details>
+
+    <details class="settings settings-section" data-section="general">
+      <summary>
+        <span class="ss-head"><span class="ss-title">Preferencias</span><span class="ss-chevron" aria-hidden="true"></span></span>
+        <span class="ss-desc">Tema, duración, avisos y temporizador.</span>
+      </summary>
+      <form class="ss-body" id="prefs-form" novalidate>
+        <label class="row">Tema
+          <select name="theme">
+            <option value="chrome">Oscuro (Chrome)</option>
+            <option value="trello">Claro (estilo Trello)</option>
+          </select>
         </label>
-        <button type="button" class="ghost small" id="test-sound">♪ Probar sonido</button>
-      </div>
-      <label class="row check-row">
-        <input type="checkbox" name="float-timer">
-        Mostrar el temporizador flotante en las páginas mientras corre
-      </label>
-      <div class="calibrate">
-        <label class="row check-row">
-          <input type="checkbox" name="calibrate">
-          Ajustar el pronóstico según lo que tardo de verdad
+        <label class="row">Duración si no escribes una
+          <select name="default-minutes">
+            <option value="15">15m</option>
+            <option value="30">30m</option>
+            <option value="45">45m</option>
+            <option value="60">1h</option>
+          </select>
         </label>
-        <p class="settings-note" id="calibration-info"></p>
-      </div>
-      <label class="row">Cuenta regresiva de la próxima reunión
-        <select name="meeting-lead">
-          <option value="0">al empezar</option>
-          <option value="5">5 min antes</option>
-          <option value="10">10 min antes</option>
-          <option value="15">15 min antes</option>
-          <option value="30">30 min antes</option>
-          <option value="60">1 h antes</option>
-        </select>
-      </label>
-      <p class="settings-error" id="settings-error" role="alert" hidden></p>
-      <div class="settings-actions">
-        <button type="submit" class="primary">Guardar</button>
-        <span class="settings-saved" id="settings-saved" hidden>Guardado ✓</span>
-      </div>
-    </form>
+        <label class="row check-row">
+          <input type="checkbox" name="notify">
+          Avisarme cuando termine cada bloque
+        </label>
+        <div class="row">
+          <label class="row check-row">
+            <input type="checkbox" name="timer-sound">
+            Sonar cuando el temporizador llegue a cero
+          </label>
+          <button type="button" class="ghost small" id="test-sound">♪ Probar sonido</button>
+        </div>
+        <label class="row check-row">
+          <input type="checkbox" name="float-timer">
+          Mostrar el temporizador flotante en las páginas mientras corre
+        </label>
+        <div class="calibrate">
+          <label class="row check-row">
+            <input type="checkbox" name="calibrate">
+            Ajustar el pronóstico según lo que tardo de verdad
+          </label>
+          <p class="settings-note" id="calibration-info"></p>
+        </div>
+        <label class="row">Cuenta regresiva de la próxima reunión
+          <select name="meeting-lead">
+            <option value="0">al empezar</option>
+            <option value="5">5 min antes</option>
+            <option value="10">10 min antes</option>
+            <option value="15">15 min antes</option>
+            <option value="30">30 min antes</option>
+            <option value="60">1 h antes</option>
+          </select>
+        </label>
+        <div class="settings-actions">
+          <button type="submit" class="primary">Guardar</button>
+          <span class="settings-saved" hidden>Guardado ✓</span>
+        </div>
+      </form>
+    </details>
 
-    <section class="settings backup">
-      <h2>Respaldo</h2>
-      <p>Todo vive en este navegador. Descarga una copia de vez en cuando.</p>
-      <div class="backup-actions">
-        <button type="button" class="ghost small" id="export-data">⤓ Exportar</button>
-        <button type="button" class="ghost small" id="import-data">⤒ Importar…</button>
-        <input type="file" id="import-file" accept="application/json,.json" hidden>
+    <details class="settings settings-section help" data-section="help">
+        <summary>
+          <span class="ss-head"><span class="ss-title">Cómo escribir tareas</span><span class="ss-chevron" aria-hidden="true"></span></span>
+          <span class="ss-desc">Duración, bloque, día, reunión, épica y repetición.</span>
+        </summary>
+      <div class="ss-body">
+        <p>Escribe el título y, al final, lo que quieras (todo es opcional):</p>
+        <ul>
+          <li><code>15m</code> <code>1h</code> <code>1h30</code> duración</li>
+          <li><code>am</code> / <code>pm</code> <code>tarde</code> <code>gym</code> el bloque (o <code>@gym</code>)</li>
+          <li><code>hoy</code> <code>mañana</code> <code>viernes</code> el día ("mañana" es el día siguiente)</li>
+          <li><code>Reunión … 1pm 1h</code> una reunión con su hora</li>
+          <li><code>bl</code> dejarla en el backlog</li>
+          <li><code>?</code> no estoy seguro · <code>!</code> muy seguro</li>
+          <li><code>#épica</code> agrupar en una épica</li>
+          <li><code>cada día</code> <code>hábiles</code> <code>cada lun,jue</code> se repite</li>
+        </ul>
+        <p>Arrastra una tarea para moverla de bloque · doble clic para editar · ◆ otras dependen de ella · ⧖ bloqueada</p>
       </div>
-    </section>
+    </details>
 
-    <section class="settings shortcuts">
-      <h2>Atajos</h2>
-      <p>Abrir Cabe Todo: <kbd id="shortcut-key">—</kbd>
-        <button class="link-btn" id="edit-shortcuts">Cambiar</button></p>
-      <p>Dentro del panel: <kbd>N</kbd> nueva tarea en el bloque actual</p>
-    </section>
+    <details class="settings settings-section backup" data-section="backup">
+        <summary>
+          <span class="ss-head"><span class="ss-title">Respaldo</span><span class="ss-chevron" aria-hidden="true"></span></span>
+          <span class="ss-desc">Exporta o importa todos tus datos.</span>
+        </summary>
+      <div class="ss-body">
+        <p>Todo vive en este navegador. Descarga una copia de vez en cuando.</p>
+        <div class="backup-actions">
+          <button type="button" class="ghost small" id="export-data">⤓ Exportar</button>
+          <button type="button" class="ghost small" id="import-data">⤒ Importar…</button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden>
+        </div>
+      </div>
+    </details>
 
-    <section class="settings help">
-      <h2>Cómo escribir tareas</h2>
-      <p>Escribe el título y, al final, lo que quieras (todo es opcional):</p>
-      <ul>
-        <li><code>15m</code> <code>1h</code> <code>1h30</code> duración</li>
-        <li><code>am</code> / <code>pm</code> <code>tarde</code> <code>gym</code> el bloque (o <code>@gym</code>)</li>
-        <li><code>hoy</code> <code>mañana</code> <code>viernes</code> el día ("mañana" es el día siguiente)</li>
-        <li><code>Reunión … 1pm 1h</code> una reunión con su hora</li>
-        <li><code>bl</code> dejarla en el backlog</li>
-        <li><code>?</code> no estoy seguro · <code>!</code> muy seguro</li>
-        <li><code>#épica</code> agrupar en una épica</li>
-        <li><code>cada día</code> <code>hábiles</code> <code>cada lun,jue</code> se repite</li>
-      </ul>
-      <p>Arrastra una tarea para moverla de bloque · doble clic para editar · ◆ otras dependen de ella · ⧖ bloqueada</p>
-    </section>
+    <details class="settings settings-section tab-order-section" data-section="tabs">
+      <summary>
+        <span class="ss-head"><span class="ss-title">Menú inferior</span><span class="ss-chevron" aria-hidden="true"></span></span>
+        <span class="ss-desc">El orden de las pestañas de abajo.</span>
+      </summary>
+      <form class="ss-body" id="tab-order-form">
+        <p class="settings-note">La de arriba queda a la izquierda.</p>
+        <ol class="tab-order" id="tab-order" aria-label="Orden del menú inferior"></ol>
+        <div class="settings-actions">
+          <button type="submit" class="primary" id="tab-order-save">Guardar</button>
+          <button type="button" class="link-btn" id="tab-order-reset">Restablecer orden</button>
+          <span class="settings-saved" hidden>Guardado ✓</span>
+        </div>
+      </form>
+    </details>
+
+    <details class="settings settings-section shortcuts" data-section="shortcuts">
+        <summary>
+          <span class="ss-head"><span class="ss-title">Atajos</span><span class="ss-chevron" aria-hidden="true"></span></span>
+          <span class="ss-desc">Teclas para abrir Cabe Todo y crear tareas.</span>
+        </summary>
+      <div class="ss-body">
+        <p>Abrir Cabe Todo: <kbd id="shortcut-key">—</kbd>
+          <button class="link-btn" id="edit-shortcuts">Cambiar</button></p>
+        <p>Dentro del panel: <kbd>N</kbd> nueva tarea</p>
+      </div>
+    </details>
   </div>
 
   <div class="toast" id="toast" role="status" hidden></div>
@@ -198,7 +254,7 @@
       <span>Docs</span>
     </button>
     <button class="tab" role="tab" data-tab="settings">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       <span>Ajustes</span>
     </button>
   </nav>
@@ -226,6 +282,7 @@
         </div>
       </div>
       <span class="actions">
+        <button class="move-btn" title="Mover a otro bloque o día" aria-label="Mover a otro bloque o día" hidden>⇢</button>
         <button class="unplan" title="Enviar al backlog" aria-label="Enviar al backlog" hidden>↩︎</button>
       </span>
     </li>

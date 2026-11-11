@@ -3,10 +3,21 @@
 import { state, saveSettings, calibrationInfo, exportBackup, readBackup, restoreBackup, blockUsage } from '../services/store.js';
 import { showToast, h } from '../utils/ui.js';
 import { blocksOf, validateBlocks, nextFreeRange, neighborBlock, MAX_BLOCKS, MAX_TITLE, BLOCK_ICONS } from '../core/blocks.js';
+import { TAB_IDS, TAB_NAMES, normalizeTabOrder, moveTab } from '../core/tabs.js';
 import { todayISO } from '../utils/dates.js';
 import { playCasio } from '../services/casio.js';
 
-const form = () => document.getElementById('settings-form');
+const form = () => document.getElementById('prefs-form');
+
+/** "Guardado ✓" de una sección por 2 s. */
+const savedTimers = new WeakMap();
+function flashSaved(formEl) {
+  const mark = formEl.querySelector('.settings-saved');
+  if (!mark) return;
+  mark.hidden = false;
+  clearTimeout(savedTimers.get(mark));
+  savedTimers.set(mark, setTimeout(() => { mark.hidden = true; }, 2000));
+}
 
 // ---------- Editor de bloques ----------
 
@@ -117,12 +128,81 @@ function confirmRemovedBlocks(next) {
   return true;
 }
 
+// ---------- Orden del menú inferior ----------
+
+let lastMoved = null; // { id, dir }: para dejar el foco en el mismo botón tras moverla
+let tabDraft = null;   // orden elegido y aún sin guardar (null = el guardado)
+
+function renderTabOrderList() {
+  const list = document.getElementById('tab-order');
+  const saved = normalizeTabOrder(state.settings.tab_order);
+  const order = tabDraft || saved;
+  const keep = lastMoved;
+  lastMoved = null;
+  list.replaceChildren(...order.map((id, i) => {
+    const icon = document.querySelector(`.tabs .tab[data-tab="${id}"] svg`)?.cloneNode(true);
+    return h('li', { class: 'tab-order-row', dataset: { tab: id } },
+      h('span', { class: 'tab-order-icon', 'aria-hidden': 'true' }, icon || ''),
+      h('span', { class: 'tab-order-name' }, TAB_NAMES[id]),
+      h('button', {
+        type: 'button', class: 'tab-order-btn', dataset: { move: '-1' }, disabled: i === 0,
+        title: 'Más a la izquierda', 'aria-label': `Mover ${TAB_NAMES[id]} a la izquierda`,
+      }, '↑'),
+      h('button', {
+        type: 'button', class: 'tab-order-btn', dataset: { move: '1' }, disabled: i === order.length - 1,
+        title: 'Más a la derecha', 'aria-label': `Mover ${TAB_NAMES[id]} a la derecha`,
+      }, '↓'));
+  }));
+  document.getElementById('tab-order-reset').hidden = order.join() === TAB_IDS.join();
+  document.getElementById('tab-order-save').disabled = order.join() === saved.join(); // sin cambios
+  // Seguir con el foco en el mismo botón de la pestaña que se movió (para moverla varias veces seguidas)
+  if (keep) {
+    const btn = list.querySelector(`[data-tab="${keep.id}"] [data-move="${keep.dir}"]`);
+    (btn && !btn.disabled ? btn : list.querySelector(`[data-tab="${keep.id}"] [data-move]:not(:disabled)`))?.focus();
+  }
+}
+
+function setupTabOrder() {
+  const formEl = document.getElementById('tab-order-form');
+  document.getElementById('tab-order').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-move]');
+    if (!btn) return;
+    lastMoved = { id: btn.closest('li').dataset.tab, dir: btn.dataset.move };
+    tabDraft = moveTab(tabDraft || state.settings.tab_order, btn.closest('li').dataset.tab, Number(btn.dataset.move));
+    renderTabOrderList();
+  });
+  document.getElementById('tab-order-reset').addEventListener('click', () => {
+    tabDraft = [...TAB_IDS];
+    renderTabOrderList();
+  });
+  formEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!tabDraft) return;
+    const tab_order = tabDraft;
+    tabDraft = null;
+    saveSettings({ ...state.settings, tab_order });
+    flashSaved(formEl);
+  });
+}
+
+/** Descripción de la sección cerrada: "3 bloques: ☀︎ Mañana · ☾ Tarde · ✦ Noche" (horarios en el tooltip). */
+function renderBlocksSummary() {
+  const blocks = blocksOf(state.settings);
+  const el = document.getElementById('blocks-summary');
+  el.textContent = `${blocks.length} bloque${blocks.length === 1 ? '' : 's'}: ${blocks.map((b) => `${b.icon} ${b.title}`).join(' · ')}`;
+  el.title = blocks.map((b) => `${b.icon} ${b.title}: ${b.start}–${b.end}`).join('\n');
+}
+
 export function renderSettings() {
-  const f = form();
-  // No pisar lo que el usuario está editando.
-  if (f.contains(document.activeElement)) return;
+  renderTabOrderList();
+  renderBlocksSummary();
   const s = state.settings;
-  if (!blocksDirty) renderBlockRows(blocksOf(s));
+  // No pisar lo que el usuario está escribiendo en cada sección (abrir o cerrar una sección no cuenta)
+  const typingIn = (el) => el.contains(document.activeElement) && document.activeElement.matches('input, select, textarea');
+  if (!blocksDirty && !typingIn(document.getElementById('blocks-form'))) renderBlockRows(blocksOf(s));
+  loadShortcut();
+  const f = form();
+  if (typingIn(f)) return;
   f.elements['default-minutes'].value = String(s.default_minutes);
   f.elements.theme.value = s.theme || 'chrome';
   f.elements.notify.checked = Boolean(s.notify);
@@ -131,7 +211,6 @@ export function renderSettings() {
   f.elements.calibrate.checked = s.calibrate !== false;
   document.getElementById('calibration-info').textContent = calibrationText(calibrationInfo);
   f.elements['meeting-lead'].value = String(s.meeting_lead ?? 10);
-  loadShortcut();
 }
 
 /** "Según tus últimas 12 tareas, tardas ~20 % más de lo que estimas." */
@@ -157,16 +236,29 @@ async function loadShortcut() {
 export function setupSettings() {
   const f = form();
   const error = document.getElementById('settings-error');
-  const saved = document.getElementById('settings-saved');
-  let savedTimer;
 
-  f.addEventListener('submit', (e) => {
+  // Bloques del día: guarda solo los bloques
+  const blocksForm = document.getElementById('blocks-form');
+  blocksForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const blocks = readBlockRows();
     if (checkBlockRows(true)) return;
     if (!confirmRemovedBlocks(blocks)) return;
-    const problem = saveSettings({
-      blocks,
+    const problem = saveSettings({ ...state.settings, blocks });
+    error.textContent = problem || '';
+    error.hidden = !problem;
+    if (problem) return;
+    blocksDirty = false;
+    renderBlockRows(blocksOf(state.settings)); // ya ordenados por hora
+    document.activeElement?.blur();
+    flashSaved(blocksForm);
+  });
+
+  // Preferencias: guarda solo las preferencias
+  f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveSettings({
+      ...state.settings,
       default_minutes: Number(f.elements['default-minutes'].value),
       theme: f.elements.theme.value,
       notify: f.elements.notify.checked,
@@ -175,16 +267,8 @@ export function setupSettings() {
       calibrate: f.elements.calibrate.checked,
       meeting_lead: Number(f.elements['meeting-lead'].value),
     });
-    error.textContent = problem || '';
-    error.hidden = !problem;
-    if (!problem) {
-      blocksDirty = false;
-      renderBlockRows(blocksOf(state.settings)); // ya ordenados por hora
-      document.activeElement?.blur();
-      saved.hidden = false;
-      clearTimeout(savedTimer);
-      savedTimer = setTimeout(() => { saved.hidden = true; }, 2000);
-    }
+    document.activeElement?.blur();
+    flashSaved(f);
   });
 
   setupBlocksEditor();
@@ -196,6 +280,7 @@ export function setupSettings() {
 
   document.getElementById('test-sound').addEventListener('click', () => playCasio());
   setupBackup();
+  setupTabOrder();
 
   document.getElementById('edit-shortcuts').addEventListener('click', () => {
     try {

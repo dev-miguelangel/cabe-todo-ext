@@ -743,3 +743,44 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(S.findTask('hecha-1').routine_id, null, 'la hecha queda en el historial, sin rutina');
   console.log('OK: rutinas (editar, eliminar, aplicar a todas, próxima fecha, ver días próximos)');
 }
+
+// ---------- Mover varias tareas (pendientes de un bloque terminado) ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const { todayISO, shiftDate } = await import(root + '/src/utils/dates.js');
+  const today = todayISO();
+  const a = S.addFromText('Mover uno 20m', { date: today, block: 'am' });
+  const b = S.addFromText('Mover dos 20m', { date: today, block: 'am' });
+  const tail = S.addFromText('Ya en la tarde', { date: shiftDate(today, 1), block: 'pm' });
+  S.moveTasks([a.id, b.id], shiftDate(today, 1), 'pm');
+  assert.deepEqual([a, b].map((t) => [S.findTask(t.id).date, S.findTask(t.id).block]), [[shiftDate(today, 1), 'pm'], [shiftDate(today, 1), 'pm']]);
+  assert.ok(S.findTask(a.id).order > S.findTask(tail.id).order && S.findTask(b.id).order > S.findTask(a.id).order, 'quedan al final, en su orden');
+  console.log('OK: mover varias tareas a otro día y bloque');
+}
+
+// ---------- Orden del menú inferior ----------
+{
+  const K = await import(root + '/src/core/tabs.js');
+  const S = await import(root + '/src/services/storage.js');
+  assert.deepEqual(K.normalizeTabOrder(null), K.TAB_IDS);
+  assert.deepEqual(K.normalizeTabOrder(['done', 'x', 'done', 'minimal']), ['done', 'minimal', 'epics', 'routines', 'docs', 'settings'], 'sin repetidas ni desconocidas; las que faltan al final');
+  assert.deepEqual(K.moveTab(K.TAB_IDS, 'done', -1).slice(0, 3), ['minimal', 'done', 'epics']);
+  assert.deepEqual(K.moveTab(K.TAB_IDS, 'minimal', -1), K.TAB_IDS, 'la primera no sube más');
+  assert.deepEqual(K.moveTab(K.TAB_IDS, 'settings', 1), K.TAB_IDS, 'la última no baja más');
+  const restored = S.parseBackup(JSON.stringify({ app: 'cabe-todo', tasks: [], epics: [], settings: { tab_order: ['settings'] } }));
+  assert.equal(restored.settings.tab_order[0], 'settings');
+  assert.equal(restored.settings.tab_order.length, K.TAB_IDS.length, 'ajustes viejos o incompletos: se completan');
+  console.log('OK: orden del menú inferior');
+}
+
+// ---------- Docs: anclar arriba ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const t = S.addFromText('Doc para anclar', { date: null, block: null, epicId: undefined });
+  assert.equal(t.pinned_at, undefined, 'una tarea nueva no está anclada');
+  assert.equal(S.togglePin(t.id), true);
+  assert.ok(S.findTask(t.id).pinned_at, 'anclada con su fecha');
+  assert.equal(S.togglePin(t.id), false);
+  assert.equal(S.findTask(t.id).pinned_at, null);
+  console.log('OK: anclar en Docs');
+}

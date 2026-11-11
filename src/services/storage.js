@@ -2,6 +2,7 @@
 // (por ejemplo, directo en el navegador para probar), usa localStorage.
 
 import { DEFAULT_BLOCKS, migrateBlocks } from '../core/blocks.js';
+import { TAB_IDS, normalizeTabOrder } from '../core/tabs.js';
 
 const DEFAULT_SETTINGS = {
   blocks: DEFAULT_BLOCKS, // bloques del día (Ajustes): de 1 a 5, sin superponerse
@@ -12,6 +13,7 @@ const DEFAULT_SETTINGS = {
   theme: 'chrome',  // 'chrome' (oscuro) | 'trello' (claro)
   calibrate: true,  // ajustar el pronóstico según cuánto tardas de verdad
   meeting_lead: 10, // minutos antes de una reunión en que aparece su cuenta regresiva
+  tab_order: TAB_IDS, // orden de las pestañas del menú inferior
 };
 
 // Colores de épicas: solo los tonos de la paleta (Cod Gray es el fondo, no sirve como color de épica).
@@ -64,6 +66,7 @@ export function normalizeTask(task) {
     comments: [],
     doc: '',
     doc_updated_at: null,
+    pinned_at: null,        // anclada arriba en Docs (fecha en que se ancló)
     meeting: null,          // { start: 'HH:MM', end: 'HH:MM', blocking } si es reunión
     routine_id: null,       // rutina que la creó (tarea que se repite)
     ...task,
@@ -82,7 +85,8 @@ export async function loadData() {
 
 /** Completa ajustes faltantes. Los de antes ({ am, pm } fijos) pasan a `blocks` con ids 'am' y 'pm'. */
 function withDefaults(settings) {
-  return { ...DEFAULT_SETTINGS, ...migrateBlocks(settings) };
+  const merged = { ...DEFAULT_SETTINGS, ...migrateBlocks(settings) };
+  return { ...merged, tab_order: normalizeTabOrder(merged.tab_order) };
 }
 
 export function saveData({ tasks, epics, routines }) {

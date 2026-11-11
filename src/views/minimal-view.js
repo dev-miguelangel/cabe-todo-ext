@@ -7,7 +7,7 @@
 
 import {
   state, blockTasks, backlogTasks, overdueTasks, updateTask, toggleTimer, findTask, findEpic, addFromText, editFromText,
-  activeEpics, planTask, applyOrder, ensureRoutines, applyTaskToRoutine,
+  activeEpics, planTask, applyOrder, ensureRoutines, applyTaskToRoutine, moveTasks,
 } from '../services/store.js';
 import { computeSuggestion, renderSuggestion } from '../components/suggestion.js';
 import { h, attachEpicAutocomplete, showToast } from '../utils/ui.js';
@@ -20,6 +20,7 @@ import { showTaskModal } from '../components/task-modal.js';
 import { showSyntaxHelp } from '../components/syntax-help.js';
 import { showBacklogPicker } from '../components/backlog-picker.js';
 import { showUpcoming } from '../components/upcoming.js';
+import { openMoveMenu, nextSlot, slotText } from '../components/move-menu.js';
 
 /**
  * Pronóstico corto del bloque: { text: "85%", cls, head, detail } (con su color),
@@ -123,6 +124,26 @@ function forecastTip(block, fc, sug) {
   return box;
 }
 
+/**
+ * Bloque terminado con tareas sin hacer: una línea discreta para moverlas todas
+ * al siguiente bloque que sigue abierto o al día siguiente. (Las reuniones no se mueven.)
+ */
+function endedRow(block, items, date) {
+  const left = items.map((i) => i.task).filter((t) => !t.done && !t.meeting);
+  if (!left.length || !(date <= todayISO())) return null;
+  const next = nextSlot(date, block.id);
+  const tomorrow = { date: shiftDate(todayISO(), 1), block: firstBlock(state.settings).id };
+  const slots = [next];
+  if (next.date !== tomorrow.date || next.block !== tomorrow.block) slots.push(tomorrow);
+  const ids = left.map((t) => t.id).join(',');
+  return h('li', { class: 'ended-row', dataset: { block: block.id } },
+    h('span', {}, `${left.length} sin terminar`),
+    ...slots.map((s) => h('button', {
+      type: 'button', class: 'ended-move link-btn', dataset: { ids, date: s.date, block: s.block },
+      title: `Mover ${left.length === 1 ? 'la pendiente' : `las ${left.length} pendientes`} a ${slotText(s, date)}`,
+    }, `→ ${slotText(s, date)}`)));
+}
+
 /** ───────── ✦ 85% | Mañana | 08:00 - 13:00 */
 function blockDivider(block, now, sched, nowMin, sug) {
   const fc = forecastOf(sched);
@@ -170,11 +191,12 @@ export function renderMinimal() {
     pending += items.filter((i) => !i.task.done).length;
     const now = isToday && isNowInBlock(block);
     const blockEnded = sched.remaining <= 0;
-    const cards = items.map((item) => renderCard(item.task, { ctx, item, blockEnded, draggable: true }));
+    const cards = items.map((item) => renderCard(item.task, { ctx, item, blockEnded, draggable: true, move: true }));
     if (now) cards.find((li) => !li.classList.contains('done'))?.classList.add('current');
     // Sugerencia para mejorar el bloque (si ya terminó no hay nada que reacomodar)
     const sug = sched.remaining > 0 ? computeSuggestion(block.id, ctx, today) : null;
-    return [blockDivider(block, now, sched, nowMin, sug), ...(cards.length ? cards : [h('li', { class: 'minimal-empty' }, 'Sin tareas')])];
+    return [blockDivider(block, now, sched, nowMin, sug), blockEnded ? endedRow(block, items, today) : null,
+      ...(cards.length ? cards : [h('li', { class: 'minimal-empty' }, 'Sin tareas')])].filter(Boolean);
   });
   document.getElementById('minimal-count').textContent = total
     ? `${pending} pendiente${pending === 1 ? '' : 's'} de ${total}`
@@ -361,6 +383,19 @@ export function setupMinimal() {
         opener.classList.add('open');
         opener.setAttribute('aria-expanded', 'true');
       }
+      return;
+    }
+    const endedMove = e.target.closest('.ended-move');
+    if (endedMove) {
+      const ids = endedMove.dataset.ids.split(',');
+      moveTasks(ids, endedMove.dataset.date, endedMove.dataset.block);
+      showToast(`${ids.length} tarea${ids.length === 1 ? '' : 's'} → ${endedMove.textContent.replace('→ ', '')}.`);
+      return;
+    }
+    const moveBtn = e.target.closest('.move-btn');
+    if (moveBtn) {
+      clearTimeout(clickTimer);
+      openMoveMenu(moveBtn.closest('.task').dataset.id, moveBtn);
       return;
     }
     const suggest = e.target.closest('.suggest-btn');
