@@ -76,6 +76,56 @@ function computeSuggestion(block, ctx) {
   );
 }
 
+// ---------- Aviso de sobrecarga al agregar ----------
+
+const OVERLOAD_BELOW = 0.5;
+const pctText = (p) => `${Math.round(p * 100)} %`;
+
+/** Probabilidad actual del bloque del día que se ve (without: sin contar la última tarea agregada). */
+function probabilityOf(block, without = false) {
+  let list = blockTasks(block);
+  if (without) list = list.slice(0, -1);
+  return scheduleBlock(list, state.settings[block], nowMinutesFor(state.viewDate)).probability;
+}
+
+/**
+ * Si la tarea recién agregada deja su bloque bajo 50 % (y antes no lo estaba), ofrecer
+ * en el mismo momento llevarla a donde sí cabe: el otro bloque de hoy o mañana en la mañana.
+ */
+function warnIfOverloaded(task, before) {
+  if (!task.date || !task.block || state.viewDate < todayISO()) return;
+  const after = probabilityOf(task.block);
+  if (after === null || after >= OVERLOAD_BELOW || (before !== null && before !== undefined && before < OVERLOAD_BELOW)) return;
+
+  const nowMin = nowMinutesFor(state.viewDate);
+  const other = task.block === 'am' ? 'pm' : 'am';
+  const next = shiftDate(state.viewDate, 1);
+  const options = [];
+  if (other === 'pm' && scheduleBlock([], state.settings.pm, nowMin).remaining > 0) {
+    options.push({ date: state.viewDate, block: 'pm', label: 'a la tarde', range: state.settings.pm, nowMin, tasks: blockTasks('pm') });
+  }
+  options.push({ date: next, block: 'am', label: `el ${shortLabel(next).split(' ')[0]} en la mañana`, range: state.settings.am, nowMin: null, tasks: blockTasks('am', next) });
+
+  const moved = { ...task, order: Number.MAX_SAFE_INTEGER, dependencies: [] };
+  const fit = options
+    .filter((o) => !(o.date === task.date && o.block === task.block))
+    .map((o) => ({ ...o, p: scheduleBlock([...o.tasks, moved], o.range, o.nowMin).probability }))
+    .find((o) => o.p !== null && o.p >= OVERLOAD_BELOW);
+
+  const where = BLOCK_LABEL[task.block];
+  if (!fit) {
+    showToast(`Con "${task.title}", ${where} queda en ${pctText(after)}.`);
+    return;
+  }
+  showToast(`Con "${task.title}", ${where} queda en ${pctText(after)}. ${fit.label[0].toUpperCase()}${fit.label.slice(1)} cabe (${pctText(fit.p)}).`, {
+    label: 'Mover',
+    run: () => {
+      planTask(task.id, fit.block, fit.date);
+      showToast(`"${task.title}" → ${fit.date === state.viewDate ? BLOCK_LABEL[fit.block] : `${shortLabel(fit.date)}, en la mañana`}.`);
+    },
+  });
+}
+
 function renderSuggestion(el, sug) {
   el.hidden = !sug;
   if (!sug) return;
@@ -547,7 +597,11 @@ export function setupDay() {
     attachEpicAutocomplete(input, activeEpics);
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (addFromText(input.value, { date: state.viewDate, block })) input.value = '';
+      const before = block && probabilityOf(block);
+      const task = addFromText(input.value, { date: state.viewDate, block });
+      if (!task) return;
+      input.value = '';
+      warnIfOverloaded(task, task.block === block ? before : probabilityOf(task.block, true));
     });
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') input.value = '';

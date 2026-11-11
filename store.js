@@ -2,7 +2,9 @@
 // Las vistas leen `state` y llaman acciones; cada acción termina en commit(), que aplica
 // las reglas, guarda y avisa a los suscriptores para re-renderizar.
 
-import { loadData, saveData, saveSettings as saveSettingsRaw, onDataChanged, PALETTE } from './storage.js';
+import {
+  loadData, saveData, saveSettings as saveSettingsRaw, onDataChanged, PALETTE, makeBackup, parseBackup,
+} from './storage.js';
 import {
   calibrationFrom, setCalibration,
   enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
@@ -207,7 +209,7 @@ function checkEpicComplete(epicId) {
 // ---------- Tareas ----------
 
 /**
- * Crea una tarea desde el texto del quick-add.
+ * Crea una tarea desde el texto del quick-add. Devuelve la tarea creada (o false).
  * where: { date, block } para el día, o { epicId } para la bandeja de una épica
  * (en la bandeja, escribir am/pm la planifica directo en el día que se está viendo).
  */
@@ -228,7 +230,7 @@ export function addFromText(text, where) {
     block = parsed.block || where.block;
   }
 
-  state.tasks.push({
+  const task = {
     id: newId('t'),
     title: parsed.title,
     note: '',
@@ -244,9 +246,10 @@ export function addFromText(text, where) {
     time_entries: [],
     comments: [],
     created_at: new Date().toISOString(),
-  });
+  };
+  state.tasks.push(task);
   commit();
-  return true;
+  return task;
 }
 
 /** Edición en línea: mismo formato del quick-add. Sin #etiqueta = sin épica. */
@@ -334,6 +337,29 @@ export function saveSettings(next) {
   saveSettingsRaw(state.settings);
   emit();
   return null;
+}
+
+// ---------- Respaldo ----------
+
+/** Todo lo guardado, como texto JSON para descargar. */
+export function exportBackup() {
+  return JSON.stringify(makeBackup(state), null, 2);
+}
+
+/** Lee un respaldo (texto) sin aplicarlo: { data, summary } o lanza Error con el motivo. */
+export function readBackup(text) {
+  const data = parseBackup(text);
+  return { data, summary: { tasks: data.tasks.length, epics: data.epics.length } };
+}
+
+/** Reemplaza tareas, épicas y ajustes por los del respaldo. */
+export function restoreBackup(data) {
+  state.tasks = data.tasks;
+  state.epics = data.epics;
+  state.settings = data.settings;
+  if (state.filter && !findEpic(state.filter)) state.filter = null;
+  saveSettingsRaw(state.settings);
+  commit();
 }
 
 export function unplanTask(id) {

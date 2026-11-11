@@ -93,6 +93,39 @@ export function saveSettings(settings) {
   return setRaw({ settings, meta: { writer: WRITER_ID, at: Date.now() } });
 }
 
+// ---------- Respaldo (exportar / importar) ----------
+
+export const BACKUP_APP = 'pert-day';
+
+/** Objeto listo para JSON.stringify con todo lo guardado. */
+export function makeBackup({ tasks, epics, settings }) {
+  return { app: BACKUP_APP, version: 1, exported_at: new Date().toISOString(), tasks, epics, settings };
+}
+
+/**
+ * Valida un respaldo (texto JSON) y lo devuelve normalizado.
+ * Lanza un Error con un mensaje para mostrar si el archivo no sirve.
+ */
+export function parseBackup(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('El archivo no es un JSON válido.');
+  }
+  if (!data || data.app !== BACKUP_APP || !Array.isArray(data.tasks) || !Array.isArray(data.epics)) {
+    throw new Error('El archivo no es un respaldo de Pert-day.');
+  }
+  const okTask = (t) => t && typeof t.id === 'string' && typeof t.title === 'string' && Number.isFinite(t.minutes);
+  const okEpic = (e) => e && typeof e.id === 'string' && typeof e.name === 'string';
+  if (!data.tasks.every(okTask) || !data.epics.every(okEpic)) throw new Error('El respaldo tiene tareas o épicas dañadas.');
+  return {
+    tasks: data.tasks.map(normalizeTask),
+    epics: normalizeEpics(data.epics),
+    settings: withDefaults(data.settings && typeof data.settings === 'object' ? data.settings : {}),
+  };
+}
+
 /** Avisa cuando OTRA ventana con el panel abierto cambia los datos. */
 export function onDataChanged(callback) {
   if (!hasChromeStorage) return;

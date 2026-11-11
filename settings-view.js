@@ -1,6 +1,8 @@
 // Vista "Ajustes": horarios de los bloques, duración por defecto, avisos y atajo de teclado.
 
-import { state, saveSettings, calibrationInfo } from './store.js';
+import { state, saveSettings, calibrationInfo, exportBackup, readBackup, restoreBackup } from './store.js';
+import { showToast } from './ui.js';
+import { todayISO } from './dates.js';
 import { playCasio } from './casio.js';
 
 const form = () => document.getElementById('settings-form');
@@ -80,6 +82,7 @@ export function setupSettings() {
   });
 
   document.getElementById('test-sound').addEventListener('click', () => playCasio());
+  setupBackup();
 
   document.getElementById('edit-shortcuts').addEventListener('click', () => {
     try {
@@ -87,5 +90,48 @@ export function setupSettings() {
     } catch {
       /* fuera de la extensión no hay chrome.tabs */
     }
+  });
+}
+
+// ---------- Respaldo ----------
+
+const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const sizeOf = (tasks, epics) => `${count(tasks, 'tarea')}, ${count(epics, 'épica')}`;
+
+function setupBackup() {
+  document.getElementById('export-data').addEventListener('click', () => {
+    const blob = new Blob([exportBackup()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pert-day-${todayISO()}.json`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`Respaldo descargado: ${sizeOf(state.tasks.length, state.epics.length)}.`);
+  });
+
+  const file = document.getElementById('import-file');
+  document.getElementById('import-data').addEventListener('click', () => file.click());
+  file.addEventListener('change', async () => {
+    const chosen = file.files[0];
+    file.value = '';
+    if (!chosen) return;
+    let backup;
+    try {
+      backup = readBackup(await chosen.text());
+    } catch (err) {
+      showToast(err.message);
+      return;
+    }
+    const { tasks, epics } = backup.summary;
+    const ok = window.confirm(
+      `¿Reemplazar todo lo actual (${sizeOf(state.tasks.length, state.epics.length)}) `
+      + `por el respaldo (${sizeOf(tasks, epics)})?\n\nEsto no se puede deshacer: exporta primero si quieres conservar lo actual.`,
+    );
+    if (!ok) return;
+    restoreBackup(backup.data);
+    showToast(`Respaldo restaurado: ${sizeOf(tasks, epics)}.`);
   });
 }

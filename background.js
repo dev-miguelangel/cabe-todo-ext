@@ -138,6 +138,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await onMeetingStart();
     return;
   }
+  if (alarm.name === MEETING_END_ALARM) {
+    await onMeetingEnd();
+    await scheduleMeetingAlarm();
+    return;
+  }
   if (!alarm.name.startsWith(ALARM_PREFIX)) return;
   const block = alarm.name.slice(ALARM_PREFIX.length);
   if (Date.now() - alarm.scheduledTime < MAX_DELAY_MS) await notifyBlockEnd(block);
@@ -241,6 +246,55 @@ async function scheduleMeetingAlarm() {
     .filter((when) => when > now)
     .sort((a, b) => a - b)[0];
   if (next) chrome.alarms.create(MEETING_ALARM, { when: next });
+  await scheduleMeetingEndAlarm(tasks);
+}
+
+// ---------- Reuniones: al llegar su hora de fin, terminarlas solas ----------
+
+const MEETING_END_ALARM = 'meeting-end';
+
+/** Reuniones con el temporizador corriendo que ya llegaron a su hora de fin. */
+const overdueRunningMeetings = (tasks, now = Date.now()) =>
+  tasks.filter((t) => t.meeting && !t.done && t.date && isRunning(t) && meetingAt(t, 'end') <= now + 1000);
+
+/** Alarma para el próximo fin de una reunión en curso. Si alguna ya pasó su fin (Chrome dormido), cerrarla ya. */
+async function scheduleMeetingEndAlarm(tasks) {
+  await chrome.alarms.clear(MEETING_END_ALARM);
+  if (overdueRunningMeetings(tasks).length) {
+    await onMeetingEnd();
+    return;
+  }
+  const next = tasks
+    .filter((t) => t.meeting && !t.done && t.date && isRunning(t))
+    .map((t) => meetingAt(t, 'end'))
+    .sort((a, b) => a - b)[0];
+  if (next) chrome.alarms.create(MEETING_END_ALARM, { when: next });
+}
+
+/**
+ * Termina las reuniones en curso que llegaron a su hora de fin: su tiempo se registra hasta
+ * esa hora exacta (aunque la alarma llegue tarde) y quedan hechas.
+ */
+async function onMeetingEnd() {
+  const { tasks = [] } = await chrome.storage.local.get('tasks');
+  const ending = overdueRunningMeetings(tasks);
+  if (!ending.length) return;
+  const ids = new Set(ending.map((t) => t.id));
+  const next = tasks.map((t) => {
+    if (!ids.has(t.id)) return t;
+    const endMs = meetingAt(t, 'end');
+    return { ...t, done: true, done_at: new Date(endMs).toISOString(), time_entries: closeEntry(t.time_entries || [], endMs) };
+  });
+  await chrome.storage.local.set({ tasks: next, meta: { writer: 'background', at: Date.now() } });
+  for (const meeting of ending) {
+    chrome.notifications.create(`pertday-meeting-end-${meeting.id}`, {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: `Terminó la reunión: ${meeting.title}`,
+      message: `Su tiempo quedó registrado hasta las ${meeting.meeting.end}.`,
+      priority: 1,
+    });
+  }
 }
 
 async function onMeetingStart() {

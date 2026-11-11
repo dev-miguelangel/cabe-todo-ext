@@ -444,3 +444,46 @@ console.log('OK: parser + PERT + épicas');
   assert.ok(s15.mu > s10.mu * 1.4);
   console.log('OK: calibración (aprende de real vs estimado)');
 }
+
+// ---------- Reunión que termina sola a su hora ----------
+{
+  const { mem, L } = globalThis.__bg;
+  const pad = (n) => String(n).padStart(2, '0');
+  const hm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const now = new Date();
+  const start = new Date(now.getTime() - 40 * 60000); start.setSeconds(0, 0);
+  const end = new Date(now.getTime() - 5 * 60000); end.setSeconds(0, 0); // terminó hace ~5 min (alarma atrasada)
+  if (start.getDate() === now.getDate()) {
+    const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    mem.tasks = [
+      { id: 'x', title: 'Planificación', date: day, block: 'am', order: 0, minutes: 35, certainty: 'fixed', dependencies: [], done: false, comments: [],
+        meeting: { start: hm(start), end: hm(end), blocking: true }, time_entries: [{ start: start.toISOString(), end: null }] },
+      { id: 'y', title: 'Sin iniciar', date: day, block: 'am', order: 1, minutes: 35, certainty: 'fixed', dependencies: [], done: false, comments: [],
+        meeting: { start: hm(start), end: hm(end), blocking: false }, time_entries: [] },
+    ];
+    await L.alarm({ name: 'meeting-end', scheduledTime: Date.now() });
+    const x = mem.tasks.find((t) => t.id === 'x');
+    assert.equal(x.done, true, 'la reunión en curso queda hecha');
+    assert.equal(Date.parse(x.time_entries.at(-1).end), end.getTime(), 'su tiempo se cierra a la hora exacta de fin');
+    assert.equal(mem.tasks.find((t) => t.id === 'y').done, false, 'una reunión que no se inició no se toca');
+  }
+  console.log('OK: reunión que termina sola a su hora');
+}
+
+// ---------- Respaldo (exportar / importar) ----------
+{
+  const S = await import('../storage.js');
+  const tasks = [{ id: 't1', title: 'Uno', minutes: 30, date: null, block: null, done: false, dependencies: [] }];
+  const epics = [{ id: 'e1', name: 'Web', color: '#123456' }];
+  const text = JSON.stringify(S.makeBackup({ tasks, epics, settings: { default_minutes: 45 } }));
+  const back = S.parseBackup(text);
+  assert.equal(back.tasks[0].title, 'Uno');
+  assert.deepEqual(back.tasks[0].comments, [], 'se normalizan las tareas');
+  assert.equal(back.epics[0].color, S.PALETTE[0], 'colores viejos pasan a la paleta');
+  assert.equal(back.settings.default_minutes, 45);
+  assert.equal(back.settings.am.start, '08:00', 'ajustes faltantes toman su valor por defecto');
+  assert.throws(() => S.parseBackup('no es json'), /JSON válido/);
+  assert.throws(() => S.parseBackup('{"tasks":[],"epics":[]}'), /no es un respaldo/);
+  assert.throws(() => S.parseBackup(JSON.stringify({ app: 'pert-day', tasks: [{ id: 1 }], epics: [] })), /dañadas/);
+  console.log('OK: respaldo (exportar / importar)');
+}
