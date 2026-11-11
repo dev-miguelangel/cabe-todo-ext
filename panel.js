@@ -1,6 +1,6 @@
 // Punto de entrada del side panel: carga datos, conecta las vistas y las pestañas.
 
-import { state, initStore, subscribe, setNotifier, setView } from './store.js';
+import { state, initStore, subscribe, setNotifier, setView, ensureRoutines } from './store.js';
 import { renderDay, setupDay, isDayBusy, closeDepsMenu } from './day-view.js';
 import { renderEpics, setupEpics, isEpicsBusy } from './epics-view.js';
 import { renderSettings, setupSettings } from './settings-view.js';
@@ -62,10 +62,12 @@ async function init() {
   setupSettings();
   setupDocs();
   setupKeyboard();
+  ensureRoutines(); // tareas que se repiten y tocan hoy
   render();
 
   // El pronóstico depende de la hora: se recalcula cada minuto.
   setInterval(() => {
+    if (ensureRoutines()) return; // cambió el día: ya re-renderizó
     if (!isBusy()) render();
   }, 60 * 1000);
 

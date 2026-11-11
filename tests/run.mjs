@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const root = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const { parseQuickAdd: p, formatMinutes: f, formatClock, toQuickAddText } = await import(root + '/parser.js');
 const P = await import(root + '/pert.js');
-const T = (title, minutes, block = null, certainty = null, epicTag = null) => ({ title, minutes, block, certainty, epicTag });
+const T = (title, minutes, block = null, certainty = null, epicTag = null) => ({ title, minutes, block, certainty, epicTag, repeat: null });
 const cases = [
   ['Responder correos', T('Responder correos', null)],
   ['Informe mensual 2h', T('Informe mensual', 120)],
@@ -486,4 +486,34 @@ console.log('OK: parser + PERT + épicas');
   assert.throws(() => S.parseBackup('{"tasks":[],"epics":[]}'), /no es un respaldo/);
   assert.throws(() => S.parseBackup(JSON.stringify({ app: 'pert-day', tasks: [{ id: 1 }], epics: [] })), /dañadas/);
   console.log('OK: respaldo (exportar / importar)');
+}
+
+// ---------- Rutinas (tareas que se repiten) ----------
+{
+  const { parseQuickAdd } = await import('../parser.js');
+  const R = await import('../routines.js');
+  assert.deepEqual(parseQuickAdd('Standup 15m am cada día').repeat, [1, 2, 3, 4, 5, 6, 0]);
+  assert.deepEqual(parseQuickAdd('Pagar 10m días hábiles ?').repeat, [1, 2, 3, 4, 5]);
+  assert.equal(parseQuickAdd('Pagar 10m días hábiles ?').title, 'Pagar');
+  assert.deepEqual(parseQuickAdd('Gym 1h pm cada lun,jue #salud').repeat, [1, 4]);
+  assert.equal(parseQuickAdd('Informe diario').repeat, null, '"diario" es parte del título');
+  assert.equal(parseQuickAdd('cada lunes').title, 'cada lunes', 'sin título no hay repetición');
+  assert.equal(R.repeatLabel([1, 2, 3, 4, 5]), 'días hábiles');
+  assert.equal(R.repeatLabel([4, 1]), 'lunes y jueves');
+
+  // 2026-11-16 es lunes
+  let n = 0;
+  const opts = { newId: () => `x${n++}`, orderFor: () => 0 };
+  const r = R.routineFrom({ title: 'Daily', minutes: 15, certainty: 'fixed', block: 'am', meeting: { start: '09:00', end: '09:15', blocking: true }, date: '2026-11-16' },
+    { id: 'r1', days: [1, 2, 3, 4, 5], startDate: '2026-11-16' });
+  assert.deepEqual(R.dueInstances([r], '2026-11-16', opts).tasks, [], 'el día en que se creó ya tiene su tarea');
+  const tue = R.dueInstances([r], '2026-11-17', opts);
+  assert.equal(tue.tasks.length, 1);
+  assert.equal(tue.tasks[0].routine_id, 'r1');
+  assert.deepEqual(tue.tasks[0].meeting, { start: '09:00', end: '09:15', blocking: true }, 'copia el horario de la reunión');
+  assert.equal(R.dueInstances(tue.routines, '2026-11-17', opts).tasks.length, 0, 'no se duplica (aunque se mueva o borre)');
+  assert.equal(R.dueInstances([r], '2026-11-21', opts).tasks.length, 0, 'sábado: no toca');
+  assert.equal(R.dueInstances([r], '2026-11-13', opts).tasks.length, 0, 'antes de empezar: no');
+  assert.deepEqual(R.materializableDates('2026-11-16', '2026-12-30'), ['2026-11-16'], 'no llena días lejanos');
+  console.log('OK: rutinas (cada día / hábiles / cada lun,jue)');
 }

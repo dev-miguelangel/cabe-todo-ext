@@ -63,14 +63,16 @@ export function normalizeTask(task) {
     doc: '',
     doc_updated_at: null,
     meeting: null,          // { start: 'HH:MM', end: 'HH:MM', blocking } si es reunión
+    routine_id: null,       // rutina que la creó (tarea que se repite)
     ...task,
   };
 }
 
 export async function loadData() {
-  const { tasks = [], epics = [], settings = {} } = await getRaw(['tasks', 'epics', 'settings']);
+  const { tasks = [], epics = [], settings = {}, routines = [] } = await getRaw(['tasks', 'epics', 'settings', 'routines']);
   return {
     tasks: tasks.map(normalizeTask),
+    routines,
     epics: normalizeEpics(epics),
     settings: withDefaults(settings),
   };
@@ -85,8 +87,8 @@ function withDefaults(settings) {
   };
 }
 
-export function saveData({ tasks, epics }) {
-  return setRaw({ tasks, epics, meta: { writer: WRITER_ID, at: Date.now() } });
+export function saveData({ tasks, epics, routines }) {
+  return setRaw({ tasks, epics, ...(routines ? { routines } : {}), meta: { writer: WRITER_ID, at: Date.now() } });
 }
 
 export function saveSettings(settings) {
@@ -98,8 +100,8 @@ export function saveSettings(settings) {
 export const BACKUP_APP = 'pert-day';
 
 /** Objeto listo para JSON.stringify con todo lo guardado. */
-export function makeBackup({ tasks, epics, settings }) {
-  return { app: BACKUP_APP, version: 1, exported_at: new Date().toISOString(), tasks, epics, settings };
+export function makeBackup({ tasks, epics, settings, routines = [] }) {
+  return { app: BACKUP_APP, version: 1, exported_at: new Date().toISOString(), tasks, epics, routines, settings };
 }
 
 /**
@@ -122,6 +124,7 @@ export function parseBackup(text) {
   return {
     tasks: data.tasks.map(normalizeTask),
     epics: normalizeEpics(data.epics),
+    routines: Array.isArray(data.routines) ? data.routines.filter((r) => r && typeof r.id === 'string' && Array.isArray(r.days)) : [],
     settings: withDefaults(data.settings && typeof data.settings === 'object' ? data.settings : {}),
   };
 }
@@ -136,6 +139,7 @@ export function onDataChanged(callback) {
     if (changes.tasks) data.tasks = (changes.tasks.newValue || []).map(normalizeTask);
     if (changes.epics) data.epics = normalizeEpics(changes.epics.newValue || []);
     if (changes.settings) data.settings = withDefaults(changes.settings.newValue || {});
-    if (data.tasks || data.epics || data.settings) callback(data);
+    if (changes.routines) data.routines = changes.routines.newValue || [];
+    if (data.tasks || data.epics || data.settings || data.routines) callback(data);
   });
 }

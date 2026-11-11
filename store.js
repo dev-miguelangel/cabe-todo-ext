@@ -10,6 +10,7 @@ import {
   enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
 } from './pert.js';
 import { parseQuickAdd, tagKey } from './parser.js';
+import { routineFrom, dueInstances, materializableDates, repeatLabel } from './routines.js';
 import { todayISO } from './dates.js';
 import { isRunning, timerConflicts } from './timer.js';
 
@@ -18,6 +19,7 @@ export { PALETTE } from './storage.js';
 export const state = {
   tasks: [],
   epics: [],
+  routines: [],     // tareas que se repiten (moldes)
   settings: null,
   viewDate: todayISO(),
   tab: 'day',        // 'day' | 'epics'
@@ -67,11 +69,13 @@ export async function refreshFromStorage() {
   const data = await loadData();
   state.tasks = data.tasks;
   state.epics = data.epics;
+  state.routines = data.routines;
 }
 
 /** Cambios solo de vista (pestaña, día, filtro): no se guardan. */
 export function setView(changes) {
   Object.assign(state, changes);
+  if (changes.viewDate && ensureRoutines()) return; // ensureRoutines ya guardó y avisó
   emit();
 }
 
@@ -89,7 +93,7 @@ function commit() {
       notify(`"${task.title}"${extra} pasó a la tarde: va después de "${because.title}".`);
     }
   }
-  saveData({ tasks: state.tasks, epics: state.epics });
+  saveData({ tasks: state.tasks, epics: state.epics, routines: state.routines });
   emit();
 }
 
@@ -247,9 +251,75 @@ export function addFromText(text, where) {
     comments: [],
     created_at: new Date().toISOString(),
   };
+  // "cada día" / "hábiles" / "cada lun,jue": crear la rutina
+  if (parsed.repeat) {
+    const routine = routineFrom(task, { id: newId('r'), days: parsed.repeat, startDate: date || todayISO() });
+    state.routines.push(routine);
+    if (!date) {
+      // Desde el backlog: solo el molde; las tareas aparecen solas en los días que tocan
+      ensureRoutines(false);
+      commit();
+      notify(`↻ "${task.title}" se repite ${repeatLabel(routine.days)}.`);
+      return true;
+    }
+    task.routine_id = routine.id; // escrita en un día: esta es la de ese día
+  }
   state.tasks.push(task);
+  if (task.routine_id) ensureRoutines(false);
   commit();
+  if (task.routine_id) notify(`↻ "${task.title}" se repite ${repeatLabel(parsed.repeat)}.`);
   return task;
+}
+
+// ---------- Rutinas (tareas que se repiten) ----------
+
+export const findRoutine = (id) => (id ? state.routines.find((r) => r.id === id) : null);
+
+/**
+ * Crea las tareas de las rutinas que tocan hoy (y el día que se está mirando, si es próximo).
+ * save=false: solo prepara (quien llama hace commit). Devuelve true si creó algo.
+ */
+export function ensureRoutines(save = true) {
+  if (!state.routines.length) return false;
+  let created = 0;
+  for (const date of materializableDates(todayISO(), state.viewDate)) {
+    const { tasks, routines } = dueInstances(state.routines, date, { newId: () => newId('t'), orderFor: nextOrder });
+    if (!tasks.length) continue;
+    state.tasks.push(...tasks);
+    state.routines = routines;
+    created += tasks.length;
+  }
+  if (created && save) commit();
+  return created > 0;
+}
+
+/**
+ * Repetir una tarea los días indicados (0 = domingo). Si ya es de una rutina, la actualiza
+ * tomando esta tarea como molde (título, duración, bloque, horario…). days vacío = dejar de repetir.
+ */
+export function setRepeat(taskId, days) {
+  const task = findTask(taskId);
+  if (!task) return;
+  const current = findRoutine(task.routine_id);
+  if (!days.length) {
+    if (current) state.routines = state.routines.filter((r) => r !== current);
+    for (const t of state.tasks) if (t.routine_id === task.routine_id) t.routine_id = null;
+    task.routine_id = null;
+    commit();
+    return;
+  }
+  const generated = current ? current.generated : [];
+  const routine = routineFrom(task, {
+    id: current?.id || newId('r'),
+    days,
+    startDate: current?.start_date || task.date || todayISO(),
+  });
+  routine.generated = [...new Set([...generated, ...routine.generated])];
+  if (current) Object.assign(current, routine, { created_at: current.created_at });
+  else state.routines.push(routine);
+  task.routine_id = routine.id;
+  ensureRoutines(false);
+  commit();
 }
 
 /** Edición en línea: mismo formato del quick-add. Sin #etiqueta = sin épica. */
@@ -356,6 +426,7 @@ export function readBackup(text) {
 export function restoreBackup(data) {
   state.tasks = data.tasks;
   state.epics = data.epics;
+  state.routines = data.routines;
   state.settings = data.settings;
   if (state.filter && !findEpic(state.filter)) state.filter = null;
   saveSettingsRaw(state.settings);

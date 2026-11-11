@@ -5,6 +5,7 @@ import { loadData } from './storage.js';
 import { todayISO, toMinutes } from './dates.js';
 import { isRunning, zeroAt, remainingMs, timerConflicts } from './timer.js';
 import { activeBlockingMeeting, timerBlockedBy } from './pert.js';
+import { dueInstances } from './routines.js';
 
 const BLOCKS = ['am', 'pm'];
 const BLOCK_NAME = { am: 'mañana', pm: 'tarde' };
@@ -116,13 +117,45 @@ async function onTimerZero(alarm) {
   });
 }
 
+// ---------- Rutinas: crear las tareas del día aunque el panel no se abra ----------
+// (así una reunión diaria avisa y muestra su botón flotante sin abrir Pert-day)
+
+const ROUTINES_ALARM = 'routines-daily';
+
+async function ensureRoutinesToday() {
+  const { tasks = [], routines = [] } = await chrome.storage.local.get(['tasks', 'routines']);
+  if (!routines.length) return;
+  const today = todayISO();
+  const orderFor = (date, block) => {
+    const orders = tasks.filter((t) => t.date === date && t.block === block).map((t) => t.order);
+    return orders.length ? Math.max(...orders) + 1 : 0;
+  };
+  const newId = () => `t_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const due = dueInstances(routines, today, { newId, orderFor });
+  if (!due.tasks.length) return;
+  await chrome.storage.local.set({
+    tasks: [...tasks, ...due.tasks], routines: due.routines, meta: { writer: 'background', at: Date.now() },
+  });
+}
+
+/** Revisar justo después de medianoche (y al iniciar Chrome). */
+function scheduleRoutinesAlarm() {
+  const next = new Date();
+  next.setHours(24, 0, 30, 0);
+  chrome.alarms.create(ROUTINES_ALARM, { when: next.getTime() });
+}
+
 chrome.runtime.onInstalled.addListener(() => {
+  ensureRoutinesToday();
+  scheduleRoutinesAlarm();
   setupPanel();
   scheduleAlarms();
   scheduleTimerAlarm();
   scheduleMeetingAlarm();
 });
 chrome.runtime.onStartup.addListener(() => {
+  ensureRoutinesToday();
+  scheduleRoutinesAlarm();
   scheduleAlarms();
   scheduleTimerAlarm();
   scheduleMeetingAlarm();
@@ -136,6 +169,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
   if (alarm.name === MEETING_ALARM) {
     await onMeetingStart();
+    return;
+  }
+  if (alarm.name === ROUTINES_ALARM) {
+    await ensureRoutinesToday();
+    scheduleRoutinesAlarm();
     return;
   }
   if (alarm.name === MEETING_END_ALARM) {

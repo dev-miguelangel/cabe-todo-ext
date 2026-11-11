@@ -63,3 +63,7 @@ body.doc-page { min-height: 0; margin: 0; overflow: hidden; }
   .doc-editor .md-input, .doc-editor > .md { min-height: 260px; }
 }
 @media (max-width: 600px) { .doc-main { padding: 12px; } }
+
+/* Plantilla para documentación vacía */
+.doc-template { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 2px 0; font-size: 12px; color: var(--muted); }
+.doc-template[hidden] { display: none; }

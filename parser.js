@@ -1,5 +1,8 @@
-// Quick-add: convierte "Informe mensual 2h ? pm #web" en { title, minutes, block, certainty, epicTag }.
+// Quick-add: convierte "Informe mensual 2h ? pm #web" en { title, minutes, block, certainty, epicTag, repeat }.
+// "Standup 15m am cada día" / "hábiles" / "cada lun,jue" → repeat: días de la semana (0 = domingo).
 // Los tokens se leen desde el final del texto; los que no se escribieron quedan en null.
+
+import { takeRepeat } from './routines.js';
 
 const DURATION = /^(\d+(?:[.,]\d+)?)(m|min|mins|h|hr|hrs)$/;
 const HOURS_MINUTES = /^(\d+)h(\d{1,2})m?$/;
@@ -29,6 +32,7 @@ export function parseQuickAdd(text) {
   let block = null;
   let certainty = null;
   let epicTag = null;
+  let repeat = null;
 
   while (words.length > 1) {
     const original = words[words.length - 1];
@@ -73,12 +77,20 @@ export function parseQuickAdd(text) {
       }
     }
 
+    if (repeat === null) {
+      const days = takeRepeat(words);
+      if (days) {
+        repeat = days;
+        continue;
+      }
+    }
+
     break;
   }
 
   const title = words.join(' ');
   if (!title) return null;
-  return { title, minutes, block, certainty, epicTag };
+  return { title, minutes, block, certainty, epicTag, repeat };
 }
 
 /** "Lanzar Web!" → "lanzar-web" (sin tildes, para usar como #etiqueta). */

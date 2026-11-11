@@ -121,6 +121,7 @@ export function renderCard(task, opts) {
     mark.hidden = false;
     mark.title = `Documentación: ${markdownExcerpt(task.doc, 140)}`;
   }
+  li.querySelector('.repeat-mark').hidden = !task.routine_id;
   if (task.comments?.length) {
     const count = li.querySelector('.comment-count');
     count.hidden = false;

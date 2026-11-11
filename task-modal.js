@@ -9,8 +9,9 @@ import {
 import { markdownExcerpt } from './markdown.js';
 import {
   state, findTask, findEpic, updateTask, setDependency, subscribe, toggleTimer, resetTimer, deleteTask,
-  setMeeting, removeMeeting, finishMeeting,
+  setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat,
 } from './store.js';
+import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from './routines.js';
 import { createComments } from './comments.js';
 import { h, openModal, closeModal, isModalOpen, showToast } from './ui.js';
 
@@ -21,6 +22,7 @@ let currentId = null;
 let wasBlocked = false;
 let tick = null;
 let blockedById = null; // reunión que impide iniciar el temporizador (para notar cuando cambia)
+let repeatOpen = false; // sección "Repetir" abierta en una tarea que aún no se repite
 let meetingForm = null; // formulario de reunión abierto: { date, start, end, mode, duration, blocking, error }
 const comments = createComments({ rerender: () => render() });
 
@@ -47,7 +49,44 @@ function metaSection(task) {
       class: 'link-btn meta-link',
       title: 'Darle fecha y horario fijo (inicio y fin) a esta tarea',
       onclick: () => { meetingForm = newMeetingForm(task); render(); },
-    }, '◷ Convertir en reunión') : null);
+    }, '◷ Convertir en reunión') : null,
+    !findRoutine(task.routine_id) && !repeatOpen ? h('button', {
+      type: 'button',
+      class: 'link-btn meta-link',
+      title: 'Crear esta tarea sola en los días que elijas',
+      onclick: () => { repeatOpen = true; render(); },
+    }, '↻ Repetir') : null);
+}
+
+/** Días en que se repite (L M X J V S D). Cada cambio se guarda al tiro. */
+function repeatSection(task) {
+  const routine = findRoutine(task.routine_id);
+  if (!routine && !repeatOpen) return null;
+  const days = routine?.days || [];
+  const save = (next) => {
+    setRepeat(task.id, next);
+    if (!next.length) { repeatOpen = false; showToast(`"${task.title}" ya no se repite.`); }
+  };
+  const chip = (d) => h('button', {
+    type: 'button',
+    class: `day-chip${days.includes(d) ? ' on' : ''}`,
+    'aria-pressed': String(days.includes(d)),
+    title: days.includes(d) ? 'Quitar este día' : 'Agregar este día',
+    onclick: () => save(days.includes(d) ? days.filter((x) => x !== d) : [...days, d]),
+  }, DAY_LETTER[d]);
+  const where = task.meeting ? `${task.meeting.start}–${task.meeting.end}` : BLOCK_NAME[routine?.block || task.block || 'am'];
+  return h('section', { class: 'detail-section repeat-section' },
+    h('h3', {}, routine ? `↻ Se repite ${repeatLabel(days)}` : '↻ Repetir'),
+    h('div', { class: 'repeat-days', role: 'group', 'aria-label': 'Días' }, ...ALL_DAYS.map(chip)),
+    h('p', { class: 'repeat-note' }, routine
+      ? `Se crea sola esos días (${where}), con lo que tiene esta tarea ahora.`
+      : 'Elige los días: se creará sola cada uno de ellos.'),
+    h('div', { class: 'mf-actions' },
+      routine ? null : h('button', { type: 'button', class: 'ghost small', onclick: () => save([...ALL_DAYS]) }, 'Cada día'),
+      routine ? null : h('button', { type: 'button', class: 'ghost small', onclick: () => save([...WEEKDAYS]) }, 'Días hábiles'),
+      routine
+        ? h('button', { type: 'button', class: 'ghost small', onclick: () => save([]) }, 'Dejar de repetir')
+        : h('button', { type: 'button', class: 'ghost small', onclick: () => { repeatOpen = false; render(); } }, 'Cancelar')));
 }
 
 /** Pie del modal: borrar la tarea (con confirmación). */
@@ -344,6 +383,7 @@ function render() {
   openModal(`${blockers.length ? '⧖ ' : ''}${task.title}`, [
     metaSection(task),
     meetingSection(task),
+    repeatSection(task),
     blockers.length ? blockedSection(task, blockers, byId) : null,
     timerSection(task),
     docSection(task),
@@ -365,6 +405,7 @@ function render() {
 function onClose() {
   currentId = null;
   meetingForm = null;
+  repeatOpen = false;
   comments.stopEditing();
   clearInterval(tick);
   tick = null;
@@ -374,6 +415,7 @@ export function showTaskModal(taskId) {
   if (currentId !== taskId) {
     comments.reset();
     meetingForm = null;
+    repeatOpen = false;
   }
   currentId = taskId;
   wasBlocked = false;

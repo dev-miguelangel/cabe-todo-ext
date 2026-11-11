@@ -13,6 +13,9 @@ import { markdownEditor } from './md-editor.js';
 const SAVE_DELAY = 700;
 const BLOCK_NAME = { am: '☀︎ mañana', pm: '☾ tarde' };
 const taskId = new URLSearchParams(location.search).get('task');
+// Esqueleto opcional para empezar una documentación vacía
+const TEMPLATE = '## Objetivo\n\n\n## Notas\n\n\n## Resultado\n\n';
+const TEMPLATE_CURSOR = '## Objetivo\n\n'.length;
 
 let text = '';          // contenido del editor (puede ir por delante de lo guardado)
 let saved = '';         // último contenido guardado
@@ -49,6 +52,8 @@ function flush() {
 
 function onInput(value) {
   text = value;
+  const offer = document.querySelector('.doc-template');
+  if (offer) offer.hidden = Boolean(text.trim());
   setStatus();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flush, SAVE_DELAY);
@@ -102,6 +107,18 @@ function renderEditor() {
       renderEditor();
       if (t === 'code') container.querySelector('.md-input')?.focus();
     },
+    footer: tab === 'code' ? h('div', { class: 'doc-template', hidden: Boolean(text.trim()) },
+      h('span', {}, '¿Empiezas con un esqueleto?'),
+      h('button', {
+        type: 'button', class: 'ghost small', title: 'Objetivo · Notas · Resultado',
+        onclick: () => {
+          onInput(TEMPLATE);
+          renderEditor();
+          const area = container.querySelector('.md-input');
+          area?.focus();
+          area?.setSelectionRange(TEMPLATE_CURSOR, TEMPLATE_CURSOR);
+        },
+      }, 'Usar plantilla')) : null,
     onKeydown: (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
