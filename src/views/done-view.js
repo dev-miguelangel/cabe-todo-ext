@@ -31,7 +31,6 @@ export function renderDone() {
     byId: new Map(state.tasks.map((t) => [t.id, t])),
     epicsById: new Map(state.epics.map((e) => [e.id, e])),
     critical: new Set(),
-    planDate: todayISO(),
   };
   const list = document.getElementById('done-list');
   if (!total) {

@@ -176,7 +176,6 @@ export function renderMinimal() {
     byId: new Map(state.tasks.map((t) => [t.id, t])),
     epicsById: new Map(state.epics.map((e) => [e.id, e])),
     critical: criticalIds(state.tasks),
-    planDate: today,
   };
   const nowMin = nowFor(today);
   const schedNow = nowMin < 0 ? null : nowMin; // día futuro: el bloque se pronostica completo

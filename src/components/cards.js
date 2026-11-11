@@ -3,9 +3,9 @@
 import { formatMinutes, formatClock } from '../core/parser.js';
 import { blockersOf, timerBlockedBy } from '../core/pert.js';
 import { markdownExcerpt } from '../utils/markdown.js';
-import { shortLabel, dayLabel } from '../utils/dates.js';
+import { shortLabel } from '../utils/dates.js';
 import { isRunning, trackedMs, remainingMs, formatTracked, formatLeft } from '../core/timer.js';
-import { blocksOf, blockIcon, blockName } from '../core/blocks.js';
+import { blockIcon, blockName } from '../core/blocks.js';
 import { state } from '../services/store.js';
 
 /**
@@ -47,11 +47,11 @@ export function whenLabel(task) {
 
 /**
  * opts:
- *  ctx         { byId, epicsById, critical:Set, planDate }
+ *  ctx         { byId, epicsById, critical:Set, allTasks }
  *  item        resultado de scheduleBlock para esta tarea (hora estimada, holgura)
  *  blockEnded  el bloque ya terminó: no marcar como atrasadas (irían todas) y teñir las pendientes
  *  move        botón ⇢ (en las acciones al pasar el mouse) para mover a otro bloque o día
- *  draggable, plan (botones → de cada bloque), unplan (↩︎ al backlog), when (mostrar fecha), showEpic,
+ *  draggable, when (mostrar fecha), showEpic,
  *  showBlock (mostrar el bloque: en listas que no van separadas por bloque)
  */
 export function renderCard(task, opts) {
@@ -135,21 +135,6 @@ export function renderCard(task, opts) {
   const critical = ctx.critical?.has(task.id);
   li.querySelector('.critical').hidden = !critical;
 
-  if (opts.plan && !task.done && !meeting) {
-    const plan = li.querySelector('.plan');
-    plan.hidden = false;
-    const day = dayLabel(ctx.planDate).toLowerCase();
-    plan.replaceChildren(...blocksOf(state.settings).map((b) => {
-      const btn = document.createElement('button');
-      btn.className = 'plan-btn';
-      btn.dataset.block = b.id;
-      btn.textContent = `→ ${b.icon}`;
-      btn.title = `Planificar el ${day} en ${b.icon} ${b.title}`;
-      btn.setAttribute('aria-label', btn.title);
-      return btn;
-    }));
-  }
-  li.querySelector('.unplan').hidden = !(opts.unplan && task.date && !task.done && !meeting);
   li.querySelector('.move-btn').hidden = !(opts.move && !task.done);
   // Pendiente en un bloque que ya terminó: fondo rojizo muy sutil
   li.classList.toggle('stale', Boolean(opts.blockEnded) && !task.done);

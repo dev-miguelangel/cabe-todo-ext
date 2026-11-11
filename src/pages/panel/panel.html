@@ -14,13 +14,14 @@
 
   <!-- ===== Vista de épicas ===== -->
   <div id="view-epics" hidden>
-    <div class="epics-top">
-      <form id="new-epic" class="quick-add" autocomplete="off">
-        <input type="text" placeholder="+ Nueva épica…  (ej: Lanzar web)" aria-label="Nueva épica">
-      </form>
-      <p class="plan-date-hint" id="plan-date-hint"></p>
-    </div>
-    <div id="epics-list"></div>
+    <header class="done-top">
+      <h1>Épicas</h1>
+      <p class="docs-count" id="epics-count"></p>
+    </header>
+    <form id="new-epic" class="quick-add minimal-add" autocomplete="off">
+      <input type="text" placeholder="+ Nueva épica (ej: Lanzar web)" aria-label="Nueva épica">
+    </form>
+    <div class="epics-list" id="epics-list"></div>
   </div>
 
   <!-- ===== Hoy: las tareas de hoy en una lista (vista mínima) ===== -->
@@ -276,14 +277,10 @@
             <span class="doc-mark" hidden>▤</span>
             <span class="repeat-mark" title="Se repite" hidden>↻</span>
           </span>
-          <span class="foot-actions">
-            <span class="plan" hidden></span>
-          </span>
         </div>
       </div>
       <span class="actions">
         <button class="move-btn" title="Mover a otro bloque o día" aria-label="Mover a otro bloque o día" hidden>⇢</button>
-        <button class="unplan" title="Enviar al backlog" aria-label="Enviar al backlog" hidden>↩︎</button>
       </span>
     </li>
   </template>

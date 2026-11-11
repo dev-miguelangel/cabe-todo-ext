@@ -42,7 +42,6 @@ function render() {
     byId: new Map(state.tasks.map((t) => [t.id, t])),
     epicsById: new Map(state.epics.map((e) => [e.id, e])),
     critical: criticalIds(state.tasks),
-    planDate: todayISO(),
   };
   const dates = nextDates();
   let total = 0;

@@ -96,7 +96,7 @@ function render(task) {
     h('p', { class: 'move-section' }, task.meeting ? 'Otro día' : 'Otro día y bloque'),
     dayChips,
     blockChips,
-    task.meeting ? null : h('button', { type: 'button', class: 'move-quick move-backlog', dataset: { backlog: '1' } },
+    task.meeting || !task.date ? null : h('button', { type: 'button', class: 'move-quick move-backlog', dataset: { backlog: '1' } },
       h('span', { class: 'move-arrow', 'aria-hidden': 'true' }, '⤓'), 'Al backlog'));
 }
 
