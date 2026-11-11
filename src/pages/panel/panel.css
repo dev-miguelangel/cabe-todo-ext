@@ -1134,3 +1134,15 @@ kbd { background: var(--field); }
   .block-times { grid-column: 1 / -1; grid-row: 2; }
   .settings .block-times input { flex: 1; min-width: 0; padding: 6px 8px; }
 }
+
+/* ---------- Hechas: tareas completadas por día ---------- */
+.done-top { padding: 14px 16px 0; }
+.done-top h1 { margin: 0; font-size: 18px; font-weight: 600; }
+.done-top .docs-count { margin-top: 2px; }
+.done-list { list-style: none; margin: 0; padding: 4px 16px 16px; display: flex; flex-direction: column; }
+/* Línea horizontal con la fecha a la derecha: ────────── 11-11-2026 */
+.done-divider { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; }
+.done-divider:first-child { margin-top: 6px; }
+.done-line { flex: 1; height: 0; border-top: 1px solid var(--border); }
+.done-date { flex: none; font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.done-list .task { background: var(--raised); border-radius: 8px; }

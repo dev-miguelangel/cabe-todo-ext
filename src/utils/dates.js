@@ -42,3 +42,9 @@ export function toMinutes(hhmm) {
 export function nowMinutes(now = new Date()) {
   return now.getHours() * 60 + now.getMinutes();
 }
+
+/** "2026-11-11" → "11-11-2026" (dd-mm-aaaa) */
+export function formatDMY(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}-${m}-${y}`;
+}

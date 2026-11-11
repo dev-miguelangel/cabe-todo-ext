@@ -55,6 +55,15 @@
     <div id="epics-list"></div>
   </div>
 
+  <!-- ===== Hechas ===== -->
+  <div id="view-done" hidden>
+    <header class="done-top">
+      <h1>Hechas</h1>
+      <p class="docs-count" id="done-count"></p>
+    </header>
+    <ul class="done-list" id="done-list" aria-label="Tareas completadas por día"></ul>
+  </div>
+
   <!-- ===== Documentación ===== -->
   <div id="view-docs" hidden>
     <div class="docs-top">
@@ -168,6 +177,10 @@
     <button class="tab" role="tab" data-tab="epics">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 7.5v9M12 7.5v5M16 7.5v7"/></svg>
       <span>Épicas</span>
+    </button>
+    <button class="tab" role="tab" data-tab="done">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.2 12.3l2.6 2.6 5-5.4"/></svg>
+      <span>Hechas</span>
     </button>
     <button class="tab" role="tab" data-tab="docs">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h7l4.5 4.5v10a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M13.5 3.5V8H18M8 12.5h8M8 16h5"/></svg>

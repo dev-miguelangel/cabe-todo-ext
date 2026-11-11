@@ -583,3 +583,21 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(fc.capacity, 4 * 60 + 60 + 4 * 60);
   console.log('OK: bloques personalizables (hasta 5, sin superponerse, @bloque, migración)');
 }
+
+// ---------- Hechas: historial por día ----------
+{
+  const Hs = await import(root + '/src/core/history.js');
+  const { formatDMY } = await import(root + '/src/utils/dates.js');
+  const local = (y, m, d, hh) => new Date(y, m - 1, d, hh).toISOString();
+  const tasks = [
+    { id: 'a', done: true, done_at: local(2026, 11, 10, 9), date: '2026-11-10' },
+    { id: 'b', done: true, done_at: local(2026, 11, 11, 8), date: '2026-11-10' }, // planificada ayer, terminada hoy
+    { id: 'c', done: true, done_at: local(2026, 11, 11, 17), date: null },        // del backlog
+    { id: 'd', done: false, date: '2026-11-11' },
+    { id: 'e', done: true, done_at: null, date: '2026-11-01' },                  // sin hora: su día planificado
+  ];
+  assert.deepEqual(Hs.doneByDay(tasks).map((g) => [g.date, g.tasks.map((t) => t.id)]),
+    [['2026-11-11', ['c', 'b']], ['2026-11-10', ['a']], ['2026-11-01', ['e']]]);
+  assert.equal(formatDMY('2026-11-05'), '05-11-2026');
+  console.log('OK: hechas (agrupadas por día de término, dd-mm-aaaa)');
+}

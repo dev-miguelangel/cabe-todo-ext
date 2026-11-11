@@ -5,13 +5,14 @@ import { renderDay, setupDay, isDayBusy, closeDepsMenu } from '../../views/day-v
 import { renderEpics, setupEpics, isEpicsBusy } from '../../views/epics-view.js';
 import { renderSettings, setupSettings } from '../../views/settings-view.js';
 import { renderDocs, setupDocs } from '../../views/docs-view.js';
+import { renderDone, setupDone } from '../../views/done-view.js';
 import { currentBlock } from '../../core/pert.js';
 import { firstBlock } from '../../core/blocks.js';
 import { showToast, applyTheme } from '../../utils/ui.js';
 import { todayISO } from '../../utils/dates.js';
 
 const TAB_KEY = 'cabetodo:tab';
-const TABS = ['day', 'epics', 'docs', 'settings'];
+const TABS = ['day', 'epics', 'done', 'docs', 'settings'];
 
 function isBusy() {
   return isDayBusy() || isEpicsBusy();
@@ -26,10 +27,12 @@ function render() {
   });
   document.getElementById('view-day').hidden = state.tab !== 'day';
   document.getElementById('view-epics').hidden = state.tab !== 'epics';
+  document.getElementById('view-done').hidden = state.tab !== 'done';
   document.getElementById('view-docs').hidden = state.tab !== 'docs';
   document.getElementById('view-settings').hidden = state.tab !== 'settings';
   if (state.tab === 'day') renderDay();
   else if (state.tab === 'epics') renderEpics();
+  else if (state.tab === 'done') renderDone();
   else if (state.tab === 'docs') renderDocs();
   else renderSettings();
 }
@@ -63,6 +66,7 @@ async function init() {
   setupEpics();
   setupSettings();
   setupDocs();
+  setupDone();
   setupKeyboard();
   ensureRoutines(); // tareas que se repiten y tocan hoy
   render();

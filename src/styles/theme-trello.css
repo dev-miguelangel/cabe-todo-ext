@@ -173,3 +173,7 @@
 [data-theme="trello"] .doc-editor > .md pre,
 [data-theme="trello"] .md pre,
 [data-theme="trello"] .md code { background: var(--ds-n20); }
+
+/* ---------- Hechas ---------- */
+[data-theme="trello"] .done-list .task { background: var(--card); border-radius: var(--radius-card); box-shadow: var(--elev-card); margin-bottom: 6px; }
+[data-theme="trello"] .done-list .task:hover { box-shadow: var(--elev-raised); }
