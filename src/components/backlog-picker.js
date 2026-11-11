@@ -7,8 +7,10 @@ import { h, openModal, isModalOpen, showToast } from '../utils/ui.js';
 import { blocksOf } from '../core/blocks.js';
 import { scheduleBlock } from '../core/pert.js';
 import { probTag } from './prob-tag.js';
+import { openMoveMenu } from './move-menu.js';
 import { formatMinutes } from '../core/parser.js';
 import { todayISO, nowMinutes, shortLabel } from '../utils/dates.js';
+import { titleCase } from '../utils/text.js';
 
 let isOpen = false;
 let query = '';
@@ -50,13 +52,16 @@ function taskRow(task, blocks, today, nowMin) {
     }, h('span', { class: 'pick-icon', 'aria-hidden': 'true' }, b.icon), h('span', { class: 'pick-name' }, b.title),
     ended ? null : probTag(p, { class: 'pick-pct' }));
   });
-  return h('li', { class: 'pick-row' },
+  return h('li', { class: 'pick-row', dataset: { task: task.id } },
+    h('button', {
+      type: 'button', class: 'pick-move', title: 'Mover a otro bloque o día', 'aria-label': `Mover "${task.title}" a otro bloque o día`,
+    }, '⇢'),
     h('div', { class: 'pick-info' },
       h('span', { class: 'pick-title' },
         epic ? h('span', { class: 'dot', style: `background:${epic.color}`, title: epic.name }) : null,
-        task.title),
+        titleCase(task.title)),
       h('span', { class: 'pick-meta' },
-        [from, formatMinutes(task.minutes), epic ? epic.name : null, task.certainty === 'unsure' ? 'poca certeza' : null]
+        [from, formatMinutes(task.minutes), epic ? titleCase(epic.name) : null, task.certainty === 'unsure' ? 'poca certeza' : null]
           .filter(Boolean).join(' · '))),
     h('div', { class: 'pick-actions', role: 'group', 'aria-label': `Agregar "${task.title}" a un bloque de hoy` }, ...buttons));
 }
@@ -124,6 +129,11 @@ export function showBacklogPicker(date = todayISO()) {
 }
 
 function onPick(e) {
+  const move = e.target.closest('.pick-move');
+  if (move && isOpen) {
+    openMoveMenu(move.closest('.pick-row').dataset.task, move);
+    return;
+  }
   const btn = e.target.closest('.pick-btn');
   if (!btn || !isOpen) return;
   const task = state.tasks.find((t) => t.id === btn.dataset.task);

@@ -70,7 +70,7 @@ export function showSyntaxHelp() {
       h('p', { class: 'help-lead' }, 'Escribe el título y, al final, lo que necesites. Todo es opcional y se puede combinar.'),
       h('h3', {}, 'Ejemplos'),
       examples(),
-      h('h3', {}, 'Textos llave'),
+      h('h3', {}, 'Textos Llave'),
       keywords(),
       h('p', { class: 'help-foot' },
         h('kbd', {}, 'Enter'), ' crea la tarea · ', h('kbd', {}, 'Esc'), ' borra el texto · ',

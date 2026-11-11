@@ -86,11 +86,36 @@ function codeBlock(text, s, e) {
   return { text: out, start: innerStart, end: innerStart + inner.length };
 }
 
+/** Inserta un bloque en líneas propias (con una línea vacía antes y después si hace falta). */
+function block(text, s, e, body, select) {
+  const before = text.slice(0, s);
+  const after = text.slice(e);
+  const lead = !before ? '' : before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+  const tail = !after ? '\n' : after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+  const out = before + lead + body + tail + after;
+  const at = before.length + lead.length;
+  return select ? { text: out, start: at + select[0], end: at + select[1] } : { text: out, start: at + body.length + tail.length, end: at + body.length + tail.length };
+}
+
+/** Línea horizontal (---) en su propia línea; el cursor queda después. */
+function hr(text, s, e) {
+  return block(text, s, e, '---', null);
+}
+
+/** Tabla de 3 columnas; si había texto seleccionado, va en la primera celda. Selecciona "Columna 1" para escribir. */
+function table(text, s, e) {
+  const first = text.slice(s, e).replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim() || 'Columna 1';
+  const body = `| ${first} | Columna 2 | Columna 3 |\n| --- | --- | --- |\n|  |  |  |`;
+  return block(text, s, e, body, [2, 2 + first.length]);
+}
+
 export function applyFormat(text, s, e, kind) {
   if (LINE_PREFIX[kind]) return prefixLines(text, s, e, LINE_PREFIX[kind]);
   if (WRAP[kind]) return wrap(text, s, e, WRAP[kind]);
   if (kind === 'link') return link(text, s, e);
   if (kind === 'codeblock') return codeBlock(text, s, e);
+  if (kind === 'hr') return hr(text, s, e);
+  if (kind === 'table') return table(text, s, e);
   return { text, start: s, end: e };
 }
 
@@ -110,6 +135,9 @@ export const TOOLBAR = [
   { kind: 'ul', label: '• Lista', title: 'Lista' },
   { kind: 'task', label: '☐ Tareas', title: 'Lista de tareas' },
   { kind: 'quote', label: '❝ Cita', title: 'Cita' },
+  { sep: true },
+  { kind: 'table', label: '▦ Tabla', title: 'Tabla' },
+  { kind: 'hr', label: '― Línea', title: 'Línea horizontal' },
 ];
 
 /** Atajos de teclado del editor. */

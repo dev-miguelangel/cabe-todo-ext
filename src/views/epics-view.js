@@ -17,6 +17,7 @@ import { renderCard } from '../components/cards.js';
 import { showTaskModal } from '../components/task-modal.js';
 import { openMoveMenu } from '../components/move-menu.js';
 import { probTag } from '../components/prob-tag.js';
+import { titleCase } from '../utils/text.js';
 
 // Épicas abiertas en esta sesión (al abrir el panel, todas empiezan cerradas)
 const openEpics = new Set();
@@ -62,7 +63,7 @@ function epicBody(epic, ctx) {
   const card = (t, opts = {}) => renderCard(t, { ctx, showEpic: false, move: true, ...opts });
 
   const items = [];
-  if (undated.length) items.push(divider(`Sin fecha (${undated.length})`), ...undated.map((t) => card(t)));
+  if (undated.length) items.push(divider(`Sin Fecha (${undated.length})`), ...undated.map((t) => card(t)));
   if (planned.length) items.push(divider(`Planificadas (${planned.length})`), ...planned.map((t) => card(t, { when: true })));
   if (done.length) items.push(divider(`Hechas (${done.length})`), ...done.map((t) => card(t, { when: true })));
 
@@ -80,7 +81,7 @@ function epicBody(epic, ctx) {
     h('form', { class: 'quick-add epic-add', autocomplete: 'off', dataset: { action: 'add-task' } },
       h('input', {
         type: 'text',
-        placeholder: `+ Nueva tarea en ${epic.name}`,
+        placeholder: `+ Nueva tarea en ${titleCase(epic.name)}`,
         title: 'Sin día queda sin fecha. Con "mañana", "viernes", am/pm o el nombre del bloque, se planifica.',
         'aria-label': `Nueva tarea para ${epic.name}`,
         dataset: { focusKey: `add-${epic.id}` },
@@ -105,7 +106,7 @@ function renderEpic(epic, ctx) {
     h('summary', {},
       h('span', { class: 'epic-row' },
         h('span', { class: 'dot', style: `background:${epic.color}` }),
-        h('span', { class: 'epic-name' }, epic.name),
+        h('span', { class: 'epic-name' }, titleCase(epic.name)),
         h('span', { class: 'epic-count', title: `${fc.doneCount} hechas de ${fc.total}` }, `${fc.doneCount}/${fc.total} ✓`),
         h('span', { class: 'ss-chevron', 'aria-hidden': 'true' })),
       h('span', { class: 'epic-meta' },
@@ -127,7 +128,7 @@ function renderArchived() {
         h('span', { class: 'ss-chevron', 'aria-hidden': 'true' }))),
     h('ul', { class: 'archived-list' }, ...list.map((epic) => h('li', { dataset: { epicId: epic.id } },
       h('span', { class: 'dot', style: `background:${epic.color}` }),
-      h('span', { class: 'archived-name' }, epic.name),
+      h('span', { class: 'archived-name' }, titleCase(epic.name)),
       h('span', { class: 'epic-count' }, `${epicTasks(epic.id).filter((t) => t.done).length} hechas`),
       h('button', { type: 'button', class: 'link-btn', dataset: { action: 'restore' } }, 'Restaurar'),
       h('button', { type: 'button', class: 'link-btn danger', dataset: { action: 'delete-epic' } }, 'Borrar')))));

@@ -22,6 +22,7 @@ import { showBacklogPicker } from '../components/backlog-picker.js';
 import { showUpcoming } from '../components/upcoming.js';
 import { probTag } from '../components/prob-tag.js';
 import { openMoveMenu, nextSlot, slotText } from '../components/move-menu.js';
+import { titleCase } from '../utils/text.js';
 
 /**
  * Pronóstico corto del bloque: { text: "85%", cls, head, detail } (con su color),
@@ -162,7 +163,7 @@ function blockDivider(block, now, sched, nowMin, sug) {
       : probTag(fc.p, { tag: 'button', class: cls, prefix: sug ? '✦ ' : '', attrs });
     parts.push(tag, ' | ');
   }
-  parts.push(`${block.title} | ${block.start} - ${block.end}`);
+  parts.push(`${titleCase(block.title)} | ${block.start} - ${block.end}`);
   return h('li', { class: `done-divider block-divider${now ? ' is-now' : ''}`, dataset: { block: block.id } },
     ...blockLine(block, nowMin),
     h('span', { class: 'done-date', title: now ? 'Bloque en curso' : null }, ...parts),

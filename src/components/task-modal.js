@@ -6,15 +6,16 @@ import { todayISO, shortLabel, toMinutes, nowMinutes } from '../utils/dates.js';
 import {
   isRunning, trackedMs, formatStopwatch, remainingMs, estimateMs, formatCountdown, formatTracked,
 } from '../core/timer.js';
-import { markdownExcerpt } from '../utils/markdown.js';
 import {
   state, findTask, findEpic, updateTask, setDependency, subscribe, toggleTimer, resetTimer, deleteTask,
   setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat, deleteRoutine, applyTaskToRoutine, setView,
+  clearDoc, restoreDoc,
 } from '../services/store.js';
 import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
 import { blockName, blockRange, firstBlock } from '../core/blocks.js';
 import { createComments } from './comments.js';
 import { h, openModal, closeModal, isModalOpen, showToast } from '../utils/ui.js';
+import { titleCase } from '../utils/text.js';
 
 
 // Estado del modal (sobrevive a los re-render que provoca cada cambio guardado)
@@ -42,7 +43,7 @@ function metaSection(task) {
     : `${formatMinutes(task.minutes)} estimadas · ${whereText(task)}`;
   return h('p', { class: 'task-meta' },
     what,
-    epic ? h('span', { class: 'task-meta-epic' }, ' · ', h('span', { class: 'dot', style: `background:${epic.color}` }), ` ${epic.name}`) : null,
+    epic ? h('span', { class: 'task-meta-epic' }, ' · ', h('span', { class: 'dot', style: `background:${epic.color}` }), ` ${titleCase(epic.name)}`) : null,
     task.done ? ' · ✓ hecha' : '',
     // Convertir en reunión: un enlace discreto en la misma línea (no una sección aparte)
     !task.meeting && !meetingForm ? h('button', {
@@ -77,7 +78,7 @@ function repeatSection(task) {
   }, DAY_LETTER[d]);
   const where = task.meeting ? `${task.meeting.start}–${task.meeting.end}` : blockName(state.settings, routine?.block || task.block || firstBlock(state.settings).id);
   return h('section', { class: 'detail-section repeat-section' },
-    h('h3', {}, routine ? `↻ Se repite ${repeatLabel(days)}` : '↻ Repetir',
+    h('h3', {}, routine ? titleCase(`↻ Se repite ${repeatLabel(days)}`) : '↻ Repetir',
       routine ? h('button', {
         type: 'button', class: 'link-btn repeat-manage', title: 'Ver y editar todas tus rutinas',
         onclick: () => { closeModal(); setView({ tab: 'routines' }); },
@@ -148,7 +149,7 @@ function blockedSection(task, blockers, byId) {
       return h('li', { class: 'blocker' },
         h('div', { class: 'blocker-info' },
           h('span', { class: 'blocker-title' },
-            epic ? h('span', { class: 'dot', style: `background:${epic.color}`, title: epic.name }) : null, pred.title),
+            epic ? h('span', { class: 'dot', style: `background:${epic.color}`, title: epic.name }) : null, titleCase(pred.title)),
           h('span', { class: 'blocker-meta' }, `${formatMinutes(pred.minutes)} · ${whereText(pred)}`,
             alsoBlocked.length ? ` · ⧖ espera a "${alsoBlocked.map((p) => p.title).join('", "')}"` : '')),
         h('div', { class: 'blocker-actions' },
@@ -345,7 +346,7 @@ function meetingFormView(task) {
 function meetingSection(task) {
   if (meetingForm) {
     return h('section', { class: 'detail-section meeting-section' },
-      h('h3', {}, task.meeting ? 'Reprogramar reunión' : 'Convertir en reunión'), meetingFormView(task));
+      h('h3', {}, task.meeting ? 'Reprogramar Reunión' : 'Convertir en Reunión'), meetingFormView(task));
   }
   if (!task.meeting) return null; // el enlace para convertir está en la línea de detalles
   const m = task.meeting;
@@ -373,25 +374,36 @@ function meetingSection(task) {
 }
 
 /** Documentación: solo un extracto aquí; se edita en su propia pestaña. */
+/** Documentación: un solo botón largo y delgado (abrir si existe, crear si no); se edita en su pestaña. */
 function docSection(task) {
-  const excerpt = markdownExcerpt(task.doc, 220);
-  const updated = task.doc_updated_at
-    ? new Date(task.doc_updated_at).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  const exists = Boolean(task.doc?.trim());
+  const updated = exists && task.doc_updated_at
+    ? new Date(task.doc_updated_at).toLocaleDateString('es', { day: 'numeric', month: 'short' })
     : null;
-  return h('section', { class: 'detail-section doc-section' },
-    h('div', { class: 'doc-section-head' },
-      h('h3', {}, 'Documentación'),
-      h('button', {
-        type: 'button',
-        class: 'ghost small',
-        title: 'Abrir la documentación de la tarea en una pestaña nueva',
-        onclick: () => openDocTab(task.id),
-      }, excerpt ? 'Abrir en pestaña ↗' : 'Documentar en pestaña ↗')),
-    excerpt
-      ? h('div', { class: 'doc-excerpt', title: 'Clic para abrir la documentación completa', onclick: () => openDocTab(task.id) },
-        h('p', {}, excerpt),
-        updated ? h('span', { class: 'doc-updated' }, `Editado ${updated}`) : null)
-      : h('p', { class: 'doc-empty' }, 'Sin documentación todavía. Ábrela en una pestaña para escribir con espacio (títulos, enlaces, bloques de código…).'));
+  const open = h('button', {
+    type: 'button',
+    class: `doc-link-btn${exists ? '' : ' create'}`,
+    title: exists ? 'Abrir la documentación en una pestaña nueva' : 'Crear la documentación en una pestaña nueva',
+    onclick: () => openDocTab(task.id),
+  },
+  h('span', { class: 'doc-link-icon', 'aria-hidden': 'true' }, exists ? '▤' : '+'),
+  h('span', { class: 'doc-link-label' }, exists ? 'Abrir documentación' : 'Crear documentación'),
+  updated ? h('span', { class: 'doc-link-meta' }, `editada ${updated}`) : null,
+  h('span', { class: 'doc-link-arrow', 'aria-hidden': 'true' }, '↗'));
+  if (!exists) return open;
+  // Eliminar la documentación (con confirmación y "Deshacer")
+  const remove = h('button', {
+    type: 'button', class: 'doc-delete-btn', title: 'Eliminar la documentación', 'aria-label': 'Eliminar la documentación',
+    onclick: () => {
+      // eslint-disable-next-line no-alert
+      if (!window.confirm(`¿Eliminar la documentación de "${titleCase(task.title)}"?`)) return;
+      const prev = clearDoc(task.id);
+      if (!prev) return;
+      showToast('Documentación eliminada.', { label: 'Deshacer', run: () => { restoreDoc(task.id, prev); showToast('Documentación restaurada.'); } });
+    },
+  });
+  remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+  return h('div', { class: 'doc-link-row' }, open, remove);
 }
 
 /** Abre (en una pestaña) la página de documentación de la tarea. */

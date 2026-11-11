@@ -37,6 +37,19 @@ function inline(text) {
 
 const LIST_ITEM = /^\s*([-*+]|\d+[.)])\s+(.*)$/;
 
+/** "| a | b |" → ["a", "b"] (sin los bordes; "\|" es una barra dentro de la celda). */
+function splitRow(line) {
+  const cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/);
+  return cells.map((c) => c.replace(/\\\|/g, '|').trim());
+}
+
+/** ¿Empieza una tabla en la línea i? (fila con "|" seguida de la línea separadora "| --- | :---: |") */
+function isTableStart(lines, i) {
+  if (i + 1 >= lines.length || !/\|/.test(lines[i])) return false;
+  const sep = splitRow(lines[i + 1]);
+  return sep.length >= 1 && sep.every((c) => /^:?-{1,}:?$/.test(c)) && /-/.test(lines[i + 1]);
+}
+
 /**
  * opts.headingBase: etiqueta para "#". 3 (por defecto) = comentarios (# → h3);
  * 1 = documento a página completa (# → h1).
@@ -78,6 +91,19 @@ export function renderMarkdown(src, opts = {}) {
       continue;
     }
 
+    // Tabla (estilo GitHub): | a | b |  +  | --- | :---: |
+    if (isTableStart(lines, i)) {
+      const head = splitRow(lines[i]);
+      const aligns = splitRow(lines[i + 1]).map((c) => (/^:-+:$/.test(c) ? 'center' : /^-+:$/.test(c) ? 'right' : null));
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /\|/.test(lines[i]) && lines[i].trim()) rows.push(splitRow(lines[i++]));
+      const cell = (tag, text, k) => `<${tag}${aligns[k] ? ` style="text-align:${aligns[k]}"` : ''}>${inline(text || '')}</${tag}>`;
+      out.push(`<table><thead><tr>${head.map((c, k) => cell('th', c, k)).join('')}</tr></thead>`
+        + `<tbody>${rows.map((r) => `<tr>${head.map((_, k) => cell('td', r[k], k)).join('')}</tr>`).join('')}</tbody></table>`);
+      continue;
+    }
+
     // Cita
     if (/^\s*>/.test(line)) {
       const body = [];
@@ -114,7 +140,7 @@ export function renderMarkdown(src, opts = {}) {
     const para = [];
     while (i < lines.length && lines[i].trim()
       && !/^\s*(```|#{1,6}\s|>)/.test(lines[i]) && !LIST_ITEM.test(lines[i])
-      && !/^\s*([-*_])(\s*\1){2,}\s*$/.test(lines[i])) {
+      && !/^\s*([-*_])(\s*\1){2,}\s*$/.test(lines[i]) && !(para.length && isTableStart(lines, i))) {
       para.push(inline(lines[i]));
       i += 1;
     }

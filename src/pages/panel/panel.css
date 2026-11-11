@@ -547,18 +547,6 @@ kbd { background: var(--field); }
 .md-tabs + .md-toolbar + .md-input { border-radius: 0; }
 
 /* Documentación en el modal: solo un extracto */
-.doc-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.doc-section-head h3 { margin: 0; }
-.doc-excerpt {
-  padding: 10px 12px; background: var(--hover); border-radius: 10px; cursor: pointer;
-}
-.doc-excerpt:hover { background: color-mix(in srgb, var(--hover) 80%, var(--white)); }
-.doc-excerpt p {
-  margin: 0; font-size: 13px; line-height: 1.5; 
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
-.doc-updated { display: block; margin-top: 6px; font-size: 11px; color: var(--muted); }
-.doc-empty { margin: 0; font-size: 12px; color: var(--muted); }
 .task .doc-mark { font-size: 12px; color: var(--muted); }
 
 /* ======================= Reuniones ======================= */
@@ -1037,7 +1025,7 @@ kbd { background: var(--field); }
 .task .actions .move-btn { font-size: 14px; line-height: 1; padding: 2px 6px; }
 .task .actions .move-btn:hover { color: var(--accent-text); }
 .move-menu {
-  position: absolute; z-index: 30; width: min(280px, calc(100vw - 16px));
+  position: fixed; z-index: 30; width: min(280px, calc(100vw - 16px));
   display: flex; flex-direction: column; gap: 4px; padding: 8px;
   border-radius: 12px; background: var(--surface); color: var(--text);
   box-shadow: 0 10px 30px var(--shadow), 0 0 0 1px var(--border);
@@ -1200,3 +1188,87 @@ button.prob-tag { cursor: pointer; }
   background: var(--text); color: var(--bg); font-size: 11.5px; font-weight: 600; line-height: 1.35;
   box-shadow: 0 4px 14px var(--shadow);
 }
+
+/* ---------- Detalle de tarea: botón de documentación (largo y delgado) ---------- */
+.doc-link-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; margin: 4px 0 2px; padding: 7px 12px;
+  border: 0; border-radius: 8px; background: var(--field); color: var(--text);
+  font: inherit; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
+  transition: background 0.12s ease;
+}
+.doc-link-btn:hover { background: var(--hover); }
+.doc-link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.doc-link-btn.create { background: none; box-shadow: inset 0 0 0 1px var(--border); color: var(--label); font-weight: 500; }
+.doc-link-btn.create:hover { box-shadow: inset 0 0 0 1px var(--accent); color: var(--text); background: none; }
+.doc-link-icon { width: 14px; text-align: center; color: var(--accent-text); font-weight: 700; }
+.doc-link-label { flex: 1; min-width: 0; }
+.doc-link-meta { font-size: 11px; font-weight: 500; color: var(--muted); }
+.doc-link-arrow { color: var(--muted); }
+
+/* ---------- Comentarios: enlaces ---------- */
+.comment-text a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.comment-link-btn { flex: none; }
+.comment-spacer { flex: 1; }
+.comment-link-form { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 8px; border-radius: 8px; background: var(--field); }
+.comment-link-fields { display: flex; flex-wrap: wrap; gap: 6px; }
+.comment-link-fields input {
+  flex: 1 1 140px; min-width: 0; font: inherit; font-size: 12.5px; padding: 6px 9px; border: 0; border-radius: 6px;
+  background: var(--bg); color: var(--text);
+}
+.comment-link-fields input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.comment-link-form .settings-error { margin: 0; }
+
+/* Borrar tarea (pie del detalle): borde rojo en reposo; al pasar el mouse se rellena */
+.modal-footer .danger-btn { box-shadow: inset 0 0 0 1px #e5484d; color: #ff8a8d; }
+.modal-footer .danger-btn:hover, .modal-footer .danger-btn:focus-visible { box-shadow: none; }
+
+/* Hoy: tareas hechas con un gris casi transparente (como el rojo sutil de las pendientes vencidas) */
+#minimal-list .task.done { background: color-mix(in srgb, var(--raised) 35%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 10%, transparent); }
+#minimal-list .task.done:hover { background: color-mix(in srgb, var(--raised) 60%, transparent); }
+
+/* ---------- Ajustes: plantillas de documentación ---------- */
+.template-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.template-row { border-radius: 8px; background: var(--field); }
+.template-row.open { box-shadow: inset 0 0 0 1px var(--accent); }
+.template-head { display: flex; align-items: center; gap: 10px; padding: 7px 10px; }
+.template-head .link-btn { padding: 0; font-size: 12px; }
+.template-head .link-btn:disabled { opacity: 0.35; cursor: default; }
+.template-default { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.template-default input { accent-color: var(--accent); margin: 0; flex: none; }
+.template-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.template-badge { flex: none; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; line-height: 17px; background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent-text); }
+.template-edit { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
+.template-name-input, .template-body {
+  font: inherit; padding: 6px 9px; border: 0; border-radius: 6px; background: var(--bg); color: var(--text); box-sizing: border-box; width: 100%;
+}
+.template-body { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; min-height: 160px; }
+.template-name-input:focus, .template-body:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+#add-template { align-self: flex-start; padding: 2px 0; }
+#add-template:disabled { color: var(--muted); cursor: not-allowed; }
+.settings-note code { font-size: 11px; padding: 0 4px; border-radius: 4px; background: var(--field); }
+
+/* ---------- Markdown: tablas ---------- */
+.md table { width: 100%; margin: 0 0 12px; border-collapse: collapse; font-size: 0.95em; }
+.md th, .md td { padding: 6px 10px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+.md th { background: var(--field); font-weight: 600; }
+.md tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--field) 45%, transparent); }
+.md hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+.doc-link-row { display: flex; align-items: stretch; gap: 6px; margin: 4px 0 2px; }
+.doc-link-row .doc-link-btn { flex: 1; min-width: 0; margin: 0; }
+.doc-delete-btn {
+  flex: none; display: grid; place-items: center; width: 34px; padding: 0; border: 0; border-radius: 8px;
+  background: none; color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); cursor: pointer;
+}
+.doc-delete-btn:hover, .doc-delete-btn:focus-visible { color: #ff8a8d; box-shadow: inset 0 0 0 1px #e5484d; background: color-mix(in srgb, #e5484d 12%, transparent); outline: none; }
+.doc-delete-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.doc-link-label, .doc-link-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Si no alcanza el ancho, se acorta primero "editada …" y no el texto del botón */
+.doc-link-btn .doc-link-label { flex: none; max-width: 100%; }
+.doc-link-btn .doc-link-meta { flex: 1 1 0; min-width: 0; text-align: right; }
+.pick-row { position: relative; }
+.pick-info { padding-right: 30px; }
+.pick-move {
+  position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px;
+  background: none; color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer;
+}
+.pick-move:hover, .pick-move:focus-visible { background: var(--hover); color: var(--accent-text); outline: none; }

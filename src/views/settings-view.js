@@ -4,6 +4,7 @@ import { state, saveSettings, calibrationInfo, exportBackup, readBackup, restore
 import { showToast, h } from '../utils/ui.js';
 import { blocksOf, validateBlocks, nextFreeRange, neighborBlock, MAX_BLOCKS, MAX_TITLE, BLOCK_ICONS } from '../core/blocks.js';
 import { TAB_IDS, TAB_NAMES, normalizeTabOrder, moveTab } from '../core/tabs.js';
+import { validateTemplates, MAX_TEMPLATES } from '../core/templates.js';
 import { todayISO } from '../utils/dates.js';
 import { playCasio } from '../services/casio.js';
 
@@ -185,6 +186,112 @@ function setupTabOrder() {
   });
 }
 
+// ---------- Plantillas de documentación ----------
+
+let tplDraft = null;   // { list: [{ id, name, body }], defaultId } mientras hay cambios sin guardar
+let tplOpen = null;    // id de la plantilla abierta para editar
+
+const tplSaved = () => ({ list: state.settings.templates.map((t) => ({ ...t })), defaultId: state.settings.default_template });
+const tplCurrent = () => tplDraft || tplSaved();
+const tplDirty = () => Boolean(tplDraft) && JSON.stringify(tplDraft) !== JSON.stringify(tplSaved());
+
+function renderTemplates() {
+  const { list, defaultId } = tplCurrent();
+  const def = list.find((t) => t.id === defaultId) || list[0];
+  document.getElementById('templates-summary').textContent =
+    `${list.length} plantilla${list.length === 1 ? '' : 's'} · por defecto: ${def?.name || '—'}`;
+  const typing = document.getElementById('templates-form').contains(document.activeElement)
+    && document.activeElement.matches('input[type="text"], textarea');
+  if (typing) return; // no pisar lo que se escribe
+  document.getElementById('template-list').replaceChildren(...list.map((t) => {
+    const open = tplOpen === t.id;
+    return h('li', { class: `template-row${open ? ' open' : ''}`, dataset: { id: t.id } },
+      h('div', { class: 'template-head' },
+        h('label', { class: 'template-default', title: 'Usarla por defecto' },
+          h('input', { type: 'radio', name: 'default-template', value: t.id, checked: t.id === def.id }),
+          h('span', { class: 'template-name' }, t.name || 'Sin nombre'),
+          t.id === def.id ? h('span', { class: 'template-badge' }, 'por defecto') : null),
+        h('button', { type: 'button', class: 'link-btn', dataset: { tpl: 'toggle' } }, open ? 'Cerrar' : 'Editar'),
+        h('button', {
+          type: 'button', class: 'link-btn danger', dataset: { tpl: 'delete' }, disabled: list.length <= 1,
+          title: list.length <= 1 ? 'Necesitas al menos una plantilla' : 'Eliminar plantilla',
+        }, 'Eliminar')),
+      open ? h('div', { class: 'template-edit' },
+        h('input', { type: 'text', class: 'template-name-input', name: 'tpl-name', value: t.name, maxlength: 40, 'aria-label': 'Nombre de la plantilla', placeholder: 'Nombre' }),
+        h('textarea', { class: 'template-body', name: 'tpl-body', rows: 12, spellcheck: 'false', 'aria-label': 'Contenido (Markdown)' }, t.body)) : null);
+  }));
+  document.getElementById('add-template').disabled = list.length >= MAX_TEMPLATES;
+  document.getElementById('templates-save').disabled = !tplDirty();
+}
+
+function setupTemplates() {
+  const formEl = document.getElementById('templates-form');
+  const listEl = document.getElementById('template-list');
+  const error = document.getElementById('templates-error');
+  const edit = (fn) => {
+    tplDraft = tplCurrent();
+    fn(tplDraft);
+    error.hidden = true;
+  };
+  listEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tpl]');
+    if (!btn) return;
+    const id = btn.closest('.template-row').dataset.id;
+    if (btn.dataset.tpl === 'toggle') tplOpen = tplOpen === id ? null : id;
+    else if (btn.dataset.tpl === 'delete') {
+      const t = tplCurrent().list.find((x) => x.id === id);
+      // eslint-disable-next-line no-alert
+      if (!window.confirm(`¿Eliminar la plantilla "${t?.name}"? (se aplica al guardar)`)) return;
+      edit((d) => {
+        d.list = d.list.filter((x) => x.id !== id);
+        if (d.defaultId === id) d.defaultId = d.list[0]?.id;
+      });
+      if (tplOpen === id) tplOpen = null;
+    }
+    renderTemplates();
+  });
+  listEl.addEventListener('change', (e) => {
+    if (e.target.name !== 'default-template') return;
+    edit((d) => { d.defaultId = e.target.value; });
+    renderTemplates();
+  });
+  listEl.addEventListener('input', (e) => {
+    const row = e.target.closest('.template-row');
+    if (!row || !['tpl-name', 'tpl-body'].includes(e.target.name)) return;
+    edit((d) => {
+      const t = d.list.find((x) => x.id === row.dataset.id);
+      if (e.target.name === 'tpl-name') t.name = e.target.value;
+      else t.body = e.target.value;
+    });
+    row.querySelector('.template-name').textContent = row.querySelector('[name="tpl-name"]').value || 'Sin nombre';
+    document.getElementById('templates-save').disabled = !tplDirty();
+  });
+  document.getElementById('add-template').addEventListener('click', () => {
+    const id = `tpl${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+    edit((d) => { d.list.push({ id, name: 'Nueva plantilla', body: '# {{titulo}}\n\n## \n' }); });
+    tplOpen = id;
+    renderTemplates();
+    const input = listEl.querySelector(`[data-id="${id}"] [name="tpl-name"]`);
+    input?.focus();
+    input?.select();
+  });
+  formEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!tplDraft) return;
+    const list = tplDraft.list.map((t) => ({ ...t, name: t.name.trim() }));
+    const problem = validateTemplates(list);
+    error.textContent = problem || '';
+    error.hidden = !problem;
+    if (problem) return;
+    const defaultId = list.some((t) => t.id === tplDraft.defaultId) ? tplDraft.defaultId : list[0].id;
+    tplDraft = null;
+    tplOpen = null;
+    document.activeElement?.blur();
+    saveSettings({ ...state.settings, templates: list, default_template: defaultId });
+    flashSaved(formEl);
+  });
+}
+
 /** Descripción de la sección cerrada: "3 bloques: ☀︎ Mañana · ☾ Tarde · ✦ Noche" (horarios en el tooltip). */
 function renderBlocksSummary() {
   const blocks = blocksOf(state.settings);
@@ -195,6 +302,7 @@ function renderBlocksSummary() {
 
 export function renderSettings() {
   renderTabOrderList();
+  renderTemplates();
   renderBlocksSummary();
   const s = state.settings;
   // No pisar lo que el usuario está escribiendo en cada sección (abrir o cerrar una sección no cuenta)
@@ -281,6 +389,7 @@ export function setupSettings() {
   document.getElementById('test-sound').addEventListener('click', () => playCasio());
   setupBackup();
   setupTabOrder();
+  setupTemplates();
 
   document.getElementById('edit-shortcuts').addEventListener('click', () => {
     try {

@@ -6,6 +6,7 @@ import { h, showToast } from '../utils/ui.js';
 import { markdownExcerpt, markdownHeadings } from '../utils/markdown.js';
 import { whenLabel } from '../components/cards.js';
 import { showTaskModal, openDocTab } from '../components/task-modal.js';
+import { titleCase } from '../utils/text.js';
 
 let query = '';
 const PINNED_OPEN_KEY = 'cabetodo:docsPinnedOpen';
@@ -96,7 +97,7 @@ function renderDocCard(task, terms, headings, epicsById) {
     },
     h('span', { class: 'doc-card-title' },
       epic ? h('span', { class: 'dot', style: `background:${epic.color}`, title: epic.name }) : null,
-      h('span', { class: 'doc-card-name' }, ...highlight(task.title, terms))),
+      h('span', { class: 'doc-card-name' }, ...highlight(titleCase(task.title), terms))), // mismo largo: el resaltado calza
     shown.length ? h('ul', { class: 'doc-card-headings' },
       ...shown.map((x) => h('li', { style: `--lvl:${Math.min(x.level, 4) - 1}` }, ...highlight(x.text, terms)))) : null,
     shown.length ? null : h('span', { class: 'doc-card-excerpt' }, markdownExcerpt(task.doc, 140))),

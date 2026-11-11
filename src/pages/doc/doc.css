@@ -65,6 +65,50 @@ body.doc-page { min-height: 0; margin: 0; overflow: hidden; padding-bottom: 0; }
 }
 @media (max-width: 600px) { .doc-main { padding: 12px; } }
 
-/* Plantilla para documentación vacía */
-.doc-template { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 2px 0; font-size: 12px; color: var(--muted); }
-.doc-template[hidden] { display: none; }
+
+/* ---------- Exportar a PDF ---------- */
+.doc-pdf-btn {
+  border: 0; border-radius: 999px; padding: 3px 10px; background: var(--field); color: var(--text);
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.doc-pdf-btn:hover { background: var(--hover); }
+.doc-pdf-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.print-area { display: none; }
+@media print {
+  @page { size: letter; margin: 0; } /* carta (8,5 × 11 in); el margen de 1 cm lo pone .print-sheet */
+  :root, :root[data-theme] { color-scheme: light !important; background: #fff !important; } /* el tema oscuro pinta el fondo de la hoja */
+  html, body.doc-page { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body.doc-page > :not(.print-area) { display: none !important; }
+  /* Siempre claro, sin importar el tema */
+  .print-area {
+    display: block; --text: #111; --label: #333; --muted: #666; --border: #d9d9d9; --field: #f2f2f2;
+    --raised: #f6f6f6; --bg: #fff; --hover: #eee; --accent: #0b57d0; --accent-text: #0b57d0;
+    color: var(--text); background: #fff; font: 11pt/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .print-sheet { width: 100%; border-collapse: collapse; border-spacing: 0; }
+  .print-sheet > thead > tr > td, .print-sheet > tfoot > tr > td { height: 1cm; padding: 0; border: 0; }
+  .print-sheet > tbody > tr > td.print-body { padding: 0 1cm; border: 0; vertical-align: top; }
+  .print-area .md { background: none !important; box-shadow: none !important; padding: 0 !important; font-size: 11pt; }
+  .print-area .md h1, .print-area .md h2, .print-area .md h3 { break-after: avoid; }
+  .print-area .md > :first-child { margin-top: 0 !important; } /* que el margen sea solo el de 1 cm */
+  .print-area .md > :last-child { margin-bottom: 0 !important; }
+  .print-area .md pre, .print-area .md blockquote, .print-area .md table { break-inside: avoid; }
+  .print-area .md pre { white-space: pre-wrap; background: var(--field) !important; }
+  .print-area .md a { color: var(--accent); }
+}
+.md-tb-template { font-weight: 700; color: var(--accent-text); }
+
+/* Menú de plantillas (▤ Plantilla ▾) */
+.tpl-menu {
+  position: fixed; z-index: 30; min-width: 220px; max-width: 320px; padding: 6px;
+  display: flex; flex-direction: column; gap: 2px; border-radius: 10px;
+  background: var(--surface); box-shadow: 0 10px 30px var(--shadow), 0 0 0 1px var(--border);
+}
+.tpl-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 7px;
+  background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.tpl-item:hover, .tpl-item:focus-visible { background: var(--hover); outline: none; }
+.tpl-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpl-item-badge { flex: none; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; line-height: 17px; background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent-text); }
+.tpl-menu-note { margin: 4px 10px 2px; font-size: 11px; color: var(--muted); }

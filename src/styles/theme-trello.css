@@ -184,3 +184,17 @@
 [data-theme="trello"] .prob-tag.warn { background: var(--ds-yellow-subtle); color: var(--ds-yellow-text); }
 [data-theme="trello"] .prob-tag.bad { background: var(--ds-red); color: #fff; }
 [data-theme="trello"] .app-tooltip { background: var(--ds-n800); color: #fff; }
+[data-theme="trello"] .doc-link-btn { background: var(--ds-n20); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .doc-link-btn:hover { background: var(--ds-n30); }
+[data-theme="trello"] .doc-link-btn.create { background: none; box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .doc-link-btn.create:hover { box-shadow: inset 0 0 0 1px var(--ds-blue); }
+[data-theme="trello"] .comment-link-form { background: var(--ds-n20); }
+[data-theme="trello"] .comment-link-fields input { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .modal-footer .danger-btn { box-shadow: inset 0 0 0 1px var(--ds-red); color: var(--ds-red-text); }
+[data-theme="trello"] .modal-footer .danger-btn:hover, [data-theme="trello"] .modal-footer .danger-btn:focus-visible { box-shadow: none; }
+[data-theme="trello"] #minimal-list .task.done { background: color-mix(in srgb, var(--ds-n300) 7%, transparent); box-shadow: none; }
+[data-theme="trello"] #minimal-list .task.done:hover { background: color-mix(in srgb, var(--ds-n300) 11%, transparent); }
+[data-theme="trello"] .template-row { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .template-row.open { box-shadow: inset 0 0 0 2px var(--ds-blue); }
+[data-theme="trello"] .template-name-input, [data-theme="trello"] .template-body { background: var(--ds-n20); }
+[data-theme="trello"] .doc-delete-btn:hover, [data-theme="trello"] .doc-delete-btn:focus-visible { color: var(--ds-red-text); box-shadow: inset 0 0 0 1px var(--ds-red); background: var(--ds-red-subtle); }

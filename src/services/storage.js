@@ -3,6 +3,7 @@
 
 import { DEFAULT_BLOCKS, migrateBlocks } from '../core/blocks.js';
 import { TAB_IDS, normalizeTabOrder } from '../core/tabs.js';
+import { DEFAULT_TEMPLATES, DEFAULT_TEMPLATE_ID, normalizeTemplates } from '../core/templates.js';
 
 const DEFAULT_SETTINGS = {
   blocks: DEFAULT_BLOCKS, // bloques del día (Ajustes): de 1 a 5, sin superponerse
@@ -14,6 +15,8 @@ const DEFAULT_SETTINGS = {
   calibrate: true,  // ajustar el pronóstico según cuánto tardas de verdad
   meeting_lead: 10, // minutos antes de una reunión en que aparece su cuenta regresiva
   tab_order: TAB_IDS, // orden de las pestañas del menú inferior
+  templates: DEFAULT_TEMPLATES, // plantillas de documentación (Ajustes → Plantillas)
+  default_template: DEFAULT_TEMPLATE_ID,
 };
 
 // Colores de épicas: solo los tonos de la paleta (Cod Gray es el fondo, no sirve como color de épica).
@@ -86,7 +89,9 @@ export async function loadData() {
 /** Completa ajustes faltantes. Los de antes ({ am, pm } fijos) pasan a `blocks` con ids 'am' y 'pm'. */
 function withDefaults(settings) {
   const merged = { ...DEFAULT_SETTINGS, ...migrateBlocks(settings) };
-  return { ...merged, tab_order: normalizeTabOrder(merged.tab_order) };
+  const templates = normalizeTemplates(merged.templates);
+  const defaultId = templates.some((t) => t.id === merged.default_template) ? merged.default_template : templates[0].id;
+  return { ...merged, tab_order: normalizeTabOrder(merged.tab_order), templates, default_template: defaultId };
 }
 
 export function saveData({ tasks, epics, routines }) {

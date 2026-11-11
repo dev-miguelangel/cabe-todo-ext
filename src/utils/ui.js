@@ -1,6 +1,7 @@
 // Piezas de UI compartidas: helper para crear elementos, aviso temporal y autocompletado de #épicas.
 
 import { slugify, tagKey } from '../core/parser.js';
+import { titleCase } from './text.js';
 
 /** h('div', { class: 'x', dataset: { id: 1 }, onclick }, ...hijos) */
 export function h(tag, props = {}, ...children) {
@@ -164,7 +165,7 @@ export function openModal(title, content, onClose = null) {
   dialog.replaceChildren(
     h('div', { class: 'modal-box' },
       h('header', { class: 'modal-head' },
-        h('h2', { id: 'modal-title' }, title),
+        h('h2', { id: 'modal-title' }, titleCase(title)),
         h('button', { class: 'modal-close', 'aria-label': 'Cerrar', onclick: closeModal }, '×')),
       ...content),
   );

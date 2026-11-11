@@ -7,6 +7,7 @@ import { ALL_DAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
 import { blocksOf, blockName } from '../core/blocks.js';
 import { formatMinutes } from '../core/parser.js';
 import { todayISO, shiftDate, shortLabel } from '../utils/dates.js';
+import { titleCase } from '../utils/text.js';
 
 const DURATIONS = [10, 15, 20, 30, 45, 60, 90, 120, 180, 240];
 
@@ -40,7 +41,7 @@ function viewRow(r) {
       h('span', { class: 'routine-title' },
         h('span', { class: 'routine-icon', 'aria-hidden': 'true' }, r.meeting ? '◷' : '↻'),
         epic ? h('span', { class: 'dot', style: `background:${epic.color}`, title: epic.name }) : null,
-        r.title),
+        titleCase(r.title)),
       h('span', { class: 'routine-meta' }, routineMeta(r)),
       h('span', { class: `routine-next${next === todayISO() ? ' is-today' : ''}` }, whenText(next))),
     h('div', { class: 'routine-actions' },

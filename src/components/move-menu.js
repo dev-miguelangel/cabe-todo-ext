@@ -5,6 +5,7 @@ import { state, findTask, planTask, unplanTask, setMeeting } from '../services/s
 import { h, showToast } from '../utils/ui.js';
 import { blocksOf, firstBlock, blockById } from '../core/blocks.js';
 import { todayISO, shiftDate, shortLabel, nowMinutes, toMinutes } from '../utils/dates.js';
+import { titleCase } from '../utils/text.js';
 
 const DAYS = 7;
 let menu = null;
@@ -91,7 +92,7 @@ function render(task) {
     }, label(b))));
 
   menu.replaceChildren(
-    h('p', { class: 'move-title' }, `Mover "${task.title}"`),
+    h('p', { class: 'move-title' }, `Mover "${titleCase(task.title)}"`),
     ...quick,
     h('p', { class: 'move-section' }, task.meeting ? 'Otro día' : 'Otro día y bloque'),
     dayChips,
@@ -106,8 +107,8 @@ function place(anchor) {
   const left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
   let top = r.bottom + 6;
   if (top + menu.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - menu.offsetHeight - 6);
-  menu.style.left = `${left + window.scrollX}px`;
-  menu.style.top = `${top + window.scrollY}px`;
+  menu.style.left = `${left}px`; // fijo a la ventana: funciona igual dentro de un modal
+  menu.style.top = `${top}px`;
 }
 
 function onClick(e) {
@@ -130,8 +131,13 @@ function onClick(e) {
   }
 }
 
-const onOutside = (e) => { if (menu && !menu.contains(e.target) && !e.target.closest('.move-btn')) close(); };
-const onKey = (e) => { if (e.key === 'Escape') close(); };
+const onOutside = (e) => { if (menu && !menu.contains(e.target) && !e.target.closest('.move-btn, .pick-move')) close(); };
+const onKey = (e) => {
+  if (e.key !== 'Escape') return;
+  e.preventDefault(); // en un modal: cerrar solo el menú, no el modal
+  e.stopPropagation();
+  close();
+};
 
 export function close() {
   if (!menu) return;
@@ -151,7 +157,8 @@ export function openMoveMenu(taskId, anchor) {
   pickedDay = task.date && task.date >= todayISO() ? task.date : todayISO();
   menu = h('div', { class: 'move-menu', role: 'dialog', 'aria-label': `Mover "${task.title}"`, dataset: { task: taskId } });
   menu.addEventListener('click', onClick);
-  document.body.append(menu);
+  // Dentro de un modal (<dialog>), el menú va en el mismo modal: si no, quedaría por debajo
+  (anchor.closest('dialog') || document.body).append(menu);
   render(task);
   place(anchor);
   menu.querySelector('button')?.focus();

@@ -7,6 +7,7 @@ import { shortLabel } from '../utils/dates.js';
 import { isRunning, trackedMs, remainingMs, formatTracked, formatLeft } from '../core/timer.js';
 import { blockIcon, blockName } from '../core/blocks.js';
 import { state } from '../services/store.js';
+import { titleCase } from '../utils/text.js';
 
 /**
  * Chip de tiempo de la fila: cuánto queda (o cuánto se pasó). Clic = pausar/reanudar.
@@ -64,7 +65,7 @@ export function renderCard(task, opts) {
   li.classList.toggle('meeting', Boolean(meeting));
   li.classList.toggle('done', task.done);
   li.querySelector('.check').checked = task.done;
-  li.querySelector('.title').textContent = task.title;
+  li.querySelector('.title').textContent = titleCase(task.title);
 
   const epic = ctx.epicsById.get(task.epic_id);
   if (epic && opts.showEpic !== false) {

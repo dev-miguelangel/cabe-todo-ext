@@ -24,7 +24,7 @@ function format(area, kind, onInput) {
 
 /**
  * o: { key, text, tab: 'code'|'read', onInput(v), onTab(t), placeholder, rows,
- *      headingBase, className, footer (nodo), onKeydown(e) }
+ *      headingBase, className, toolbarStart(area) → [botones], onKeydown(e) }
  */
 export function markdownEditor(o) {
   const area = h('textarea', {
@@ -63,7 +63,11 @@ export function markdownEditor(o) {
     onclick: () => o.onTab(id),
   }, label);
 
+  // o.toolbarStart(area): botones propios al inicio de la barra (p. ej. "Plantilla" en la documentación)
+  const start = o.tab === 'code' && o.toolbarStart ? o.toolbarStart(area) : [];
   const toolbar = o.tab === 'code' ? h('div', { class: 'md-toolbar', role: 'toolbar', 'aria-label': 'Formato' },
+    ...start,
+    ...(start.length ? [h('span', { class: 'md-tb-sep', 'aria-hidden': 'true' })] : []),
     ...TOOLBAR.map((b) => (b.sep
       ? h('span', { class: 'md-tb-sep', 'aria-hidden': 'true' })
       : h('button', {
@@ -79,6 +83,5 @@ export function markdownEditor(o) {
   return h('div', { class: `md-editor${o.className ? ` ${o.className}` : ''}` },
     h('div', { class: 'md-tabs', role: 'tablist' }, tabBtn('code', 'Código'), tabBtn('read', 'Lectura')),
     toolbar,
-    o.tab === 'code' ? area : markdownView(o.text, { headingBase: o.headingBase }),
-    o.footer || null);
+    o.tab === 'code' ? area : markdownView(o.text, { headingBase: o.headingBase }));
 }

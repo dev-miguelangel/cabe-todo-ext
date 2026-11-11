@@ -5,18 +5,18 @@ import {
   state, initStore, subscribe, setNotifier, findTask, findEpic, setDoc, refreshFromStorage,
 } from '../../services/store.js';
 import { formatMinutes } from '../../core/parser.js';
-import { todayISO, shortLabel } from '../../utils/dates.js';
+import { todayISO, shortLabel, formatDMY } from '../../utils/dates.js';
 import { isRunning, remainingMs, formatCountdown } from '../../core/timer.js';
 import { h, showToast, applyTheme } from '../../utils/ui.js';
 import { blockName } from '../../core/blocks.js';
-import { markdownEditor } from '../../components/md-editor.js';
+import { markdownEditor, markdownView } from '../../components/md-editor.js';
 import { setupThemeToggle, renderThemeToggle } from '../../components/theme-toggle.js';
+import { titleCase } from '../../utils/text.js';
+import { fillTemplate, firstPlaceholder, defaultTemplate } from '../../core/templates.js';
 
 const SAVE_DELAY = 700;
 const taskId = new URLSearchParams(location.search).get('task');
 // Esqueleto opcional para empezar una documentación vacía
-const TEMPLATE = '## Objetivo\n\n\n## Notas\n\n\n## Resultado\n\n';
-const TEMPLATE_CURSOR = '## Objetivo\n\n'.length;
 
 let text = '';          // contenido del editor (puede ir por delante de lo guardado)
 let saved = '';         // último contenido guardado
@@ -53,8 +53,6 @@ function flush() {
 
 function onInput(value) {
   text = value;
-  const offer = document.querySelector('.doc-template');
-  if (offer) offer.hidden = Boolean(text.trim());
   setStatus();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flush, SAVE_DELAY);
@@ -71,20 +69,115 @@ function whereText(task) {
 function renderHead(task) {
   const epic = findEpic(task.epic_id);
   const running = isRunning(task);
-  document.title = `${task.title} · Documentación`;
+  document.title = `${titleCase(task.title)} · Documentación`;
   document.getElementById('doc-head').replaceChildren(
     h('p', { class: 'doc-kicker' }, 'Documentación de la tarea'),
-    h('h1', { class: 'doc-title' }, task.title),
+    h('h1', { class: 'doc-title' }, titleCase(task.title)),
     h('p', { class: 'doc-meta' },
-      epic ? h('span', { class: 'doc-chip' }, h('span', { class: 'dot', style: `background:${epic.color}` }), epic.name) : null,
+      epic ? h('span', { class: 'doc-chip' }, h('span', { class: 'dot', style: `background:${epic.color}` }), titleCase(epic.name)) : null,
       h('span', { class: 'doc-chip' }, whereText(task)),
       h('span', { class: 'doc-chip' }, `${formatMinutes(task.minutes)} estimadas`),
       running ? h('span', { class: 'doc-chip running' }, `● ${formatCountdown(remainingMs(task))}`) : null,
       task.done ? h('span', { class: 'doc-chip done' }, '✓ hecha') : null,
-      h('span', { class: 'doc-status', id: 'doc-status' })),
+      h('span', { class: 'doc-status', id: 'doc-status' }),
+      h('button', {
+        type: 'button', class: 'doc-pdf-btn', id: 'doc-pdf',
+        title: 'Exportar la vista Lectura a PDF, tamaño carta (en el diálogo de impresión, elige "Guardar como PDF")',
+        onclick: () => exportPdf(findTask(taskId)),
+      }, '⤓ PDF')),
   );
   setStatus();
 }
+
+// ---------- Exportar a PDF ----------
+
+/**
+ * PDF = solo la vista Lectura de la documentación (lo mismo que se ve en esa pestaña, siempre sobre
+ * blanco), en tamaño carta. Abre el diálogo de impresión de Chrome: ahí se elige "Guardar como PDF".
+ * El nombre del archivo sale del título de la pestaña: "<Título> - Documentación".
+ */
+async function exportPdf(task) {
+  if (!task) return;
+  await flush(); // que el PDF tenga lo último que se escribió
+  // El margen de 1 cm va dentro de la hoja (no depende de "Márgenes" del diálogo de impresión):
+  // franjas de 1 cm arriba y abajo que Chrome repite en cada hoja (thead/tfoot) y 1 cm a los lados.
+  const gap = () => h('tr', {}, h('td', { class: 'print-gap' }));
+  document.getElementById('print-area').replaceChildren(
+    h('table', { class: 'print-sheet', role: 'presentation' },
+      h('thead', {}, gap()),
+      h('tfoot', {}, gap()),
+      h('tbody', {}, h('tr', {}, h('td', { class: 'print-body' },
+        markdownView(text, { headingBase: 1, empty: 'Esta tarea todavía no tiene documentación.' }))))));
+  const title = document.title;
+  document.title = `${titleCase(task.title)} - Documentación`;
+  const restore = () => {
+    document.title = title;
+    window.removeEventListener('afterprint', restore);
+  };
+  window.addEventListener('afterprint', restore);
+  window.print();
+}
+
+// ---------- Plantillas ----------
+
+/**
+ * Inserta una plantilla con sus variables ya llenas: en una documentación vacía la llena; si ya hay
+ * texto, la agrega donde está el cursor. Deja seleccionado el primer "[…]" para empezar a escribir ahí.
+ */
+function useTemplate(area, template) {
+  const task = findTask(taskId);
+  const piece = fillTemplate(template.body, {
+    title: task?.title || '', date: formatDMY(todayISO()), epic: findEpic(task?.epic_id)?.name || '',
+  });
+  let from;
+  if (!text.trim()) {
+    area.value = piece;
+    from = 0;
+  } else {
+    const { selectionStart: s, selectionEnd: e, value } = area;
+    const before = value.slice(0, s);
+    const lead = !before || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+    area.setRangeText(lead + piece, s, e, 'end');
+    from = s + lead.length;
+  }
+  const mark = firstPlaceholder(piece);
+  area.focus();
+  if (mark) area.setSelectionRange(from + mark[0], from + mark[1]);
+  else area.setSelectionRange(from + piece.length, from + piece.length);
+  onInput(area.value);
+  showToast(`Plantilla "${template.name}" insertada.`);
+}
+
+let tplMenu = null;
+function closeTemplateMenu() {
+  tplMenu?.remove();
+  tplMenu = null;
+}
+
+/** Menú con las plantillas (la por defecto primero) bajo el botón ▤ Plantilla. */
+function toggleTemplateMenu(button, area) {
+  if (tplMenu) { closeTemplateMenu(); return; }
+  const list = state.settings.templates || [];
+  const def = defaultTemplate(list, state.settings.default_template);
+  const ordered = def ? [def, ...list.filter((t) => t.id !== def.id)] : list;
+  tplMenu = h('div', { class: 'tpl-menu', role: 'menu', 'aria-label': 'Plantillas' },
+    ...ordered.map((t) => h('button', {
+      type: 'button', class: 'tpl-item', role: 'menuitem',
+      onmousedown: (e) => e.preventDefault(),
+      onclick: () => { closeTemplateMenu(); useTemplate(area, t); },
+    }, h('span', { class: 'tpl-item-name' }, t.name), t === def ? h('span', { class: 'tpl-item-badge' }, 'por defecto') : null)),
+    h('p', { class: 'tpl-menu-note' }, 'Crea y edita plantillas en Ajustes → Plantillas.'));
+  document.body.append(tplMenu);
+  const r = button.getBoundingClientRect();
+  tplMenu.style.left = `${Math.min(r.left, window.innerWidth - tplMenu.offsetWidth - 8)}px`;
+  tplMenu.style.top = `${r.bottom + 4}px`;
+  tplMenu.querySelector('.tpl-item')?.focus();
+}
+
+document.addEventListener('mousedown', (e) => {
+  if (tplMenu && !tplMenu.contains(e.target) && !e.target.closest('.md-tb-template')) closeTemplateMenu();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && tplMenu) closeTemplateMenu(); });
 
 function renderEditor() {
   const container = document.getElementById('doc-editor');
@@ -108,18 +201,13 @@ function renderEditor() {
       renderEditor();
       if (t === 'code') container.querySelector('.md-input')?.focus();
     },
-    footer: tab === 'code' ? h('div', { class: 'doc-template', hidden: Boolean(text.trim()) },
-      h('span', {}, '¿Empiezas con un esqueleto?'),
-      h('button', {
-        type: 'button', class: 'ghost small', title: 'Objetivo · Notas · Resultado',
-        onclick: () => {
-          onInput(TEMPLATE);
-          renderEditor();
-          const area = container.querySelector('.md-input');
-          area?.focus();
-          area?.setSelectionRange(TEMPLATE_CURSOR, TEMPLATE_CURSOR);
-        },
-      }, 'Usar plantilla')) : null,
+    // Primer botón de la barra: elegir una plantilla (Ajustes → Plantillas)
+    toolbarStart: (area) => [h('button', {
+      type: 'button', class: 'md-tb md-tb-template', 'aria-haspopup': 'menu',
+      title: 'Elegir una plantilla (se crean en Ajustes → Plantillas)', 'aria-label': 'Elegir plantilla',
+      onmousedown: (e) => e.preventDefault(), // no perder la posición del cursor
+      onclick: (e) => toggleTemplateMenu(e.currentTarget, area),
+    }, '▤ Plantilla ▾')],
     onKeydown: (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();

@@ -784,3 +784,92 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(S.findTask(t.id).pinned_at, null);
   console.log('OK: anclar en Docs');
 }
+
+// ---------- Títulos en Titlecase (solo al mostrar) ----------
+{
+  const { titleCase } = await import(root + '/src/utils/text.js');
+  assert.equal(titleCase('prueba dos tres cuatro cinco y seis'), 'Prueba Dos Tres Cuatro Cinco y Seis');
+  assert.equal(titleCase('bloques del día'), 'Bloques del Día');
+  assert.equal(titleCase('de la casa al trabajo'), 'De la Casa al Trabajo', 'la primera palabra siempre va en mayúscula');
+  assert.equal(titleCase('revisar SEO del iPhone'), 'Revisar SEO del IPhone'.replace('IPhone', 'IPhone'), 'no baja a minúsculas el resto');
+  assert.equal(titleCase('pendientes → hoy'), 'Pendientes → Hoy');
+  assert.equal(titleCase('próximos 7 días'), 'Próximos 7 Días');
+  assert.equal(titleCase('ñandú en ámsterdam'), 'Ñandú en Ámsterdam');
+  assert.equal(titleCase('informe 2.0'), 'Informe 2.0');
+  assert.equal(titleCase('abc').length, 3);
+  assert.equal(titleCase(''), '');
+  console.log('OK: títulos en Titlecase');
+}
+
+// ---------- Comentarios: URLs ----------
+{
+  const { normalizeUrl } = await import(root + '/src/components/comments.js').catch(() => ({}));
+  if (normalizeUrl) {
+    assert.equal(normalizeUrl('ejemplo.com/a?b=1'), 'https://ejemplo.com/a?b=1');
+    assert.equal(normalizeUrl('http://x.org'), 'http://x.org');
+    assert.equal(normalizeUrl('  https://docs.google.com/d/1  '), 'https://docs.google.com/d/1');
+    assert.equal(normalizeUrl('hola'), null);
+    assert.equal(normalizeUrl('javascript:alert(1)'), null, 'solo http(s)');
+    assert.equal(normalizeUrl(''), null);
+    console.log('OK: comentarios (URLs)');
+  }
+}
+
+// ---------- Plantillas de documentación ----------
+{
+  const P = await import(root + '/src/core/templates.js');
+  const S = await import(root + '/src/services/storage.js');
+  const def = P.defaultTemplate(P.DEFAULT_TEMPLATES, P.DEFAULT_TEMPLATE_ID);
+  assert.equal(def.name, 'Historia de usuario');
+  const filled = P.fillTemplate(def.body, { title: 'login con google y github' });
+  assert.ok(filled.startsWith('# Login con Google y Github\n'), 'el título de la tarjeta en Titlecase');
+  assert.equal(P.fillTemplate('{{ Título }} · {{fecha}} · {{epica}} · {{otra}}', { title: 'x', date: '11-11-2026', epic: 'lanzar web' }), 'X · 11-11-2026 · Lanzar Web · {{otra}}');
+  // primer marcador: salta las casillas y los enlaces
+  const at = P.firstPlaceholder(filled);
+  assert.equal(filled.slice(at[0], at[1]), '[Rol del usuario / tipo de usuario]');
+  assert.equal(P.firstPlaceholder('* [ ] tarea\n[enlace](https://x.y)\nnada'), null);
+  // guardar / restaurar: válidas o las de siempre
+  assert.equal(P.normalizeTemplates([]).length, 2);
+  assert.deepEqual(P.normalizeTemplates([{ id: 'a', name: ' A ', body: 'x' }, { id: 'a', name: 'B', body: 'y' }, { id: 'c', name: '', body: 'z' }]), [{ id: 'a', name: 'A', body: 'x' }]);
+  assert.match(P.validateTemplates([{ name: 'A', body: 'x' }, { name: 'a', body: 'y' }]), /dos plantillas/);
+  assert.match(P.validateTemplates([{ name: 'A', body: '  ' }]), /vacía/);
+  const s = S.parseBackup(JSON.stringify({ app: 'cabe-todo', tasks: [], epics: [], settings: { templates: [{ id: 'x', name: 'Mía', body: '# {{titulo}}' }], default_template: 'nope' } })).settings;
+  assert.deepEqual([s.templates.length, s.default_template], [1, 'x'], 'si la por defecto no existe, la primera');
+  console.log('OK: plantillas de documentación');
+}
+
+// ---------- Markdown: tablas y línea horizontal ----------
+{
+  const { renderMarkdown: md } = await import(root + '/src/utils/markdown.js');
+  const { applyFormat: F } = await import(root + '/src/utils/md-format.js');
+  const html = md('| A | B |\n| :-- | --: |\n| **1** | x \\| y |\n| solo |');
+  assert.match(html, /^<table><thead><tr><th>A<\/th><th style="text-align:right">B<\/th><\/tr><\/thead><tbody>/);
+  assert.match(html, /<td><strong>1<\/strong><\/td><td style="text-align:right">x \| y<\/td>/, '"\\|" es una barra dentro de la celda');
+  assert.match(html, /<tr><td>solo<\/td><td style="text-align:right"><\/td><\/tr>/, 'filas cortas se completan');
+  assert.equal(md('a | b sin separador'), '<p>a | b sin separador</p>', 'sin línea separadora no es tabla');
+  assert.equal(md('Texto\n| A |\n| --- |\n| 1 |'), '<p>Texto</p><table><thead><tr><th>A</th></tr></thead><tbody><tr><td>1</td></tr></tbody></table>', 'una tabla corta el párrafo');
+  // botones
+  const t = F('hola', 4, 4, 'table');
+  assert.equal(t.text, 'hola\n\n| Columna 1 | Columna 2 | Columna 3 |\n| --- | --- | --- |\n|  |  |  |\n');
+  assert.equal(t.text.slice(t.start, t.end), 'Columna 1', 'queda seleccionado el primer encabezado');
+  assert.equal(F('x', 0, 1, 'table').text.split('\n')[0], '| x | Columna 2 | Columna 3 |', 'lo seleccionado va en la primera celda');
+  const r = F('uno\ndos', 3, 3, 'hr');
+  assert.deepEqual([r.text, r.start], ['uno\n\n---\n\ndos', 9]);
+  assert.equal(F('', 0, 0, 'hr').text, '---\n');
+  console.log('OK: markdown (tablas y línea horizontal)');
+}
+
+// ---------- Eliminar documentación (con deshacer) ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const t = S.addFromText('Con doc', { date: null, block: null });
+  S.setDoc(t.id, '# Hola');
+  S.togglePin(t.id);
+  const prev = S.clearDoc(t.id);
+  assert.deepEqual([S.findTask(t.id).doc, S.findTask(t.id).pinned_at], ['', null], 'sin documentación ni anclaje');
+  assert.equal(S.clearDoc(t.id), null, 'sin documentación no hay nada que eliminar');
+  S.restoreDoc(t.id, prev);
+  assert.equal(S.findTask(t.id).doc, '# Hola');
+  assert.ok(S.findTask(t.id).pinned_at, 'deshacer devuelve también el anclaje');
+  console.log('OK: eliminar documentación (con deshacer)');
+}

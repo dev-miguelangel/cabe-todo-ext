@@ -89,7 +89,7 @@
     <h1 class="view-title">Ajustes</h1>
     <details class="settings settings-section" data-section="blocks">
       <summary>
-        <span class="ss-head"><span class="ss-title">Bloques del día</span><span class="ss-chevron" aria-hidden="true"></span></span>
+        <span class="ss-head"><span class="ss-title">Bloques del Día</span><span class="ss-chevron" aria-hidden="true"></span></span>
         <span class="ss-desc" id="blocks-summary">Hasta 5 bloques con título, ícono y horario.</span>
       </summary>
       <form class="ss-body" id="blocks-form" novalidate>
@@ -165,9 +165,26 @@
       </form>
     </details>
 
+    <details class="settings settings-section" data-section="templates">
+      <summary>
+        <span class="ss-head"><span class="ss-title">Plantillas</span><span class="ss-chevron" aria-hidden="true"></span></span>
+        <span class="ss-desc" id="templates-summary">Esqueletos para la documentación.</span>
+      </summary>
+      <form class="ss-body" id="templates-form" novalidate>
+        <p class="settings-note">Se usan desde <strong>▤ Plantilla</strong> en la documentación. Variables: <code>{{titulo}}</code> (título de la tarea), <code>{{fecha}}</code>, <code>{{epica}}</code>.</p>
+        <ul class="template-list" id="template-list" aria-label="Plantillas"></ul>
+        <button type="button" class="link-btn" id="add-template">+ Nueva plantilla</button>
+        <p class="settings-error" id="templates-error" role="alert" hidden></p>
+        <div class="settings-actions">
+          <button type="submit" class="primary" id="templates-save">Guardar</button>
+          <span class="settings-saved" hidden>Guardado ✓</span>
+        </div>
+      </form>
+    </details>
+
     <details class="settings settings-section help" data-section="help">
         <summary>
-          <span class="ss-head"><span class="ss-title">Cómo escribir tareas</span><span class="ss-chevron" aria-hidden="true"></span></span>
+          <span class="ss-head"><span class="ss-title">Cómo Escribir Tareas</span><span class="ss-chevron" aria-hidden="true"></span></span>
           <span class="ss-desc">Duración, bloque, día, reunión, épica y repetición.</span>
         </summary>
       <div class="ss-body">
@@ -203,7 +220,7 @@
 
     <details class="settings settings-section tab-order-section" data-section="tabs">
       <summary>
-        <span class="ss-head"><span class="ss-title">Menú inferior</span><span class="ss-chevron" aria-hidden="true"></span></span>
+        <span class="ss-head"><span class="ss-title">Menú Inferior</span><span class="ss-chevron" aria-hidden="true"></span></span>
         <span class="ss-desc">El orden de las pestañas de abajo.</span>
       </summary>
       <form class="ss-body" id="tab-order-form">

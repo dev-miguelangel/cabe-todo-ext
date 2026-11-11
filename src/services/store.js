@@ -735,6 +735,27 @@ export function setDoc(taskId, text) {
   commit();
 }
 
+/**
+ * Elimina la documentación de una tarea (y su anclaje en Docs, que ya no tendría sentido).
+ * Devuelve lo que había, para poder deshacerlo con restoreDoc.
+ */
+export function clearDoc(taskId) {
+  const task = findTask(taskId);
+  if (!task || !task.doc) return null;
+  const prev = { doc: task.doc, doc_updated_at: task.doc_updated_at, pinned_at: task.pinned_at ?? null };
+  Object.assign(task, { doc: '', doc_updated_at: new Date().toISOString(), pinned_at: null });
+  commit();
+  return prev;
+}
+
+/** Deshacer clearDoc. */
+export function restoreDoc(taskId, prev) {
+  const task = findTask(taskId);
+  if (!task || !prev) return;
+  Object.assign(task, prev);
+  commit();
+}
+
 // ---------- Comentarios ----------
 
 export function addComment(taskId, text) {
