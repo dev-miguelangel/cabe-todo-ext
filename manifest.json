@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Cabe Todo",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Planifica tus tareas en mañana y tarde, y sabe si te alcanza el día.",
   "permissions": [
     "storage",
