@@ -1,6 +1,6 @@
 // Vista "Ajustes": horarios de los bloques, duración por defecto, avisos y atajo de teclado.
 
-import { state, saveSettings } from './store.js';
+import { state, saveSettings, calibrationInfo } from './store.js';
 import { playCasio } from './casio.js';
 
 const form = () => document.getElementById('settings-form');
@@ -18,8 +18,19 @@ export function renderSettings() {
   f.elements.notify.checked = Boolean(s.notify);
   f.elements['timer-sound'].checked = s.timer_sound !== false;
   f.elements['float-timer'].checked = s.float_timer !== false;
+  f.elements.calibrate.checked = s.calibrate !== false;
+  document.getElementById('calibration-info').textContent = calibrationText(calibrationInfo);
   f.elements['meeting-lead'].value = String(s.meeting_lead ?? 10);
   loadShortcut();
+}
+
+/** "Según tus últimas 12 tareas, tardas ~20 % más de lo que estimas." */
+export function calibrationText({ factor, samples }) {
+  if (samples < 3) return `Aprende de las tareas que terminas con el temporizador (${samples} de 3 para empezar).`;
+  const pct = Math.round(Math.abs(factor - 1) * 100);
+  const base = `Según tus últimas ${samples} tareas con tiempo registrado`;
+  if (pct < 5) return `${base}, tus estimaciones son acertadas.`;
+  return `${base}, tardas ~${pct} % ${factor > 1 ? 'más' : 'menos'} de lo que estimas.`;
 }
 
 async function loadShortcut() {
@@ -55,6 +66,7 @@ export function setupSettings() {
       notify: f.elements.notify.checked,
       timer_sound: f.elements['timer-sound'].checked,
       float_timer: f.elements['float-timer'].checked,
+      calibrate: f.elements.calibrate.checked,
       meeting_lead: Number(f.elements['meeting-lead'].value),
     });
     error.textContent = problem || '';

@@ -1200,3 +1200,30 @@ input[type="checkbox"] { border-color: var(--muted); }
 .doc-card-foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .doc-card-meta { font-size: 11px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .doc-card-detail { margin-left: auto; flex: none; font-size: 11px; }
+
+
+/* ======================= Cierre del día ======================= */
+.day-close {
+  margin: 12px 16px 0; padding: 12px 14px;
+  background: var(--raised); border-radius: var(--radius);
+  border-left: 3px solid var(--accent);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.day-close h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.day-close p { margin: 0; }
+.close-stat { font-size: 13px; color: var(--label); }
+.close-done { color: var(--accent-text); font-weight: 600; }
+.close-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; }
+.close-actions { display: inline-flex; gap: 6px; margin-left: auto; }
+.close-btn {
+  border: 0; border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 500;
+  background: var(--field); color: var(--text); white-space: nowrap;
+}
+.close-btn:hover { background: color-mix(in srgb, var(--field) 70%, var(--white)); }
+.close-btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.close-btn.primary:hover { background: var(--accent-hover); }
+.close-clear { font-size: 13px; color: var(--label); }
+.close-learn { font-size: 12px; color: var(--muted); }
+
+.settings .calibrate { display: flex; flex-direction: column; gap: 2px; }
+.settings-note { margin: 0 0 0 24px; font-size: 11px; color: var(--muted); }

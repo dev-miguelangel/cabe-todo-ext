@@ -4,6 +4,7 @@
 
 import { loadData, saveData, saveSettings as saveSettingsRaw, onDataChanged, PALETTE } from './storage.js';
 import {
+  calibrationFrom, setCalibration,
   enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
 } from './pert.js';
 import { parseQuickAdd, tagKey } from './parser.js';
@@ -28,7 +29,15 @@ export function subscribe(fn) {
   listeners.add(fn);
 }
 function emit(info = {}) {
+  recalibrate();
   listeners.forEach((fn) => fn(info));
+}
+
+/** Historial real vs estimado → factor que usa el PERT (si el ajuste está activo). */
+export let calibrationInfo = { factor: 1, samples: 0 };
+function recalibrate() {
+  calibrationInfo = calibrationFrom(state.tasks);
+  setCalibration(state.settings?.calibrate === false ? 1 : calibrationInfo.factor);
 }
 
 let notify = () => {};
@@ -40,6 +49,7 @@ export function setNotifier(fn) {
 export async function initStore() {
   const data = await loadData();
   Object.assign(state, data);
+  recalibrate();
   onDataChanged((changed) => {
     Object.assign(state, changed);
     if (state.filter && !findEpic(state.filter)) state.filter = null;

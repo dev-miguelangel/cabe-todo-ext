@@ -34,10 +34,50 @@ export function currentBlock(settings, now = new Date()) {
   return current < toMinutes(settings.am.end) ? 'am' : 'pm';
 }
 
-/** O, M, P, TE y varianza de una tarea a partir de su única duración (M) y su certeza. */
+// ---------- Calibración: aprender de cuánto tardas de verdad ----------
+
+let calibration = 1;
+
+/** Factor con que se multiplican las estimaciones (1 = sin ajuste). Las reuniones no se ajustan. */
+export function setCalibration(factor) {
+  calibration = Number.isFinite(factor) && factor > 0 ? factor : 1;
+}
+export const getCalibration = () => calibration;
+
+const CALIBRATION = { minSamples: 3, maxSamples: 30, maxAgeDays: 60, prior: 5, min: 0.5, max: 2 };
+
+const trackedMinutes = (task, now) => (task.time_entries || []).reduce((sum, e) => {
+  const start = Date.parse(e.start);
+  const end = e.end ? Date.parse(e.end) : now;
+  return end > start ? sum + (end - start) / 60000 : sum;
+}, 0);
+
+/**
+ * Cuánto tardas en relación a lo que estimas, según las tareas terminadas con tiempo registrado
+ * (las últimas 30 de los últimos 60 días). Media geométrica de real/estimado, acercada a 1 cuando
+ * hay pocas muestras para no sobre-reaccionar. Con menos de 3 muestras no ajusta.
+ */
+export function calibrationFrom(tasks, now = Date.now()) {
+  const since = now - CALIBRATION.maxAgeDays * 86400000;
+  const samples = tasks
+    .filter((t) => t.done && !t.meeting && t.minutes > 0 && t.done_at && Date.parse(t.done_at) >= since)
+    .map((t) => ({ t, real: trackedMinutes(t, now) }))
+    .filter(({ real }) => real >= 1)
+    .sort((a, b) => b.t.done_at.localeCompare(a.t.done_at))
+    .slice(0, CALIBRATION.maxSamples);
+  const n = samples.length;
+  if (n < CALIBRATION.minSamples) return { factor: 1, samples: n };
+  const logs = samples.map(({ t, real }) => Math.log(Math.min(4, Math.max(0.25, real / t.minutes))));
+  const mean = logs.reduce((a, b) => a + b, 0) / n;
+  const shrunk = mean * (n / (n + CALIBRATION.prior));
+  const factor = Math.min(CALIBRATION.max, Math.max(CALIBRATION.min, Math.exp(shrunk)));
+  return { factor: Math.round(factor * 20) / 20, samples: n };
+}
+
+/** O, M, P, TE y varianza de una tarea a partir de su única duración (M), su certeza y tu historial. */
 export function estimate(task) {
   const k = CERTAINTY[task.certainty] || CERTAINTY.normal;
-  const m = task.minutes;
+  const m = task.minutes * (task.meeting || task.certainty === 'fixed' ? 1 : calibration);
   const o = m * k.o;
   const p = m * k.p;
   return { o, m, p, te: (o + 4 * m + p) / 6, variance: ((p - o) / 6) ** 2 };

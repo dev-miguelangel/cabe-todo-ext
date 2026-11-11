@@ -36,6 +36,8 @@
       <ul class="list" aria-label="Pendientes de días anteriores"></ul>
     </section>
 
+    <section class="day-close" id="day-close" hidden aria-label="Cierre del día"></section>
+
     <main class="board">
       <section class="block" data-block="am">
         <header class="block-head">
@@ -138,6 +140,13 @@
         <input type="checkbox" name="float-timer">
         Mostrar el temporizador flotante en las páginas mientras corre
       </label>
+      <div class="calibrate">
+        <label class="row check-row">
+          <input type="checkbox" name="calibrate">
+          Ajustar el pronóstico según lo que tardo de verdad
+        </label>
+        <p class="settings-note" id="calibration-info"></p>
+      </div>
       <label class="row">Cuenta regresiva de la próxima reunión
         <select name="meeting-lead">
           <option value="0">al empezar</option>

@@ -412,3 +412,35 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(runM('m'), false); assert.equal(mem.tasks.find((t) => t.id === 'm').done, true, '■ finaliza la reunión');
   console.log('OK: reuniones no se pausan (finalizar / reprogramar, paralela junto a una tarea)');
 }
+
+// ---------- Calibración (real vs estimado) ----------
+{
+  const P = await import('../pert.js');
+  const now = Date.parse('2026-11-11T18:00:00Z');
+  const doneT = (min, real, daysAgo = 1, extra = {}) => ({
+    minutes: min, done: true, done_at: new Date(now - daysAgo * 86400000).toISOString(), meeting: null,
+    time_entries: [{ start: new Date(now - daysAgo * 86400000 - real * 60000).toISOString(), end: new Date(now - daysAgo * 86400000).toISOString() }],
+    ...extra,
+  });
+  // Pocas muestras: sin ajuste
+  assert.deepEqual(P.calibrationFrom([doneT(30, 60), doneT(30, 60)], now), { factor: 1, samples: 2 });
+  // 10 tareas que tardan el doble → factor < 2 (acercado a 1) pero claramente > 1
+  const slow = Array.from({ length: 10 }, () => doneT(30, 60));
+  const c = P.calibrationFrom(slow, now);
+  assert.equal(c.samples, 10);
+  assert.ok(c.factor > 1.4 && c.factor < 2, `factor ${c.factor}`);
+  // Se ignoran: reuniones, sin tiempo, pendientes y viejas (> 60 días)
+  const noise = [doneT(30, 60, 1, { meeting: { start: '10:00', end: '11:00' } }), doneT(30, 0), { ...doneT(30, 60), done: false }, doneT(30, 60, 90)];
+  assert.equal(P.calibrationFrom(noise, now).samples, 0);
+  // Rápido → factor < 1
+  assert.ok(P.calibrationFrom(Array.from({ length: 10 }, () => doneT(60, 30)), now).factor < 0.8);
+  // El factor se aplica a las estimaciones (no a reuniones) y se puede quitar
+  P.setCalibration(1.5);
+  assert.equal(P.estimate({ minutes: 60, certainty: 'sure' }).m, 90);
+  assert.equal(P.estimate({ minutes: 60, certainty: 'fixed', meeting: { start: '10:00', end: '11:00' } }).m, 60);
+  const s15 = P.scheduleBlock([{ id: 'a', minutes: 60, certainty: 'sure', dependencies: [], order: 0, done: false }], { start: '09:00', end: '13:00' }, null);
+  P.setCalibration(1);
+  const s10 = P.scheduleBlock([{ id: 'a', minutes: 60, certainty: 'sure', dependencies: [], order: 0, done: false }], { start: '09:00', end: '13:00' }, null);
+  assert.ok(s15.mu > s10.mu * 1.4);
+  console.log('OK: calibración (aprende de real vs estimado)');
+}

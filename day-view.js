@@ -4,12 +4,13 @@ import { formatMinutes } from './parser.js';
 import { scheduleBlock, isNowInBlock, criticalIds, wouldCreateCycle, canDepend, suggestMove } from './pert.js';
 import { todayISO, shiftDate, dayLabel, shortLabel, nowMinutes, toMinutes } from './dates.js';
 import {
-  state, setView, findTask, findEpic, activeEpics, blockTasks, backlogTasks, overdueTasks,
+  state, setView, findTask, findEpic, activeEpics, blockTasks, dayTasks, calibrationInfo, backlogTasks, overdueTasks,
   addFromText, editFromText, updateTask, setDependency, planTask, planMany, unplanTask, unplanMany, applyOrder,
   toggleTimer,
 } from './store.js';
 import { h, showToast, attachEpicAutocomplete } from './ui.js';
 import { renderCard, updateTimerChip } from './cards.js';
+import { trackedMs } from './timer.js';
 import { showTaskModal } from './task-modal.js';
 import { toQuickAddText } from './parser.js';
 
@@ -119,6 +120,63 @@ function renderEndedBar(el, block, pending, next) {
   );
 }
 
+// ---------- Cierre del día ----------
+
+/** ¿Ya terminó la tarde de hoy (y hay algo que cerrar)? */
+function dayIsClosing() {
+  return state.viewDate === todayISO()
+    && nowMinutes() >= toMinutes(state.settings.pm.end)
+    && dayTasks().length > 0;
+}
+
+/** Resumen al terminar la tarde: hecho, pendiente, real vs estimado y mover lo pendiente a mañana. */
+function renderDayClose() {
+  const section = document.getElementById('day-close');
+  section.hidden = !dayIsClosing();
+  if (section.hidden) return;
+
+  const work = dayTasks().filter((t) => !t.meeting);
+  const done = work.filter((t) => t.done);
+  const pending = work.filter((t) => !t.done);
+  const timed = done.filter((t) => trackedMs(t) >= 60000);
+  const real = timed.reduce((sum, t) => sum + trackedMs(t) / 60000, 0);
+  const planned = timed.reduce((sum, t) => sum + t.minutes, 0);
+  const tomorrow = shiftDate(state.viewDate, 1);
+  const tomorrowLabel = shortLabel(tomorrow).split(' ')[0];
+
+  const lines = [h('h2', {}, '☾ Cierre del día')];
+  lines.push(h('p', { class: 'close-stat' },
+    h('span', { class: 'close-done' }, `✓ ${done.length} de ${work.length} hecha${work.length === 1 ? '' : 's'}`),
+    timed.length ? h('span', {
+      class: 'close-time',
+      title: `Tiempo registrado en ${timed.length} tarea${timed.length === 1 ? '' : 's'} terminada${timed.length === 1 ? '' : 's'}, contra lo que estimaste para ellas`,
+    }, ` · real ${formatMinutes(Math.round(real))} / estimado ${formatMinutes(planned)}`) : null));
+
+  if (pending.length) {
+    const left = pending.reduce((sum, t) => sum + t.minutes, 0);
+    lines.push(h('div', { class: 'close-pending' },
+      h('span', {}, `${pending.length} pendiente${pending.length === 1 ? '' : 's'} · ${formatMinutes(left)}`),
+      h('span', { class: 'close-actions' },
+        h('button', {
+          class: 'close-btn primary', dataset: { close: 'next' },
+          title: `Mover las pendientes al ${shortLabel(tomorrow)}, en la mañana`,
+        }, `Todo → ${tomorrowLabel} AM`),
+        h('button', { class: 'close-btn', dataset: { close: 'backlog' }, title: 'Enviar las pendientes al backlog' }, 'Todo ⤓'))));
+  } else {
+    lines.push(h('p', { class: 'close-clear' }, 'Nada pendiente. Buen día ✓'));
+  }
+
+  const { factor, samples } = calibrationInfo;
+  const pct = Math.round(Math.abs(factor - 1) * 100);
+  if (samples >= 3 && pct >= 5) {
+    lines.push(h('p', { class: 'close-learn', title: `Según tus últimas ${samples} tareas con tiempo registrado (Ajustes)` },
+      state.settings.calibrate === false
+        ? `✦ Sueles tardar ~${pct} % ${factor > 1 ? 'más' : 'menos'} de lo que estimas. Puedes activar el ajuste en Ajustes.`
+        : `✦ Sueles tardar ~${pct} % ${factor > 1 ? 'más' : 'menos'} de lo que estimas: el pronóstico de mañana ya lo considera.`));
+  }
+  section.replaceChildren(...lines);
+}
+
 function renderOverdue(ctx) {
   const section = document.getElementById('overdue');
   const today = todayISO();
@@ -220,7 +278,8 @@ function renderBlock(block, ctx) {
   // Bloque terminado con pendientes: ofrecer moverlas en vez de sugerir reacomodos.
   const ended = sched.remaining <= 0 && sched.pendingCount > 0;
   const next = ended ? nextOpenBlock() : null;
-  renderEndedBar(section.querySelector('.ended-bar'), block, ended ? list.filter((t) => !t.done && !t.meeting) : [], next);
+  const closing = dayIsClosing(); // el cierre del día ya ofrece mover todo
+  renderEndedBar(section.querySelector('.ended-bar'), block, ended && !closing ? list.filter((t) => !t.done && !t.meeting) : [], next);
   renderSuggestion(section.querySelector('.suggestion'), ended ? null : computeSuggestion(block, ctx));
 
   const ul = section.querySelector('.list');
@@ -254,6 +313,7 @@ export function renderDay() {
   const ctx = makeCtx();
   renderFilters();
   renderOverdue(ctx);
+  renderDayClose();
   BLOCKS.forEach((block) => renderBlock(block, ctx));
   renderBacklog(ctx);
   refreshDepsMenu();
@@ -510,6 +570,21 @@ export function setupDay() {
     if (bulk) {
       const today = todayISO();
       planMany(overdueTasks(today).map((t) => t.id), bulk.dataset.bulk, today);
+      return;
+    }
+    const close = e.target.closest('.close-btn');
+    if (close) {
+      const ids = dayTasks().filter((t) => !t.done && !t.meeting).map((t) => t.id);
+      if (!ids.length) return;
+      const n = `${ids.length} tarea${ids.length > 1 ? 's' : ''}`;
+      if (close.dataset.close === 'backlog') {
+        unplanMany(ids);
+        showToast(`${n} al backlog.`);
+      } else {
+        const tomorrow = shiftDate(state.viewDate, 1);
+        planMany(ids, 'am', tomorrow);
+        showToast(`${n} → ${shortLabel(tomorrow)}, en la mañana.`);
+      }
       return;
     }
     const all = e.target.closest('.ended-all');
