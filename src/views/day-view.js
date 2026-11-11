@@ -54,17 +54,18 @@ function tomorrowTarget(from = state.viewDate) {
 /**
  * Si el bloque va mal (< 50%), sugiere mover una tarea a otro bloque del mismo día que aún
  * tenga tiempo o al primer bloque del día siguiente. Nunca sugiere mover tareas de las que otra depende.
+ * date: el día del bloque (en Plan, el que se está viendo; en Hoy, hoy).
  */
-function computeSuggestion(block, ctx) {
-  if (state.viewDate < todayISO()) return null;
-  const nowMin = nowMinutesFor(state.viewDate);
+export function computeSuggestion(block, ctx, date = state.viewDate) {
+  if (date < todayISO()) return null;
+  const nowMin = nowMinutesFor(date);
   const targets = blocksOf(state.settings)
     .filter((b) => b.id !== block && scheduleBlock([], b, nowMin).remaining > 0)
     .map((b) => ({
-      date: state.viewDate, block: b.id, label: `a ${blockLabel(b.id)}`,
-      tasks: blockTasks(b.id), range: blockRange(state.settings, b.id), nowMin,
+      date, block: b.id, label: `a ${blockLabel(b.id)}`,
+      tasks: blockTasks(b.id, date), range: blockRange(state.settings, b.id), nowMin,
     }));
-  targets.push(tomorrowTarget());
+  targets.push(tomorrowTarget(date));
 
   const rank = (id) => blockIndex(state.settings, id);
   const canMove = (task, target) => {
@@ -78,7 +79,7 @@ function computeSuggestion(block, ctx) {
   };
 
   return suggestMove(
-    { tasks: blockTasks(block), range: blockRange(state.settings, block), nowMin },
+    { tasks: blockTasks(block, date), range: blockRange(state.settings, block), nowMin },
     targets,
     { critical: ctx.critical, canMove },
   );
@@ -132,7 +133,7 @@ function warnIfOverloaded(task, before) {
   });
 }
 
-function renderSuggestion(el, sug) {
+export function renderSuggestion(el, sug) {
   el.hidden = !sug;
   if (!sug) return;
   const pct = (p) => `${Math.round(p * 100)}%`;
@@ -582,7 +583,7 @@ function setupDragAndDrop() {
       setLinkTarget(null);
       e.dataTransfer.dropEffect = 'move';
 
-      const dragged = document.querySelector('.task.dragging');
+      const dragged = document.querySelector(`#view-day .task[data-id="${CSS.escape(draggingId)}"]`);
       if (!dragged) return;
       ul.querySelector('.empty')?.remove();
       const after = cardAfter(ul, e.clientY);
@@ -645,7 +646,7 @@ export function setupDay() {
     const task = addFromText(input.value, { date: state.viewDate, block });
     if (!task) return;
     input.value = '';
-    if (task !== true) warnIfOverloaded(task, task.block === block ? before : probabilityOf(task.block, true));
+    if (task !== true && task.date) warnIfOverloaded(task, task.block === block ? before : probabilityOf(task.block, true));
   });
   board.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && e.target.matches('.quick-add input')) e.target.value = '';

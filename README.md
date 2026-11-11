@@ -33,6 +33,7 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 
 - **Crear una tarea en menos de 3 segundos**: una caja de texto y Enter (`Informe 2h ? pm #web`).
 - **Bloques personalizables**: hasta 5 por día, cada uno con título, ícono y horario, sin superponerse.
+- **Vistas**: *Hoy* (lista simple de las tareas de hoy, por bloque, con su propio campo para agregar), *Plan* (tablero por bloques), *Épicas*, *Hechas* (completadas por día), *Docs* y *Ajustes*.
 - **Pronóstico por bloque**: probabilidad de terminar a tiempo, calculada con PERT y calibrada con tu tiempo real.
 - **Dependencias** ("va después de…") que ordenan el bloque y marcan la ruta crítica.
 - **Temporizador por tarea** con alarma sonora y temporizador flotante en las páginas que visitas.
@@ -64,10 +65,11 @@ Requiere Chrome 116 o superior (Side Panel API y documentos *offscreen*).
 | --- | --- |
 | `Responder correos` | Tarea con la duración por defecto, en el bloque actual |
 | `Informe mensual 2h` | 2 horas de duración estimada |
-| `Llamar a Juan 15m @tarde` | 15 minutos, en el bloque *Tarde* (sirve con cualquier bloque: `@gym`) |
-| `Llamar a Juan 15m pm` | Igual que `@tarde`: `am` / `pm` siguen funcionando |
+| `Llamar a Juan 15m tarde` | 15 minutos, en el bloque *Tarde*: sirve el nombre de cualquier bloque (`gym`, `foco profundo`) |
+| `Llamar a Juan 15m pm` | Igual que `tarde`: `am` / `pm` y `@gym` también funcionan |
 | `Revisar PR 1h ?` | No estoy seguro: más margen en el pronóstico |
 | `Pagar luz 10m !` | Estoy seguro: menos margen |
+| `Ideas para la charla bl` | Al backlog, sin fecha ni bloque |
 | `Diseño home 3h #web` | Asignada a la épica *web* |
 | `Standup 15m am cada día` | Rutina diaria |
 

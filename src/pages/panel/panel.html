@@ -55,6 +55,25 @@
     <div id="epics-list"></div>
   </div>
 
+  <!-- ===== Hoy: las tareas de hoy en una lista (vista mínima) ===== -->
+  <div id="view-minimal" hidden>
+    <header class="done-top">
+      <h1 id="minimal-day"></h1>
+      <p class="docs-count" id="minimal-count"></p>
+    </header>
+    <form class="quick-add minimal-add" id="minimal-add" autocomplete="off">
+      <input type="text" placeholder="+ Nueva tarea" aria-label="Nueva tarea para hoy">
+      <button type="button" class="info-btn" id="syntax-help-btn" title="Cómo escribir tareas" aria-label="Cómo escribir tareas">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r="0.6" class="info-dot"/></svg>
+      </button>
+      <button type="button" class="round-btn backlog-open-btn" id="backlog-picker-btn" title="Backlog: pasar tareas a hoy" aria-label="Abrir el backlog para pasar tareas a hoy">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5h4.2l1.6 2.5h4.4l1.6-2.5H20"/><path d="M5.5 6.5h13l1.5 7V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18v-4.5z"/><path d="M12 3.5v6M9.5 7.5 12 10l2.5-2.5"/></svg>
+        <span class="round-badge" id="backlog-count" hidden></span>
+      </button>
+    </form>
+    <ul class="done-list" id="minimal-list" aria-label="Tareas de hoy por bloque"></ul>
+  </div>
+
   <!-- ===== Hechas ===== -->
   <div id="view-done" hidden>
     <header class="done-top">
@@ -157,7 +176,8 @@
       <p>Escribe el título y, al final, lo que quieras (todo es opcional):</p>
       <ul>
         <li><code>15m</code> <code>1h</code> <code>1h30</code> duración</li>
-        <li><code>@tarde</code> <code>@gym</code> bloque (por su título) · también <code>am</code> / <code>pm</code></li>
+        <li><code>tarde</code> <code>gym</code> el nombre del bloque (o <code>@gym</code>, <code>am</code> / <code>pm</code>)</li>
+        <li><code>bl</code> dejarla en el backlog</li>
         <li><code>?</code> no estoy seguro · <code>!</code> muy seguro</li>
         <li><code>#épica</code> agrupar en una épica</li>
         <li><code>cada día</code> <code>hábiles</code> <code>cada lun,jue</code> se repite</li>
@@ -170,9 +190,13 @@
 
   <!-- ===== Menú inferior: vistas de la app ===== -->
   <nav class="tabs" role="tablist" aria-label="Vistas">
+    <button class="tab" role="tab" data-tab="minimal">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.75" cy="6.5" r="1"/><circle cx="4.75" cy="12" r="1"/><circle cx="4.75" cy="17.5" r="1"/></svg>
+      <span>Hoy</span>
+    </button>
     <button class="tab" role="tab" data-tab="day">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
-      <span>Hoy</span>
+      <span>Plan</span>
     </button>
     <button class="tab" role="tab" data-tab="epics">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 7.5v9M12 7.5v5M16 7.5v7"/></svg>
@@ -206,7 +230,7 @@
       <div class="suggestion" hidden></div>
       <ul class="list"></ul>
       <form class="quick-add" autocomplete="off">
-        <input type="text" placeholder="+ Nueva tarea" title="Ej: Informe 2h · Llamar a Juan 15m @tarde · Revisar PR 1h ? · Logo #web">
+        <input type="text" placeholder="+ Nueva tarea" title="Ej: Informe 2h · Llamar a Juan 15m tarde · Revisar PR 1h ? · Logo #web">
       </form>
     </section>
   </template>

@@ -1146,3 +1146,174 @@ kbd { background: var(--field); }
 .done-line { flex: 1; height: 0; border-top: 1px solid var(--border); }
 .done-date { flex: none; font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 .done-list .task { background: var(--raised); border-radius: 8px; }
+
+/* ---------- Mínima: tareas de hoy por bloque (mismo formato que Hechas) ---------- */
+.done-divider.is-now .done-date { color: var(--accent-text); }
+.done-divider.is-now .done-line { border-top-color: var(--accent); }
+.minimal-empty { padding: 4px 2px 2px; font-size: 12px; color: var(--muted); }
+.minimal-add { display: flex; align-items: center; gap: 8px; padding: 10px 16px 0; }
+.minimal-add input { flex: 1; min-width: 0; box-sizing: border-box; }
+.done-date .minimal-pct { display: inline; margin: 0; min-height: 0; font-size: inherit; }
+.done-date { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* Línea del bloque en Hoy: lo transcurrido relleno y un punto en "ahora" con tooltip */
+.block-line {
+  position: relative; height: 14px; border-top: 0;
+  background: linear-gradient(var(--border), var(--border)) left center / 100% 1px no-repeat;
+}
+.block-line-fill {
+  position: absolute; left: 0; top: 50%; height: 2px; width: var(--pct); transform: translateY(-50%);
+  border-radius: 2px; background: var(--muted);
+}
+.block-line.now .block-line-fill { background: var(--accent); }
+.block-line.after .block-line-fill { background: var(--border); height: 1px; }
+.block-dot {
+  position: absolute; top: 50%; left: var(--pct); transform: translate(-50%, -50%);
+  width: 10px; height: 10px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--bg); background: var(--muted);
+  box-shadow: 0 0 0 1px var(--border);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.block-dot::after { content: ''; position: absolute; inset: -7px; border-radius: 50%; } /* área para tocar */
+.block-line.now .block-dot { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.block-dot:hover, .block-dot:focus-visible, .block-dot.open { transform: translate(-50%, -50%) scale(1.3); }
+.block-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Tooltip: arriba de la fila, alineado a su inicio (donde está la línea): nunca se sale del panel */
+.block-divider { position: relative; }
+.dot-tip {
+  position: absolute; bottom: calc(100% + 2px); left: 0; z-index: 5;
+  display: flex; flex-direction: column; gap: 1px; width: max-content; max-width: min(240px, 100%);
+  padding: 7px 10px; border-radius: 8px;
+  background: var(--surface); color: var(--text); font-size: 11px; line-height: 1.35; text-align: left;
+  box-shadow: 0 6px 20px var(--shadow), 0 0 0 1px var(--border);
+  opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.dot-tip strong { font-size: 13px; font-weight: 700; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.dot-tip.before strong, .dot-tip.after strong { color: var(--text); }
+.dot-tip span { color: var(--muted); }
+.block-divider:has(.block-dot:hover) .dot-tip,
+.block-divider:has(.block-dot:focus-visible) .dot-tip,
+.block-divider:has(.block-dot.open) .dot-tip { opacity: 1; visibility: visible; transform: translateY(0); }
+
+/* Porcentaje del bloque (botón) y su tooltip: detalle del pronóstico + sugerencia con "Mover" */
+.done-date .minimal-pct { border: 0; font: inherit; cursor: pointer; line-height: inherit; }
+.done-date .minimal-pct:not(.bad) { background: none; padding: 0; }
+.done-date .minimal-pct:hover, .done-date .minimal-pct.open { text-decoration: underline; text-underline-offset: 2px; }
+.done-date .minimal-pct:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.pct-tip {
+  position: absolute; bottom: calc(100% + 2px); right: 0; z-index: 6;
+  display: flex; flex-direction: column; gap: 2px; width: min(300px, 100%);
+  padding: 9px 11px; border-radius: 10px;
+  background: var(--surface); color: var(--text); font-size: 11px; line-height: 1.4; text-align: left;
+  box-shadow: 0 8px 24px var(--shadow), 0 0 0 1px var(--border);
+  opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.pct-tip > strong { font-size: 13px; font-weight: 700; }
+.pct-tip > span { color: var(--muted); }
+.block-divider:has(.minimal-pct.open) .pct-tip { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
+.pct-tip .pct-suggestion { margin: 6px 0 0; padding: 8px; font-size: 12px; }
+.pct-tip .pct-suggestion { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.pct-tip .pct-suggestion .suggest-btn { align-self: flex-end; }
+
+/* Hoy: arrastrar tareas entre bloques */
+#minimal-list .task[draggable="true"] { cursor: grab; }
+#minimal-list.is-dragging .block-divider { transition: background 0.1s; border-radius: 6px; }
+#minimal-list.is-dragging .block-divider:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#minimal-list.is-dragging .dot-tip, #minimal-list.is-dragging .pct-tip { display: none; }
+
+/* ---------- Botón ℹ︎ (celeste) y modal "Cómo escribir tareas" ---------- */
+:root { --info: #7cc7ff; --info-bg: rgb(124 199 255 / 0.14); }
+:root[data-theme="trello"] { --info: #0c84c6; --info-bg: #e3f4ff; }
+.info-btn {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 0; border-radius: 50%; background: var(--info-bg); color: var(--info);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.info-btn:hover { background: color-mix(in srgb, var(--info) 24%, transparent); transform: scale(1.06); }
+.info-btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.info-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.info-btn .info-dot { fill: currentColor; stroke-width: 1.6; }
+
+.modal:has(.syntax-help) { width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 32px); }
+.syntax-help { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; font-size: 13px; }
+.syntax-help h3 {
+  margin: 8px 0 0; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--info);
+}
+.help-lead { margin: 0; color: var(--label); }
+.help-examples { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.help-examples li {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 8px 10px; border-radius: 10px; background: var(--raised);
+  border-left: 3px solid var(--info);
+}
+.help-example-text {
+  font: 600 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text);
+  background: none; padding: 0; overflow-wrap: anywhere;
+}
+.help-example-result { font-size: 12px; color: var(--muted); }
+.help-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; border-radius: 10px; overflow: hidden; background: var(--raised); }
+.help-table th {
+  text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 600; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.help-table td { padding: 8px 10px; vertical-align: top; border-bottom: 1px solid var(--border); }
+.help-table tr:last-child td { border-bottom: 0; }
+.help-table td:last-child { display: flex; flex-direction: column; gap: 1px; }
+.help-table td:last-child span { color: var(--muted); }
+.help-keys { width: 38%; }
+.help-keys .kw { display: inline-block; margin: 0 4px 4px 0; }
+.syntax-help .kw {
+  font: 600 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 1px 7px; border-radius: 6px; background: var(--info-bg); color: var(--info); white-space: nowrap;
+}
+.help-foot { margin: 4px 0 0; font-size: 11px; color: var(--muted); }
+.help-foot kbd {
+  font: 600 10.5px/1 ui-monospace, Menlo, monospace; padding: 2px 5px; border-radius: 4px;
+  background: var(--field); color: var(--text); box-shadow: inset 0 -1px 0 var(--border);
+}
+
+/* ---------- Botón backlog (Hoy) y modal "Backlog → hoy" ---------- */
+.round-btn {
+  position: relative; flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 0; border-radius: 50%; background: var(--field); color: var(--text);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.round-btn:hover { background: var(--hover); transform: scale(1.06); }
+.round-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.round-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.round-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: 999px; background: var(--accent); color: var(--on-accent);
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.modal:has(.backlog-picker) { width: min(520px, calc(100vw - 24px)); }
+.backlog-picker { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.pick-lead { margin: 0; font-size: 12px; color: var(--muted); }
+.pick-search {
+  width: 100%; box-sizing: border-box; font: inherit; padding: 8px 12px; border: 0; border-radius: 8px;
+  background: var(--field); color: var(--text);
+}
+.pick-search:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pick-row { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; background: var(--bg); }
+.pick-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pick-title { display: flex; align-items: center; gap: 6px; font-weight: 600; overflow-wrap: anywhere; }
+.pick-meta { font-size: 11px; color: var(--muted); }
+.pick-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.pick-btn {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 0; border-radius: 999px;
+  background: var(--field); color: var(--text); font-size: 12px; font-weight: 500;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.pick-btn:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); transform: translateY(-1px); }
+.pick-btn:hover:not(:disabled) .pick-pct { color: inherit; opacity: 0.85; }
+.pick-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pick-pct { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
+.pick-btn.bad .pick-pct { color: var(--over); }
+.pick-btn.warn .pick-pct { color: var(--warn); }
+.pick-empty { margin: 8px 0; padding: 18px 12px; text-align: center; font-size: 12px; color: var(--muted); border-radius: 10px; background: var(--bg); }

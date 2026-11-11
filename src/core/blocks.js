@@ -6,6 +6,9 @@
 
 import { toMinutes } from '../utils/dates.js';
 
+/** Valor de `block` que devuelve el quick-add con "bl": la tarea va al backlog (sin fecha ni bloque). */
+export const BACKLOG = 'backlog';
+
 export const MAX_BLOCKS = 5;
 export const MAX_TITLE = 24;
 export const BLOCK_ICONS = ['☀︎', '☾', '☕︎', '✦', '⚡︎', '◆', '●', '▲', '♥︎', '✎', '⌂', '♪', '⚑', '☘︎', '✈︎', '★'];
@@ -145,6 +148,7 @@ export function fold(text) {
 /**
  * Palabras del quick-add para elegir bloque:
  *  - tags: "@tarde", "@gym", "@deepwork" → id (título completo sin tildes ni espacios, o su primera palabra)
+ *  - phrases: el título escrito tal cual al final ("… foco profundo") → id; las más largas primero
  *  - words: palabras sueltas de siempre (am, pm, mañana, tarde) para los bloques 'am' y 'pm'.
  */
 export function blockWords(settings) {
@@ -156,11 +160,15 @@ export function blockWords(settings) {
     if (first && !(first in tags)) tags[first] = b.id;
     if (full) tags[full] = b.id;
   }
+  const phrases = blocks
+    .map((b) => ({ id: b.id, words: b.title.trim().split(/\s+/).map(fold).filter(Boolean) }))
+    .filter((p) => p.words.length)
+    .sort((a, b) => b.words.length - a.words.length);
   const words = {};
   const ids = new Set(blocks.map((b) => b.id));
   if (ids.has('am')) Object.assign(words, { am: 'am', 'mañana': 'am', manana: 'am' });
   if (ids.has('pm')) Object.assign(words, { pm: 'pm', tarde: 'pm' });
-  return { tags, words };
+  return { tags, phrases, words };
 }
 
 export const DEFAULT_BLOCK_WORDS = blockWords({ blocks: DEFAULT_BLOCKS });

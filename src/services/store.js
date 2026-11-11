@@ -10,7 +10,7 @@ import {
   enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
 } from '../core/pert.js';
 import { parseQuickAdd, tagKey } from '../core/parser.js';
-import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBlock } from '../core/blocks.js';
+import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBlock, BACKLOG } from '../core/blocks.js';
 import { routineFrom, dueInstances, materializableDates, repeatLabel } from '../core/routines.js';
 import { todayISO } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
@@ -226,6 +226,7 @@ function checkEpicComplete(epicId) {
  * Crea una tarea desde el texto del quick-add. Devuelve la tarea creada (o false).
  * where: { date, block } para el día, o { epicId } para la bandeja de una épica
  * (en la bandeja, escribir am/pm la planifica directo en el día que se está viendo).
+ * "bl" al final la deja en el backlog, se escriba donde se escriba.
  */
 export function addFromText(text, where) {
   const parsed = parseQuickAdd(text, blockWords(state.settings));
@@ -236,7 +237,11 @@ export function addFromText(text, where) {
 
   let date;
   let block;
-  if (where.epicId) {
+  const toBacklog = parsed.block === BACKLOG;
+  if (toBacklog) {
+    date = null;
+    block = null;
+  } else if (where.epicId) {
     date = parsed.block ? state.viewDate : null;
     block = parsed.block || null;
   } else {
@@ -278,6 +283,7 @@ export function addFromText(text, where) {
   if (task.routine_id) ensureRoutines(false);
   commit();
   if (task.routine_id) notify(`↻ "${task.title}" se repite ${repeatLabel(parsed.repeat)}.`);
+  else if (toBacklog && !where.epicId) notify(`"${task.title}" quedó en el backlog.`);
   return task;
 }
 
@@ -351,7 +357,10 @@ export function editFromText(id, text) {
     epic_id: parsed.epicTag ? resolveEpicTag(parsed.epicTag)?.id || null : null,
   };
   if (parsed.minutes) changes.minutes = parsed.minutes;
-  if (parsed.block) {
+  if (parsed.block === BACKLOG) {
+    changes.date = null;
+    changes.block = null;
+  } else if (parsed.block) {
     changes.block = parsed.block;
     if (!findTask(id)?.date) changes.date = state.viewDate;
   }

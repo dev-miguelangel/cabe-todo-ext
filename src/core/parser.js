@@ -1,10 +1,11 @@
 // Quick-add: convierte "Informe mensual 2h ? pm #web" en { title, minutes, block, certainty, epicTag, repeat }.
 // "Standup 15m am cada día" / "hábiles" / "cada lun,jue" → repeat: días de la semana (0 = domingo).
-// Bloque: "@gym" / "@tarde" (cualquier bloque, por su título) o las palabras de siempre am/pm/mañana/tarde.
+// Bloque: su título al final ("… gym", "… foco profundo"), "@gym" o las de siempre am/pm/mañana/tarde.
+// "bl" = al backlog (block: 'backlog').
 // Los tokens se leen desde el final del texto; los que no se escribieron quedan en null.
 
 import { takeRepeat } from './routines.js';
-import { DEFAULT_BLOCK_WORDS, fold } from './blocks.js';
+import { DEFAULT_BLOCK_WORDS, BACKLOG, fold } from './blocks.js';
 
 const DURATION = /^(\d+(?:[.,]\d+)?)(m|min|mins|h|hr|hrs)$/;
 const HOURS_MINUTES = /^(\d+)h(\d{1,2})m?$/;
@@ -12,9 +13,9 @@ const HOURS_MINUTES = /^(\d+)h(\d{1,2})m?$/;
 const EPIC_TAG = /^#(\p{L}[\p{L}\p{N}_-]*)$/u;
 const BLOCK_TAG = /^@(\p{L}[\p{L}\p{N}_-]*)$/u;
 const CERTAINTY_MARKS = { '?': 'unsure', '!': 'sure' };
-// "mañana"/"tarde" son palabras normales en español: no se toman como bloque
-// si van precedidas de estas palabras ("Reunión de la tarde", "Llamar en la mañana").
-const NATURAL_PREFIX = new Set(['la', 'de', 'del', 'en', 'por', 'esta', 'cada', 'toda']);
+// Los nombres de bloque suelen ser palabras normales ("tarde", "gym"): no se toman como bloque
+// si van precedidos de estas palabras ("Reunión de la tarde", "Ir al gym", "Llamar en la mañana").
+const NATURAL_PREFIX = new Set(['la', 'el', 'los', 'las', 'de', 'del', 'en', 'por', 'esta', 'este', 'cada', 'toda', 'todo', 'al', 'a', 'mi', 'tu', 'su', 'para', 'con']);
 const MAX_MINUTES = 12 * 60;
 
 function parseDuration(word) {
@@ -70,12 +71,35 @@ export function parseQuickAdd(text, blockWords = DEFAULT_BLOCK_WORDS) {
       }
     }
 
+    // "bl": dejarla en el backlog
+    if (block === null && word === 'bl') {
+      block = BACKLOG;
+      words.pop();
+      continue;
+    }
+
     if (block === null) {
       const tag = original.match(BLOCK_TAG);
       const id = tag && blockWords.tags[fold(tag[1])];
       if (id) {
         block = id;
         words.pop();
+        continue;
+      }
+    }
+
+    // El título del bloque escrito tal cual al final: "Leer paper foco profundo"
+    if (block === null) {
+      const phrase = (blockWords.phrases || []).find((ph) => {
+        const n = ph.words.length;
+        if (words.length <= n) return false; // tiene que quedar título
+        const tail = words.slice(-n).map(fold);
+        if (!tail.every((w, i) => w === ph.words[i])) return false;
+        return !NATURAL_PREFIX.has(words[words.length - n - 1].toLowerCase());
+      });
+      if (phrase) {
+        block = phrase.id;
+        words.splice(-phrase.words.length);
         continue;
       }
     }

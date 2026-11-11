@@ -6,16 +6,17 @@ import { renderEpics, setupEpics, isEpicsBusy } from '../../views/epics-view.js'
 import { renderSettings, setupSettings } from '../../views/settings-view.js';
 import { renderDocs, setupDocs } from '../../views/docs-view.js';
 import { renderDone, setupDone } from '../../views/done-view.js';
+import { renderMinimal, setupMinimal, isMinimalBusy } from '../../views/minimal-view.js';
 import { currentBlock } from '../../core/pert.js';
 import { firstBlock } from '../../core/blocks.js';
 import { showToast, applyTheme } from '../../utils/ui.js';
 import { todayISO } from '../../utils/dates.js';
 
 const TAB_KEY = 'cabetodo:tab';
-const TABS = ['day', 'epics', 'done', 'docs', 'settings'];
+const TABS = ['day', 'minimal', 'epics', 'done', 'docs', 'settings'];
 
 function isBusy() {
-  return isDayBusy() || isEpicsBusy();
+  return isDayBusy() || isEpicsBusy() || isMinimalBusy();
 }
 
 function render() {
@@ -27,11 +28,13 @@ function render() {
   });
   document.getElementById('view-day').hidden = state.tab !== 'day';
   document.getElementById('view-epics').hidden = state.tab !== 'epics';
+  document.getElementById('view-minimal').hidden = state.tab !== 'minimal';
   document.getElementById('view-done').hidden = state.tab !== 'done';
   document.getElementById('view-docs').hidden = state.tab !== 'docs';
   document.getElementById('view-settings').hidden = state.tab !== 'settings';
   if (state.tab === 'day') renderDay();
   else if (state.tab === 'epics') renderEpics();
+  else if (state.tab === 'minimal') renderMinimal();
   else if (state.tab === 'done') renderDone();
   else if (state.tab === 'docs') renderDocs();
   else renderSettings();
@@ -67,6 +70,7 @@ async function init() {
   setupSettings();
   setupDocs();
   setupDone();
+  setupMinimal();
   setupKeyboard();
   ensureRoutines(); // tareas que se repiten y tocan hoy
   render();
@@ -77,11 +81,15 @@ async function init() {
     if (!isBusy()) render();
   }, 60 * 1000);
 
-  if (state.tab === 'day') focusQuickAdd();
+  if (state.tab === 'day' || state.tab === 'minimal') focusQuickAdd();
 }
 
-/** Foco en el quick-add del bloque en curso (o el primero si es otro día). */
+/** Foco en el quick-add: el de la vista Hoy, o en Plan el del bloque en curso (el primero si es otro día). */
 function focusQuickAdd() {
+  if (state.tab === 'minimal') {
+    document.querySelector('#minimal-add input')?.focus();
+    return;
+  }
   const block = state.viewDate === todayISO() ? currentBlock(state.settings) : firstBlock(state.settings).id;
   document.querySelector(`.block[data-block="${block}"] .quick-add input`)?.focus();
 }
@@ -93,7 +101,7 @@ function setupKeyboard() {
     if (e.target.closest('input, textarea, select, [contenteditable]')) return;
     if (document.querySelector('dialog[open]')) return;
     e.preventDefault();
-    if (state.tab !== 'day') setView({ tab: 'day' });
+    if (state.tab !== 'day' && state.tab !== 'minimal') setView({ tab: 'minimal' });
     focusQuickAdd();
   });
 }

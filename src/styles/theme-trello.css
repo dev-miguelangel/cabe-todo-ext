@@ -177,3 +177,13 @@
 /* ---------- Hechas ---------- */
 [data-theme="trello"] .done-list .task { background: var(--card); border-radius: var(--radius-card); box-shadow: var(--elev-card); margin-bottom: 6px; }
 [data-theme="trello"] .done-list .task:hover { box-shadow: var(--elev-raised); }
+
+/* ---------- Backlog → hoy ---------- */
+[data-theme="trello"] .round-btn { background: var(--ds-n20); color: var(--ds-n500); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .round-btn:hover { background: var(--ds-n30); }
+[data-theme="trello"] .pick-row { background: var(--card); box-shadow: var(--elev-card); }
+[data-theme="trello"] .pick-btn { background: var(--ds-n20); box-shadow: inset 0 0 0 1px var(--border); }
+[data-theme="trello"] .pick-btn:hover:not(:disabled) { background: var(--ds-blue); color: #fff; box-shadow: none; }
+[data-theme="trello"] .pick-btn.bad .pick-pct { color: var(--ds-red-text); }
+[data-theme="trello"] .pick-empty { background: var(--ds-n20); }
+[data-theme="trello"] .pick-search { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }

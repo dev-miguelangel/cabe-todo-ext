@@ -118,6 +118,9 @@ console.log('OK: parser + PERT + épicas');
   // destino lleno → null (no traslada el problema)
   const fullPm = [0, 1, 2, 3, 4].map((i) => mk('f' + i, i, [], { block: 'pm' }));
   assert.equal(P.suggestMove({ tasks: am, range, nowMin: null }, [{ tasks: fullPm, range: pmRange, nowMin: null }]), null);
+  // bloque sin remedio (10h en 5h): mover 30m no se nota ("sube de 0% a 0%") → null
+  const hopeless = [...Array(20)].map((_, i) => mk('h' + i, i, [], { minutes: 30 }));
+  assert.equal(P.suggestMove({ tasks: hopeless, range, nowMin: null }, [{ tasks: [], range: pmRange, nowMin: null }]), null);
   console.log('OK: sugerencias');
 }
 // ----- Comentarios (markdown) y temporizador -----
@@ -565,7 +568,17 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(parseQuickAdd('Leer 1h @deep', w).block, 'g');
   assert.equal(parseQuickAdd('Leer 1h @DeepWork', w).block, 'g');
   assert.equal(parseQuickAdd('Llamar a Juan pm', w).block, 'pm');
-  assert.equal(parseQuickAdd('Ir al almuerzo', w).block, null, 'el título suelto no es bloque (solo con @)');
+  assert.equal(parseQuickAdd('Ir al almuerzo', w).block, null, '"al almuerzo" es parte del título');
+  assert.equal(parseQuickAdd('Comer 30m almuerzo', w).block, 'x', 'el nombre del bloque al final, como am/pm');
+  assert.deepEqual([parseQuickAdd('Leer paper deep work 1h', w).block, parseQuickAdd('Leer paper deep work 1h', w).title], ['g', 'Leer paper'], 'título de varias palabras');
+  assert.equal(parseQuickAdd('Leer deep', w).block, null, 'sin @, solo el título completo');
+  assert.equal(parseQuickAdd('Almuerzo', w).block, null, 'tiene que quedar título');
+  assert.equal(parseQuickAdd('Entrenar Almuerzo cada día', w).block, 'x');
+  // "bl" = backlog
+  assert.deepEqual([parseQuickAdd('Ideas charla 1h bl', w).block, parseQuickAdd('Ideas charla 1h bl', w).title], ['backlog', 'Ideas charla']);
+  assert.equal(parseQuickAdd('Ideas BL #web ?', w).block, 'backlog');
+  assert.equal(parseQuickAdd('bl', w).title, 'bl', 'solo "bl": es el título');
+  assert.equal(parseQuickAdd('Revisar tabla', w).block, null);
   assert.equal(parseQuickAdd('Ver @nada 1h', w).title, 'Ver @nada');
   const noDefaults = B.blockWords({ blocks: [b('g', 'Gym', '07:00', '08:00')] });
   assert.equal(parseQuickAdd('Correr tarde', noDefaults).block, null, 'sin bloque "pm", "tarde" no es bloque');
@@ -600,4 +613,19 @@ console.log('OK: parser + PERT + épicas');
     [['2026-11-11', ['c', 'b']], ['2026-11-10', ['a']], ['2026-11-01', ['e']]]);
   assert.equal(formatDMY('2026-11-05'), '05-11-2026');
   console.log('OK: hechas (agrupadas por día de término, dd-mm-aaaa)');
+}
+
+// ---------- "bl" en el store: crear y editar al backlog ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const { todayISO } = await import(root + '/src/utils/dates.js');
+  await S.initStore();
+  const today = todayISO();
+  const t = S.addFromText('Ideas para la charla 1h bl', { date: today, block: 'am' });
+  assert.deepEqual([t.title, t.date, t.block, t.minutes], ['Ideas para la charla', null, null, 60]);
+  const u = S.addFromText('Informe 30m', { date: today, block: 'pm' });
+  assert.equal(u.date, today);
+  S.editFromText(u.id, 'Informe 30m bl');
+  assert.deepEqual([S.findTask(u.id).date, S.findTask(u.id).block], [null, null], 'editar con bl la manda al backlog');
+  console.log('OK: "bl" deja la tarea en el backlog');
 }

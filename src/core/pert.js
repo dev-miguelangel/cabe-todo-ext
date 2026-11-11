@@ -435,6 +435,8 @@ export function epicForecast(epic, tasks, settings, now = new Date()) {
 // ---------- Sugerencias ----------
 
 const SUGGEST_BELOW = 0.5;
+// Una sugerencia tiene que notarse: "sube de 0% a 0%" (0,1% → 0,4%) no sirve de nada.
+const SUGGEST_MIN_GAIN = 0.05;
 
 /**
  * Para un bloque con baja probabilidad de terminar a tiempo, busca UNA tarea para mover
@@ -467,7 +469,7 @@ export function suggestMove(source, targets, { critical = new Set(), canMove = (
       if (better) best = { task, target, score, before, sourceProbability, targetProbability };
     }
   }
-  return best && best.score > before ? best : null;
+  return best && best.score > before && best.sourceProbability - before >= SUGGEST_MIN_GAIN ? best : null;
 }
 
 // ---------- Reunión que bloquea en curso ----------
