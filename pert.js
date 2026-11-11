@@ -8,6 +8,7 @@ import { toISO, shiftDate, toMinutes, nowMinutes } from './dates.js';
 
 /** Multiplicadores de O y P sobre M según la certeza del usuario. */
 export const CERTAINTY = {
+  fixed: { o: 1, p: 1 },          // reuniones: duración fija, sin incertidumbre
   sure: { o: 0.9, p: 1.3 },
   normal: { o: 0.75, p: 2 },
   unsure: { o: 0.5, p: 3 },
@@ -93,18 +94,84 @@ export function orderBlock(tasks) {
   return result;
 }
 
+// ---------- Reuniones ----------
+
+export const isMeeting = (task) => Boolean(task.meeting);
+
+/** Rango de la reunión en minutos desde medianoche. */
+export function meetingRange(task) {
+  return { start: toMinutes(task.meeting.start), end: toMinutes(task.meeting.end) };
+}
+
+/** Bloque al que pertenece una hora: antes del fin de la mañana → am; si no → pm. */
+export function blockForTime(hhmm, settings) {
+  return toMinutes(hhmm) < toMinutes(settings.am.end) ? 'am' : 'pm';
+}
+
+/** Intervalos ocupados por reuniones que bloquean (pendientes), recortados a [lo, hi] y unidos. */
+export function blockedIntervals(tasks, lo, hi) {
+  const raw = tasks
+    .filter((t) => isMeeting(t) && t.meeting.blocking && !t.done)
+    .map(meetingRange)
+    .map((r) => ({ start: Math.max(lo, r.start), end: Math.min(hi, r.end) }))
+    .filter((r) => r.end > r.start)
+    .sort((a, b) => a.start - b.start);
+  const merged = [];
+  for (const r of raw) {
+    const last = merged[merged.length - 1];
+    if (last && r.start <= last.end) last.end = Math.max(last.end, r.end);
+    else merged.push({ ...r });
+  }
+  return merged;
+}
+
+const totalOf = (intervals) => intervals.reduce((sum, r) => sum + (r.end - r.start), 0);
+
+/** Si `t` cae dentro de una reunión que bloquea, se corre a su término. */
+function skipBlocked(t, intervals) {
+  let cur = t;
+  for (const r of intervals) if (cur >= r.start && cur < r.end) cur = r.end;
+  return cur;
+}
+
+/**
+ * Avanza `minutes` de trabajo desde `t` saltando las reuniones que bloquean:
+ * la tarea se pausa durante la reunión y sigue después.
+ */
+export function advance(t, minutes, intervals) {
+  let cur = skipBlocked(t, intervals);
+  let left = minutes;
+  for (const r of intervals) {
+    if (r.end <= cur) continue;
+    if (r.start >= cur + left) break;
+    left -= r.start - cur;
+    cur = r.end;
+  }
+  return cur + left;
+}
+
 /**
  * Planifica un bloque.
- * @param tasks   tareas del bloque (cualquier orden)
+ * @param tasks   tareas del bloque (cualquier orden), incluidas reuniones
  * @param range   { start, end } del bloque
  * @param nowMin  minutos desde medianoche de "ahora" si es hoy; null para un día futuro;
  *                24*60 para un día pasado.
- * @returns items en orden de ejecución con hora estimada y holgura, y el pronóstico del bloque.
+ * @returns items en el orden en que se ven (reuniones en su horario) con hora estimada y holgura,
+ *          y el pronóstico del bloque.
+ *
+ * Las reuniones tienen hora fija. Si bloquean, ese tiempo no está disponible para tareas
+ * (se pausan y siguen después); si no bloquean, solo se muestran en su horario.
  */
 export function scheduleBlock(tasks, range, nowMin = null) {
   const startMin = toMinutes(range.start);
   const endMin = toMinutes(range.end);
   const from = Math.min(endMin, Math.max(startMin, nowMin ?? startMin));
+
+  const meetings = tasks.filter(isMeeting).sort((a, b) => meetingRange(a).start - meetingRange(b).start);
+  const flexible = tasks.filter((t) => !isMeeting(t));
+  const blockedAhead = blockedIntervals(meetings, from, endMin);       // lo que queda del bloque
+  const blockedAll = blockedIntervals(meetings, startMin, endMin);     // todo el bloque (para la barra)
+  const meetingEnd = new Map(meetings.map((m) => [m.id, meetingRange(m).end]));
 
   let cursor = from;
   let mu = 0;
@@ -112,21 +179,44 @@ export function scheduleBlock(tasks, range, nowMin = null) {
   let doneMinutes = 0;
   let pendingCount = 0;
 
-  const items = orderBlock(tasks).map((task) => {
+  const flexItems = orderBlock(flexible).map((task) => {
     const est = estimate(task);
     if (task.done) {
       doneMinutes += task.minutes;
       return { task, est, start: null, finish: null, slack: null };
     }
     pendingCount += 1;
-    const start = cursor;
-    cursor += est.te;
+    // Si depende de una reunión pendiente de este bloque, empieza cuando esta termina
+    let earliest = cursor;
+    for (const dep of task.dependencies || []) {
+      const end = meetingEnd.get(dep);
+      const m = end !== undefined && meetings.find((x) => x.id === dep);
+      if (m && !m.done) earliest = Math.max(earliest, end);
+    }
+    const start = skipBlocked(earliest, blockedAhead);
+    const finish = advance(start, est.te, blockedAhead);
+    cursor = finish;
     mu += est.te;
     variance += est.variance;
-    return { task, est, start, finish: cursor, slack: endMin - cursor };
+    return { task, est, start, finish, slack: endMin - finish };
   });
 
-  const remaining = endMin - from;
+  // Mezclar: cada reunión va antes de la primera tarea pendiente que empieza a su hora o después
+  const meetingItems = meetings.map((task) => {
+    const r = meetingRange(task);
+    return { task, est: estimate(task), start: r.start, finish: r.end, slack: null, meeting: true };
+  });
+  const items = [];
+  let mi = 0;
+  for (const item of flexItems) {
+    if (item.start !== null) {
+      while (mi < meetingItems.length && meetingItems[mi].start <= item.start) items.push(meetingItems[mi++]);
+    }
+    items.push(item);
+  }
+  while (mi < meetingItems.length) items.push(meetingItems[mi++]);
+
+  const remaining = endMin - from - totalOf(blockedAhead);
   const sigma = Math.sqrt(variance);
   let probability = null;
   if (pendingCount > 0) {
@@ -139,6 +229,7 @@ export function scheduleBlock(tasks, range, nowMin = null) {
     items,
     capacity: endMin - startMin,
     remaining,
+    meetingMinutes: totalOf(blockedAll),
     mu,
     sigma,
     doneMinutes,
@@ -190,7 +281,7 @@ export function enforceBlockOrder(dayTasks) {
   while (changed) {
     changed = false;
     for (const t of dayTasks) {
-      if (t.block !== 'am') continue;
+      if (t.block !== 'am' || isMeeting(t)) continue; // las reuniones tienen hora fija
       const blocker = (t.dependencies || []).map((id) => byId.get(id)).find((p) => p && p.block === 'pm');
       if (!blocker) continue;
       const pmOrders = dayTasks.filter((x) => x.block === 'pm').map((x) => x.order);
@@ -273,7 +364,8 @@ export function epicForecast(epic, tasks, settings, now = new Date()) {
         const from = day === today ? Math.min(end, Math.max(start, current)) : start;
         let free = end - from;
         for (const t of tasks) {
-          if (t.date === day && t.block === block && !t.done && t.epic_id !== epic.id) free -= estimate(t).te;
+          if (t.date === day && t.block === block && !t.done && t.epic_id !== epic.id
+            && !(isMeeting(t) && !t.meeting.blocking)) free -= estimate(t).te;
         }
         capacity += Math.max(0, free);
       }
@@ -316,7 +408,7 @@ export function suggestMove(source, targets, { critical = new Set(), canMove = (
 
   let best = null;
   for (const task of source.tasks) {
-    if (task.done || critical.has(task.id)) continue;
+    if (task.done || critical.has(task.id) || isMeeting(task)) continue;
     const rest = source.tasks.filter((t) => t !== task);
     const sourceProbability = scheduleBlock(rest, source.range, source.nowMin).probability ?? 1;
     for (const target of targets) {
@@ -332,4 +424,29 @@ export function suggestMove(source, targets, { critical = new Set(), canMove = (
     }
   }
   return best && best.score > before ? best : null;
+}
+
+// ---------- Reunión que bloquea en curso ----------
+
+/** ¿La reunión está en curso ahora y bloquea la toma de tareas? */
+export function isBlockingNow(task, now = new Date()) {
+  if (!isMeeting(task) || !task.meeting.blocking || task.done || task.date !== toISO(now)) return false;
+  const cur = nowMinutes(now);
+  return toMinutes(task.meeting.start) <= cur && cur < toMinutes(task.meeting.end);
+}
+
+/** Reunión que bloquea y está en curso ahora (la que empezó primero), o null. */
+export function activeBlockingMeeting(tasks, now = new Date()) {
+  return tasks
+    .filter((t) => isBlockingNow(t, now))
+    .sort((a, b) => toMinutes(a.meeting.start) - toMinutes(b.meeting.start))[0] || null;
+}
+
+/**
+ * Si no se puede iniciar el temporizador de `task` ahora, devuelve la reunión que lo impide.
+ * Durante una reunión que bloquea solo pueden correr las reuniones que bloquean en curso.
+ */
+export function timerBlockedBy(task, tasks, now = new Date()) {
+  if (isBlockingNow(task, now)) return null;
+  return activeBlockingMeeting(tasks, now);
 }

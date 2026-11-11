@@ -3,10 +3,12 @@
 // las reglas, guarda y avisa a los suscriptores para re-renderizar.
 
 import { loadData, saveData, saveSettings as saveSettingsRaw, onDataChanged, PALETTE } from './storage.js';
-import { enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend } from './pert.js';
+import {
+  enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
+} from './pert.js';
 import { parseQuickAdd, tagKey } from './parser.js';
 import { todayISO } from './dates.js';
-import { isRunning } from './timer.js';
+import { isRunning, timerConflicts } from './timer.js';
 
 export { PALETTE } from './storage.js';
 
@@ -241,6 +243,14 @@ export function addFromText(text, where) {
 export function editFromText(id, text) {
   const parsed = parseQuickAdd(text);
   if (!parsed) return false;
+  // Reunión: su horario se cambia en el modal; aquí solo título y épica
+  if (isMeeting(findTask(id) || {})) {
+    updateTask(id, {
+      title: parsed.title,
+      epic_id: parsed.epicTag ? resolveEpicTag(parsed.epicTag)?.id || null : null,
+    });
+    return true;
+  }
   const changes = {
     title: parsed.title,
     certainty: parsed.certainty || 'normal',
@@ -295,9 +305,9 @@ export function unplanMany(ids) {
   commit();
 }
 
-/** Pendientes de días anteriores a `today`. */
+/** Pendientes de días anteriores a `today` (las reuniones pasadas no se arrastran). */
 export const overdueTasks = (today) =>
-  state.tasks.filter((t) => t.date && t.date < today && !t.done);
+  state.tasks.filter((t) => t.date && t.date < today && !t.done && !isMeeting(t));
 
 // ---------- Ajustes ----------
 
@@ -339,19 +349,38 @@ function stopEntry(task, at = new Date().toISOString()) {
 export function startTimer(id) {
   const task = findTask(id);
   if (!task || isRunning(task)) return;
+  const meeting = timerBlockedBy(task, state.tasks);
+  if (meeting) {
+    notify(`No se pueden iniciar tareas durante "${meeting.title}" (hasta las ${meeting.meeting.end}).`);
+    return;
+  }
+  const conflicts = timerConflicts(task, state.tasks);
+  if (conflicts.blockedBy) {
+    notify(`"${conflicts.blockedBy.title}" sigue en curso: finalízala antes de iniciar otra tarea.`);
+    return;
+  }
   const now = new Date().toISOString();
-  const paused = state.tasks.filter((t) => t.id !== id && isRunning(t));
-  paused.forEach((t) => stopEntry(t, now));
+  conflicts.pause.forEach((t) => stopEntry(t, now));
   task.time_entries = [...task.time_entries, { start: now, end: null }];
   commit();
-  if (paused.length) notify(`Se pausó "${paused[0].title}" (solo un temporizador corre a la vez).`);
+  if (conflicts.pause.length) notify(`Se pausó "${conflicts.pause[0].title}" (solo una tarea corre a la vez).`);
 }
 
+/** Pausa el temporizador. Las reuniones no se pausan: se finalizan o se reprograman. */
 export function pauseTimer(id) {
   const task = findTask(id);
   if (!task || !isRunning(task)) return;
+  if (isMeeting(task)) {
+    notify('Las reuniones no se pausan: finalízala o reprográmala.');
+    return;
+  }
   stopEntry(task);
   commit();
+}
+
+/** Finaliza una reunión: la marca como hecha (y su temporizador se detiene). */
+export function finishMeeting(id) {
+  updateTask(id, { done: true });
 }
 
 export function toggleTimer(id) {
@@ -363,6 +392,47 @@ export function resetTimer(id) {
   const task = findTask(id);
   if (!task) return;
   task.time_entries = [];
+  commit();
+}
+
+// ---------- Reuniones ----------
+
+const toMin = (hhmm) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/**
+ * Convierte la tarea en reunión (o actualiza su horario).
+ * m: { date, start: 'HH:MM', end: 'HH:MM', blocking }. Devuelve un mensaje de error o null.
+ */
+export function setMeeting(id, m) {
+  const task = findTask(id);
+  if (!task) return 'La tarea ya no existe.';
+  if (!m.date) return 'Elige la fecha de la reunión.';
+  if (!m.start || !m.end) return 'Indica la hora de inicio y de fin (o la duración).';
+  const minutes = toMin(m.end) - toMin(m.start);
+  if (minutes <= 0) return 'La reunión debe terminar después de empezar.';
+  // Reprogramar (otra fecha u hora de inicio) detiene su temporizador si estaba corriendo
+  if (isRunning(task) && task.meeting && (task.date !== m.date || task.meeting.start !== m.start)) stopEntry(task);
+  Object.assign(task, {
+    meeting: { start: m.start, end: m.end, blocking: Boolean(m.blocking) },
+    date: m.date,
+    block: blockForTime(m.start, state.settings),
+    minutes,
+    certainty: 'fixed',
+  });
+  commit();
+  return null;
+}
+
+/** Vuelve a ser una tarea normal (conserva fecha, bloque y duración). */
+export function removeMeeting(id) {
+  const task = findTask(id);
+  if (!task || !task.meeting) return;
+  task.meeting = null;
+  task.certainty = 'normal';
+  task.order = nextOrder(task.date, task.block);
   commit();
 }
 

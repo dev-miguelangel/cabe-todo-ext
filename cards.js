@@ -1,20 +1,28 @@
 // Tarjeta de tarea, compartida por la vista del día, la bandeja y la vista de épicas.
 
 import { formatMinutes, formatClock } from './parser.js';
-import { blockersOf } from './pert.js';
+import { blockersOf, timerBlockedBy } from './pert.js';
 import { markdownExcerpt } from './markdown.js';
 import { shortLabel, dayLabel } from './dates.js';
 import { isRunning, trackedMs, remainingMs, formatTracked, formatLeft } from './timer.js';
 
-/** Chip de tiempo de la fila: cuánto queda (o cuánto se pasó). Clic = pausar/reanudar. */
-export function updateTimerChip(chip, task) {
+/**
+ * Chip de tiempo de la fila: cuánto queda (o cuánto se pasó). Clic = pausar/reanudar.
+ * allTasks: para saber si una reunión que bloquea impide reanudarla.
+ */
+export function updateTimerChip(chip, task, allTasks = []) {
   const running = isRunning(task);
   const left = remainingMs(task);
   const over = left <= 0;
+  const blockedBy = running ? null : timerBlockedBy(task, allTasks);
   chip.classList.toggle('running', running);
   chip.classList.toggle('over', over);
+  chip.classList.toggle('blocked', Boolean(blockedBy));
+  chip.disabled = Boolean(blockedBy);
   chip.textContent = over ? `⚠\ufe0e +${formatTracked(-left)}` : `${running ? '●' : '⏱\ufe0e'} ${formatLeft(left)}`;
-  const state = running ? 'clic para pausar' : 'clic para reanudar';
+  const state = running && task.meeting ? 'reunión en curso: clic para finalizar o reprogramar'
+    : running ? 'clic para pausar'
+    : blockedBy ? `no se puede reanudar: "${blockedBy.title}" en curso hasta las ${blockedBy.meeting.end}` : 'clic para reanudar';
   chip.title = over ? `Tiempo cumplido: +${formatTracked(-left)} sobre lo estimado · ${state}` : `Quedan ${formatLeft(left)} · ${state}`;
   chip.setAttribute('aria-label', chip.title);
 }
@@ -47,7 +55,10 @@ export function renderCard(task, opts) {
   const { ctx } = opts;
   const li = template.content.firstElementChild.cloneNode(true);
   li.dataset.id = task.id;
-  li.draggable = Boolean(opts.draggable);
+  const meeting = task.meeting;
+  // Las reuniones tienen hora fija: no se arrastran ni se mueven de bloque o al backlog
+  li.draggable = Boolean(opts.draggable) && !meeting;
+  li.classList.toggle('meeting', Boolean(meeting));
   li.classList.toggle('done', task.done);
   li.classList.toggle('dim', Boolean(opts.dim));
   li.querySelector('.check').checked = task.done;
@@ -63,6 +74,15 @@ export function renderCard(task, opts) {
 
   const mark = task.certainty === 'unsure' ? ' ?' : task.certainty === 'sure' ? ' !' : '';
   li.querySelector('.minutes').textContent = formatMinutes(task.minutes) + mark;
+  if (meeting) {
+    const time = li.querySelector('.meeting-time');
+    time.hidden = false;
+    time.textContent = `◷ ${meeting.start}–${meeting.end}`;
+    time.classList.toggle('parallel', !meeting.blocking);
+    li.querySelector('.minutes').hidden = true;
+    li.dataset.meetingTitle = `Reunión ${meeting.start}–${meeting.end} · ${meeting.blocking
+      ? 'bloquea la toma de tareas' : 'paralela: se puede seguir trabajando'}`;
+  }
 
   // Línea secundaria: cuándo (en la vista de épica) y de qué depende
   const meta = [];
@@ -94,7 +114,7 @@ export function renderCard(task, opts) {
   if (running || trackedMs(task) > 0) {
     const chip = li.querySelector('.timer-btn');
     chip.hidden = false;
-    updateTimerChip(chip, task);
+    updateTimerChip(chip, task, ctx.allTasks);
   }
   if (task.doc?.trim()) {
     const mark = li.querySelector('.doc-mark');
@@ -113,15 +133,15 @@ export function renderCard(task, opts) {
 
   // Dependencias: solo tiene sentido en tareas pendientes.
   li.querySelector('.link').hidden = opts.link === false || task.done;
-  if (opts.plan && !task.done) {
+  if (opts.plan && !task.done && !meeting) {
     const plan = li.querySelector('.plan');
     plan.hidden = false;
     const day = dayLabel(ctx.planDate).toLowerCase();
     plan.querySelector('[data-block="am"]').title = `Planificar el ${day} en la mañana`;
     plan.querySelector('[data-block="pm"]').title = `Planificar el ${day} en la tarde`;
   }
-  li.querySelector('.unplan').hidden = !(opts.unplan && task.date && !task.done);
-  if (opts.ended && !task.done) {
+  li.querySelector('.unplan').hidden = !(opts.unplan && task.date && !task.done && !meeting);
+  if (opts.ended && !task.done && !meeting) {
     const ended = li.querySelector('.ended');
     ended.hidden = false;
     const next = ended.querySelector('.next-btn');
@@ -132,7 +152,9 @@ export function renderCard(task, opts) {
   }
 
   const item = opts.item;
-  if (item && !task.done) {
+  if (meeting) {
+    li.title = li.dataset.meetingTitle + (task.done ? ' · hecha' : '');
+  } else if (item && !task.done) {
     // En un bloque ya terminado todas irían "tarde": no marcarlas, ya hay botones para moverlas.
     li.classList.toggle('late', item.slack < 0 && !opts.ended);
     const lines = [

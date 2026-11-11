@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   default_minutes: 30,
   notify: true,
   timer_sound: true,
+  float_timer: true,
 };
 
 // Colores de épicas: solo los tonos de la paleta (Cod Gray es el fondo, no sirve como color de épica).
@@ -59,6 +60,7 @@ export function normalizeTask(task) {
     comments: [],
     doc: '',
     doc_updated_at: null,
+    meeting: null,          // { start: 'HH:MM', end: 'HH:MM', blocking } si es reunión
     ...task,
   };
 }

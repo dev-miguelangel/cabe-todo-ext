@@ -44,7 +44,7 @@
           <span class="forecast" aria-live="polite"></span>
           <span class="capacity-label"></span>
         </header>
-        <div class="capacity"><div class="bar"><div class="bar-done"></div><div class="bar-pending"></div></div></div>
+        <div class="capacity"><div class="bar"><div class="bar-done"></div><div class="bar-meeting"></div><div class="bar-pending"></div></div></div>
         <div class="ended-bar" hidden></div>
         <div class="suggestion" hidden></div>
         <ul class="list" data-list="am" aria-label="Tareas de la mañana"></ul>
@@ -61,7 +61,7 @@
           <span class="forecast" aria-live="polite"></span>
           <span class="capacity-label"></span>
         </header>
-        <div class="capacity"><div class="bar"><div class="bar-done"></div><div class="bar-pending"></div></div></div>
+        <div class="capacity"><div class="bar"><div class="bar-done"></div><div class="bar-meeting"></div><div class="bar-pending"></div></div></div>
         <div class="ended-bar" hidden></div>
         <div class="suggestion" hidden></div>
         <ul class="list" data-list="pm" aria-label="Tareas de la tarde"></ul>
@@ -124,6 +124,10 @@
         </label>
         <button type="button" class="ghost small" id="test-sound">♪ Probar sonido</button>
       </div>
+      <label class="row check-row">
+        <input type="checkbox" name="float-timer">
+        Mostrar el temporizador flotante en las páginas mientras corre
+      </label>
       <p class="settings-error" id="settings-error" role="alert" hidden></p>
       <div class="settings-actions">
         <button type="submit" class="primary">Guardar</button>
@@ -164,6 +168,7 @@
         <button class="timer-btn" hidden></button>
         <span class="comment-count" hidden></span>
         <span class="doc-mark" hidden>▤</span>
+        <span class="meeting-time" hidden></span>
         <span class="locked" hidden>⧖</span>
         <span class="critical" title="Otras tareas dependen de esta" hidden>◆</span>
         <span class="minutes"></span>
@@ -179,7 +184,6 @@
       </span>
       <span class="actions">
         <button class="unplan" title="Enviar al backlog" aria-label="Enviar al backlog" hidden>↩︎</button>
-        <button class="delete" title="Borrar" aria-label="Borrar tarea">×</button>
       </span>
     </li>
   </template>

@@ -6,6 +6,21 @@ export function isRunning(task) {
   return entries.length > 0 && !entries[entries.length - 1].end;
 }
 
+/**
+ * Qué temporizadores hay que pausar para iniciar `task`, o por qué no se puede.
+ * Reglas: las reuniones no se pausan. Una reunión que bloquea corriendo impide iniciar otra cosa
+ * (hay que finalizarla); una reunión paralela sigue corriendo junto a la tarea. Iniciar una reunión
+ * paralela no pausa nada. Entre tareas normales, solo una a la vez.
+ * Devuelve { blockedBy } o { pause: [tareas] }.
+ */
+export function timerConflicts(task, tasks) {
+  const others = tasks.filter((t) => t.id !== task.id && isRunning(t));
+  const blockingMeeting = others.find((t) => t.meeting && t.meeting.blocking);
+  if (blockingMeeting) return { blockedBy: blockingMeeting };
+  if (task.meeting && !task.meeting.blocking) return { pause: [] };
+  return { pause: others.filter((t) => !t.meeting) };
+}
+
 /** Milisegundos registrados (incluye el tramo en curso hasta `now`). */
 export function trackedMs(task, now = Date.now()) {
   let total = 0;

@@ -17,6 +17,7 @@ export function renderSettings() {
   f.elements['default-minutes'].value = String(s.default_minutes);
   f.elements.notify.checked = Boolean(s.notify);
   f.elements['timer-sound'].checked = s.timer_sound !== false;
+  f.elements['float-timer'].checked = s.float_timer !== false;
   loadShortcut();
 }
 
@@ -52,6 +53,7 @@ export function setupSettings() {
       default_minutes: Number(f.elements['default-minutes'].value),
       notify: f.elements.notify.checked,
       timer_sound: f.elements['timer-sound'].checked,
+      float_timer: f.elements['float-timer'].checked,
     });
     error.textContent = problem || '';
     error.hidden = !problem;

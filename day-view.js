@@ -5,7 +5,7 @@ import { scheduleBlock, isNowInBlock, criticalIds, wouldCreateCycle, canDepend, 
 import { todayISO, shiftDate, dayLabel, shortLabel, nowMinutes, toMinutes } from './dates.js';
 import {
   state, setView, findTask, findEpic, activeEpics, blockTasks, backlogTasks, overdueTasks,
-  addFromText, editFromText, updateTask, deleteTask, setDependency, planTask, planMany, unplanTask, unplanMany, applyOrder,
+  addFromText, editFromText, updateTask, setDependency, planTask, planMany, unplanTask, unplanMany, applyOrder,
   toggleTimer,
 } from './store.js';
 import { h, showToast, attachEpicAutocomplete } from './ui.js';
@@ -27,6 +27,7 @@ function nowMinutesFor(iso) {
 
 function makeCtx() {
   return {
+    allTasks: state.tasks,
     byId: new Map(state.tasks.map((t) => [t.id, t])),
     epicsById: new Map(state.epics.map((e) => [e.id, e])),
     critical: criticalIds(state.tasks),
@@ -196,12 +197,13 @@ function renderBlock(block, ctx) {
   section.querySelector('.now-badge').hidden = !now;
 
   // Capacidad: lo hecho (minutos reales) + lo pendiente (TE) contra el largo del bloque.
-  const planned = sched.doneMinutes + sched.mu;
+  const planned = sched.doneMinutes + sched.meetingMinutes + sched.mu;
   const scale = Math.max(sched.capacity, planned) || 1;
   const over = sched.mu > sched.remaining && sched.pendingCount > 0;
   section.classList.toggle('over', over);
   const cap = section.querySelector('.capacity');
   cap.querySelector('.bar-done').style.width = `${(sched.doneMinutes / scale) * 100}%`;
+  cap.querySelector('.bar-meeting').style.width = `${(sched.meetingMinutes / scale) * 100}%`;
   cap.querySelector('.bar-pending').style.width = `${(sched.mu / scale) * 100}%`;
   const label = section.querySelector('.capacity-label');
   label.textContent = `${formatMinutes(planned)} / ${formatMinutes(sched.capacity)}`;
@@ -209,6 +211,7 @@ function renderBlock(block, ctx) {
   label.title = cap.title = [
     over ? `Te faltan ${formatMinutes(sched.mu - sched.remaining)} (estimado PERT)`
       : `Libre: ${formatMinutes(sched.remaining - sched.mu)} (estimado PERT)`,
+    sched.meetingMinutes ? `Reuniones que bloquean: ${formatMinutes(sched.meetingMinutes)}` : '',
     summary,
   ].filter(Boolean).join('\n');
 
@@ -217,7 +220,7 @@ function renderBlock(block, ctx) {
   // Bloque terminado con pendientes: ofrecer moverlas en vez de sugerir reacomodos.
   const ended = sched.remaining <= 0 && sched.pendingCount > 0;
   const next = ended ? nextOpenBlock() : null;
-  renderEndedBar(section.querySelector('.ended-bar'), block, ended ? list.filter((t) => !t.done) : [], next);
+  renderEndedBar(section.querySelector('.ended-bar'), block, ended ? list.filter((t) => !t.done && !t.meeting) : [], next);
   renderSuggestion(section.querySelector('.suggestion'), ended ? null : computeSuggestion(block, ctx));
 
   const ul = section.querySelector('.list');
@@ -511,7 +514,7 @@ export function setupDay() {
     }
     const all = e.target.closest('.ended-all');
     if (all) {
-      const ids = blockTasks(all.dataset.block).filter((t) => !t.done).map((t) => t.id);
+      const ids = blockTasks(all.dataset.block).filter((t) => !t.done && !t.meeting).map((t) => t.id);
       if (all.dataset.all === 'backlog') {
         unplanMany(ids);
         showToast(`${ids.length} tarea${ids.length > 1 ? 's' : ''} al backlog.`);
@@ -537,8 +540,11 @@ export function setupDay() {
       detailClickTimer = setTimeout(() => showTaskModal(id), 220);
       return;
     }
-    if (e.target.matches('.timer-btn')) toggleTimer(id);
-    else if (e.target.matches('.delete')) deleteTask(id);
+    if (e.target.matches('.timer-btn')) {
+      // Las reuniones no se pausan: el chip abre el detalle (Finalizar / Reprogramar)
+      if (findTask(id)?.meeting && findTask(id).time_entries.at(-1)?.end === null) showTaskModal(id);
+      else toggleTimer(id);
+    }
     else if (e.target.matches('.plan-btn')) planTask(id, e.target.dataset.block);
     else if (e.target.matches('.unplan, .backlog-btn')) {
       unplanTask(id);
@@ -585,11 +591,12 @@ export function setupDay() {
 
   setupDragAndDrop();
 
-  // Los chips de temporizador en marcha se actualizan solos (sin re-renderizar todo).
+  // Los chips de temporizador se actualizan solos (sin re-renderizar todo): el tiempo de los que
+  // corren y el bloqueo de los pausados cuando una reunión que bloquea empieza o termina.
   setInterval(() => {
-    document.querySelectorAll('.timer-btn.running').forEach((chip) => {
+    document.querySelectorAll('.timer-btn:not([hidden])').forEach((chip) => {
       const task = findTask(chip.closest('.task')?.dataset.id);
-      if (task) updateTimerChip(chip, task);
+      if (task) updateTimerChip(chip, task, state.tasks);
     });
   }, 5 * 1000);
 }

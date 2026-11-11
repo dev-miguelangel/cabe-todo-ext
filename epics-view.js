@@ -6,7 +6,7 @@ import { todayISO, dayLabel } from './dates.js';
 import {
   state, findEpic, activeEpics, archivedEpics, epicTasks,
   createEpic, renameEpic, setEpicTarget, archiveEpic, restoreEpic, deleteEpic,
-  addFromText, updateTask, deleteTask, planTask, unplanTask, toggleTimer,
+  addFromText, updateTask, planTask, unplanTask, toggleTimer,
 } from './store.js';
 import { h } from './ui.js';
 import { renderCard } from './cards.js';
@@ -121,6 +121,7 @@ export function renderEpics() {
   const caret = active ? document.activeElement.selectionStart : null;
 
   const ctx = {
+    allTasks: state.tasks,
     byId: new Map(state.tasks.map((t) => [t.id, t])),
     epicsById: new Map(state.epics.map((e) => [e.id, e])),
     critical: criticalIds(state.tasks),
@@ -220,8 +221,11 @@ export function setupEpics() {
         showTaskModal(id);
         return;
       }
-      if (e.target.matches('.timer-btn')) toggleTimer(id);
-      else if (e.target.matches('.delete')) deleteTask(id);
+      if (e.target.matches('.timer-btn')) {
+        const t = state.tasks.find((x) => x.id === id);
+        if (t?.meeting && t.time_entries.at(-1)?.end === null) showTaskModal(id);
+        else toggleTimer(id);
+      }
       else if (e.target.matches('.plan-btn')) planTask(id, e.target.dataset.block);
       else if (e.target.matches('.unplan')) unplanTask(id);
       return;

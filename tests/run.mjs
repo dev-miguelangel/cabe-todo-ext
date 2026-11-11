@@ -222,3 +222,193 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(ex(''), '');
   console.log('OK: documentación (barra de formato + extracto)');
 }
+// ----- Reuniones -----
+{
+  const range = { start: '08:00', end: '13:00' };
+  const meet = (id, start, end, blocking = true, extra = {}) =>
+    mk(id, 0, [], { meeting: { start, end, blocking }, certainty: 'fixed', ...extra });
+  const sure = (id, order, minutes, extra = {}) => mk(id, order, [], { minutes, certainty: 'fixed', ...extra });
+  // advance: 2h desde las 9:00 con reunión 10-11 → termina 12:00
+  assert.equal(P.advance(540, 120, [{ start: 600, end: 660 }]), 720);
+  assert.equal(P.advance(610, 30, [{ start: 600, end: 660 }]), 690, 'si empieza dentro de la reunión, arranca al terminar');
+  // Bloque 8-13 con reunión 10-11 que bloquea: capacidad restante 4h
+  let s = P.scheduleBlock([sure('a', 0, 120), meet('m', '10:00', '11:00'), sure('b', 1, 60)], range, null);
+  assert.equal(s.remaining, 240); assert.equal(s.meetingMinutes, 60);
+  assert.deepEqual(s.items.map((i) => i.task.id), ['a', 'm', 'b'], 'la reunión se ve en su horario');
+  assert.equal(s.items[2].start, 660, 'b empieza al terminar la reunión');
+  assert.equal(s.items[2].finish, 720);
+  assert.equal(s.mu, 180, 'la reunión no suma al trabajo pendiente'); assert.equal(s.probability, 1);
+  // Tarea que cruza la reunión: se pausa y sigue
+  s = P.scheduleBlock([sure('a', 0, 180), meet('m', '10:00', '11:00')], range, null);
+  assert.equal(s.items.find((i) => i.task.id === 'a').finish, 720);
+  // No bloquea: no quita capacidad ni mueve tareas
+  s = P.scheduleBlock([sure('a', 0, 180), meet('m', '10:00', '11:00', false)], range, null);
+  assert.equal(s.remaining, 300); assert.equal(s.items.find((i) => i.task.id === 'a').finish, 660); assert.equal(s.meetingMinutes, 0);
+  // Reunión que bloquea deja el bloque sin espacio → probabilidad baja
+  s = P.scheduleBlock([sure('a', 0, 240), meet('m', '09:00', '11:00')], range, null);
+  assert.equal(s.remaining, 180); assert.equal(s.probability, 0);
+  // Ya pasada (son las 11:30): no descuenta
+  s = P.scheduleBlock([sure('a', 0, 60), meet('m', '09:00', '10:00')], range, 690);
+  assert.equal(s.remaining, 90);
+  // Hecha: no bloquea
+  s = P.scheduleBlock([sure('a', 0, 60), meet('m', '08:00', '12:00', true, { done: true })], range, null);
+  assert.equal(s.remaining, 300);
+  // Depender de una reunión: empieza cuando termina
+  s = P.scheduleBlock([meet('m', '09:00', '10:00', false), mk('a', 0, ['m'], { minutes: 30, certainty: 'fixed' })], range, null);
+  assert.equal(s.items.find((i) => i.task.id === 'a').start, 600);
+  // Reuniones nunca se mueven ni se sugieren
+  const day = [meet('m', '10:00', '11:00', true, { block: 'am', dependencies: ['x'] }), mk('x', 0, [], { block: 'pm' })];
+  assert.equal(P.enforceBlockOrder(day).length, 0); assert.equal(day[0].block, 'am');
+  assert.equal(P.blockForTime('12:30', { am: { end: '13:00' } }), 'am'); assert.equal(P.blockForTime('13:30', { am: { end: '13:00' } }), 'pm');
+  console.log('OK: reuniones (bloqueo, pausa de tareas, orden por horario)');
+}
+// ----- Service worker: reuniones que empiezan (con la API de Chrome simulada) -----
+{
+  const { toISO } = await import(root + '/dates.js');
+  const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const now = new Date();
+  const startD = new Date(now.getTime() - 60 * 1000); // empezó hace 1 min
+  const endD = new Date(now.getTime() + 59 * 60 * 1000);
+  const today = toISO(startD);
+  const base = { minutes: 60, certainty: 'fixed', dependencies: [], done: false, block: 'am', order: 0, comments: [] };
+  const mem = {
+    settings: {},
+    tasks: [
+      { ...base, id: 'w', title: 'Trabajo', date: today, meeting: null, certainty: 'normal', time_entries: [{ start: new Date(now - 600000).toISOString(), end: null }] },
+      { ...base, id: 'm', title: 'Daily', date: today, meeting: { start: hhmm(startD), end: hhmm(endD), blocking: true }, time_entries: [] },
+      { ...base, id: 'p', title: 'Webinar', date: today, meeting: { start: hhmm(startD), end: hhmm(endD), blocking: false }, time_entries: [] },
+    ],
+  };
+  const L = {};
+  const on = (name) => ({ addListener: (fn) => { L[name] = fn; } });
+  const alarms = {};
+  const notes = [];
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: async (keys) => Object.fromEntries([].concat(keys).filter((k) => k in mem).map((k) => [k, structuredClone(mem[k])])),
+        set: async (obj) => { Object.assign(mem, structuredClone(obj)); },
+      },
+      onChanged: on('storage'),
+    },
+    alarms: { create: (n, o) => { alarms[n] = o; }, clear: async (n) => { delete alarms[n]; }, onAlarm: on('alarm') },
+    notifications: { create: (id, o) => notes.push(o), clear() {}, onClicked: on('notif') },
+    runtime: { onInstalled: on('installed'), onStartup: on('startup'), onMessage: on('message'), sendMessage() {} },
+    sidePanel: { setPanelBehavior: async () => {}, open: async () => {} },
+    offscreen: { hasDocument: async () => false, createDocument: async () => {}, closeDocument: async () => {} },
+    windows: { getLastFocused: async () => ({ id: 1 }) },
+  };
+  await import(root + '/background.js');
+  globalThis.__bg = { mem, L }; // para pruebas posteriores del service worker
+  const running = (id) => { const e = mem.tasks.find((t) => t.id === id).time_entries; return e.length > 0 && !e.at(-1).end; };
+
+  await L.alarm({ name: 'meeting-start', scheduledTime: Date.now() });
+  assert.equal(running('m'), true, 'la reunión que bloquea inicia su temporizador');
+  assert.equal(running('w'), false, 'y pausa la tarea que corría');
+  assert.equal(running('p'), false, 'la paralela no se inicia sola');
+  assert.equal(notes.length, 2, 'aviso de ambas reuniones');
+  assert.ok(notes[0].message.includes('ya está corriendo'));
+  // ▶ del botón celeste en la paralela mientras corre la reunión que bloquea → rechazado
+  L.message({ type: 'pertday-start-timer', taskId: 'p' }, {});
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(running('p'), false, 'durante una reunión que bloquea no se inicia otra cosa');
+  assert.equal(running('m'), true, 'la reunión sigue corriendo');
+  // Programar la próxima reunión futura
+  const future = new Date(now.getTime() + 2 * 3600 * 1000);
+  if (toISO(future) === today) {
+    mem.tasks.push({ ...base, id: 'f', title: 'Futura', date: today, meeting: { start: hhmm(future), end: hhmm(new Date(future.getTime() + 1800000)), blocking: true }, time_entries: [] });
+    L.storage({ tasks: { newValue: mem.tasks } }, 'local');
+    await new Promise((r) => setTimeout(r, 20));
+    const [h, mi] = hhmm(future).split(':').map(Number);
+    const expected = new Date(future); expected.setHours(h, mi, 0, 0);
+    assert.equal(alarms['meeting-start']?.when, expected.getTime(), 'alarma a la hora de la próxima reunión');
+  }
+  // Alarma atrasada (o Chrome abierto en medio de la reunión): la tarea se pausa en la HORA DE INICIO
+  const meetStart = new Date(startD); meetStart.setSeconds(0, 0);
+  mem.tasks.find((t) => t.id === 'm').time_entries = [];
+  mem.tasks.find((t) => t.id === 'w').time_entries = [{ start: new Date(now - 30 * 60000).toISOString(), end: null }];
+  await L.alarm({ name: 'meeting-start', scheduledTime: Date.now() });
+  const w = mem.tasks.find((t) => t.id === 'w').time_entries.at(-1);
+  const m = mem.tasks.find((t) => t.id === 'm').time_entries.at(-1);
+  assert.equal(Date.parse(w.end), meetStart.getTime(), 'la tarea se pausa justo cuando empezó la reunión');
+  assert.equal(Date.parse(m.start), meetStart.getTime(), 'la reunión cuenta desde su inicio');
+  assert.equal(running('m'), true);
+  // Si la persona pausa la reunión a mano, no se vuelve a iniciar sola
+  mem.tasks.find((t) => t.id === 'm').time_entries.at(-1).end = new Date().toISOString();
+  await L.alarm({ name: 'meeting-start', scheduledTime: Date.now() });
+  assert.equal(running('m'), false, 'respeta la pausa manual');
+  console.log('OK: service worker (reuniones que empiezan, ▶ desde el botón, próxima alarma, pausa a la hora exacta)');
+}
+// ----- Reunión que bloquea en curso: quién puede iniciar su temporizador -----
+{
+  const at = new Date(2026, 10, 11, 15, 30); // 11 nov 15:30
+  const m = (id, start, end, blocking = true, extra = {}) => ({ id, date: '2026-11-11', done: false, meeting: { start, end, blocking }, ...extra });
+  const tasks = [m('daily', '15:00', '16:00'), m('web', '15:00', '17:00', false), { id: 't', date: '2026-11-11', meeting: null }];
+  assert.equal(P.activeBlockingMeeting(tasks, at).id, 'daily');
+  assert.equal(P.timerBlockedBy(tasks[2], tasks, at).id, 'daily', 'una tarea no puede iniciar');
+  assert.equal(P.timerBlockedBy(tasks[1], tasks, at).id, 'daily', 'una reunión paralela tampoco');
+  assert.equal(P.timerBlockedBy(tasks[0], tasks, at), null, 'la reunión en curso sí');
+  assert.equal(P.timerBlockedBy(tasks[2], tasks, new Date(2026, 10, 11, 16, 0)), null, 'al terminar se libera');
+  assert.equal(P.timerBlockedBy(tasks[2], [m('daily', '15:00', '16:00', true, { done: true })], at), null, 'marcada hecha: libera');
+  assert.equal(P.timerBlockedBy(tasks[2], [m('mañana', '15:00', '16:00', true, { date: '2026-11-12' })], at), null, 'otro día: no bloquea');
+  console.log('OK: reunión que bloquea en curso');
+}
+// ----- Las reuniones no se pausan: solo se finalizan o se reprograman -----
+{
+  const T = await import(root + '/timer.js');
+  const run = (id, extra = {}) => ({ id, meeting: null, time_entries: [{ start: '2026-11-10T10:00:00Z', end: null }], ...extra });
+  const idle = (id, extra = {}) => ({ id, meeting: null, time_entries: [], ...extra });
+  const blockingM = { start: '10:00', end: '11:00', blocking: true };
+  const parallelM = { start: '10:00', end: '11:00', blocking: false };
+  // Tarea normal corriendo → se pausa al iniciar otra
+  assert.deepEqual(T.timerConflicts(idle('b'), [run('a'), idle('b')]).pause.map((t) => t.id), ['a']);
+  // Reunión paralela corriendo → sigue corriendo junto a la tarea
+  assert.deepEqual(T.timerConflicts(idle('b'), [run('m', { meeting: parallelM }), idle('b')]).pause, []);
+  // Reunión que bloquea corriendo (aunque ya pasó su hora) → hay que finalizarla
+  assert.equal(T.timerConflicts(idle('b'), [run('m', { meeting: blockingM }), idle('b')]).blockedBy.id, 'm');
+  // Iniciar una reunión paralela no pausa la tarea en curso
+  assert.deepEqual(T.timerConflicts(idle('p', { meeting: parallelM }), [run('a'), idle('p', { meeting: parallelM })]).pause, []);
+  // Iniciar una reunión que bloquea pausa la tarea pero no una reunión paralela
+  assert.deepEqual(T.timerConflicts(idle('m', { meeting: blockingM }), [run('a'), run('p', { meeting: parallelM }), idle('m', { meeting: blockingM })]).pause.map((t) => t.id), ['a']);
+
+  // Store (usa la API de Chrome simulada de la prueba anterior para guardar)
+  const S = await import(root + '/store.js');
+  const { toISO } = await import(root + '/dates.js');
+  const notes = []; S.setNotifier((m) => notes.push(m));
+  const tomorrow = toISO(new Date(Date.now() + 86400000));
+  S.state.settings = { am: { start: '08:00', end: '13:00' }, pm: { start: '14:00', end: '19:00' }, default_minutes: 30 };
+  const task = (id, extra = {}) => ({ id, title: id, date: tomorrow, block: 'am', order: 0, minutes: 30, certainty: 'normal', dependencies: [], done: false, time_entries: [], comments: [], meeting: null, epic_id: null, ...extra });
+  S.state.tasks = [task('m', { meeting: { start: '09:00', end: '10:00', blocking: false }, certainty: 'fixed', minutes: 60 }), task('a')];
+  const isRun = (id) => T.isRunning(S.findTask(id));
+  S.startTimer('m'); S.startTimer('a');
+  assert.equal(isRun('m') && isRun('a'), true, 'reunión paralela + tarea corren a la vez');
+  S.pauseTimer('m');
+  assert.equal(isRun('m'), true, 'la reunión no se pausa'); assert.match(notes.at(-1), /no se pausan/);
+  S.toggleTimer('m'); assert.equal(isRun('m'), true, 'tampoco con el chip/alternar');
+  // Reprogramar (cambia la hora de inicio) detiene su temporizador
+  assert.equal(S.setMeeting('m', { date: tomorrow, start: '11:00', end: '12:00', blocking: false }), null);
+  assert.equal(isRun('m'), false, 'reprogramar detiene la reunión'); assert.equal(isRun('a'), true, 'la tarea sigue');
+  // Reunión que bloquea corriendo fuera de su horario → no se puede iniciar otra cosa hasta finalizarla
+  S.state.tasks.push(task('b'));
+  S.setMeeting('m', { date: tomorrow, start: '11:00', end: '12:00', blocking: true });
+  S.startTimer('m');
+  assert.equal(isRun('a'), false, 'iniciar la reunión que bloquea pausa la tarea');
+  S.startTimer('b'); assert.equal(isRun('b'), false); assert.match(notes.at(-1), /finalízala/);
+  S.finishMeeting('m');
+  assert.equal(S.findTask('m').done, true); assert.equal(isRun('m'), false, 'finalizar la detiene y la marca hecha');
+  S.startTimer('b'); assert.equal(isRun('b'), true, 'después de finalizar ya se puede');
+
+  // Service worker: ❚❚ del botón flotante no pausa reuniones; ■ las finaliza
+  const { mem, L } = globalThis.__bg;
+  mem.tasks = structuredClone(S.state.tasks);
+  mem.tasks.find((t) => t.id === 'm').done = false;
+  mem.tasks.find((t) => t.id === 'm').time_entries.push({ start: new Date().toISOString(), end: null });
+  L.message({ type: 'pertday-pause-timer' }, {});
+  await new Promise((r) => setTimeout(r, 20));
+  const runM = (id) => { const e = mem.tasks.find((t) => t.id === id).time_entries; return e.length > 0 && !e.at(-1).end; };
+  assert.equal(runM('m'), true, '❚❚ no pausa la reunión'); assert.equal(runM('b'), false, '❚❚ sí pausa la tarea');
+  L.message({ type: 'pertday-finish-meeting', taskId: 'm' }, {});
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(runM('m'), false); assert.equal(mem.tasks.find((t) => t.id === 'm').done, true, '■ finaliza la reunión');
+  console.log('OK: reuniones no se pausan (finalizar / reprogramar, paralela junto a una tarea)');
+}
