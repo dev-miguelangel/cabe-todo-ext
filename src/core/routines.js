@@ -73,14 +73,14 @@ export function repeatToken(days) {
 }
 
 /** Molde a partir de una tarea (título, duración, certeza, épica, bloque y horario si es reunión). */
-export function routineFrom(task, { id, days, startDate, now = new Date() }) {
+export function routineFrom(task, { id, days, startDate, block = 'am', now = new Date() }) {
   return {
     id,
     title: task.title,
     minutes: task.minutes,
     certainty: task.certainty,
     epic_id: task.epic_id ?? null,
-    block: task.block || 'am',
+    block: task.block || block, // sin bloque (backlog): el que indique quien llama
     meeting: task.meeting ? { ...task.meeting } : null,
     days: sortDays(days),
     start_date: startDate,

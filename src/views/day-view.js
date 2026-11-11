@@ -1,4 +1,4 @@
-// Vista "Hoy": bloques AM/PM, filtro por épica, bandeja, dependencias y drag & drop.
+// Vista "Hoy": bloques del día (Ajustes), filtro por épica, bandeja, dependencias y drag & drop.
 
 import { formatMinutes } from '../core/parser.js';
 import { scheduleBlock, isNowInBlock, criticalIds, wouldCreateCycle, canDepend, suggestMove } from '../core/pert.js';
@@ -13,9 +13,7 @@ import { renderCard, updateTimerChip } from '../components/cards.js';
 import { trackedMs } from '../core/timer.js';
 import { showTaskModal } from '../components/task-modal.js';
 import { toQuickAddText } from '../core/parser.js';
-
-const BLOCKS = ['am', 'pm'];
-const BLOCK_ICON = { am: '☀︎', pm: '☾' };
+import { blocksOf, blockById, blockRange, blockIcon, blockIndex, blocksAfter, firstBlock, lastBlock } from '../core/blocks.js';
 const BACKLOG_OPEN_KEY = 'cabetodo:backlogOpen';
 
 /** "Ahora" en minutos para el día que se está viendo: null si es futuro, fin del día si es pasado. */
@@ -36,41 +34,51 @@ function makeCtx() {
   };
 }
 
-const BLOCK_LABEL = { am: 'la mañana', pm: 'la tarde' };
+/** "Mañana" → "Mañana" para frases: "a ☾ Tarde", "en ☀︎ Mañana". */
+const blockLabel = (id) => {
+  const b = blockById(state.settings, id);
+  return b ? `${b.icon} ${b.title}` : '';
+};
+const weekday = (iso) => shortLabel(iso).split(' ')[0];
+
+/** Destinos del día siguiente: su primer bloque. */
+function tomorrowTarget(from = state.viewDate) {
+  const next = shiftDate(from, 1);
+  const first = firstBlock(state.settings);
+  return {
+    date: next, block: first.id, label: `al ${shortLabel(next)} en ${blockLabel(first.id)}`,
+    tasks: blockTasks(first.id, next), range: blockRange(state.settings, first.id), nowMin: null,
+  };
+}
 
 /**
- * Si el bloque va mal (< 50%), sugiere mover una tarea al otro bloque del mismo día
- * o a la mañana del día siguiente. Nunca sugiere mover tareas de las que otra depende.
+ * Si el bloque va mal (< 50%), sugiere mover una tarea a otro bloque del mismo día que aún
+ * tenga tiempo o al primer bloque del día siguiente. Nunca sugiere mover tareas de las que otra depende.
  */
 function computeSuggestion(block, ctx) {
   if (state.viewDate < todayISO()) return null;
   const nowMin = nowMinutesFor(state.viewDate);
-  const other = block === 'am' ? 'pm' : 'am';
-  const next = shiftDate(state.viewDate, 1);
-  const targets = [];
-  if (scheduleBlock([], state.settings[other], nowMin).remaining > 0) {
-    targets.push({
-      date: state.viewDate, block: other, label: `a ${BLOCK_LABEL[other]}`,
-      tasks: blockTasks(other), range: state.settings[other], nowMin,
-    });
-  }
-  targets.push({
-    date: next, block: 'am', label: `al ${shortLabel(next)} en la mañana`,
-    tasks: blockTasks('am', next), range: state.settings.am, nowMin: null,
-  });
+  const targets = blocksOf(state.settings)
+    .filter((b) => b.id !== block && scheduleBlock([], b, nowMin).remaining > 0)
+    .map((b) => ({
+      date: state.viewDate, block: b.id, label: `a ${blockLabel(b.id)}`,
+      tasks: blockTasks(b.id), range: blockRange(state.settings, b.id), nowMin,
+    }));
+  targets.push(tomorrowTarget());
 
+  const rank = (id) => blockIndex(state.settings, id);
   const canMove = (task, target) => {
     // A otro día: solo tareas sueltas (sus dependencias del día dejarían de valer).
     if (target.date !== task.date) return task.dependencies.length === 0;
-    // De la tarde a la mañana: no si algo de lo que depende está en la tarde.
-    if (target.block === 'am') {
-      return !task.dependencies.some((id) => ctx.byId.get(id)?.date === task.date && ctx.byId.get(id)?.block === 'pm');
-    }
-    return true;
+    // A un bloque anterior: no si algo de lo que depende está en un bloque posterior a ese.
+    return !task.dependencies.some((id) => {
+      const dep = ctx.byId.get(id);
+      return dep?.date === task.date && dep.block && rank(dep.block) > rank(target.block);
+    });
   };
 
   return suggestMove(
-    { tasks: blockTasks(block), range: state.settings[block], nowMin },
+    { tasks: blockTasks(block), range: blockRange(state.settings, block), nowMin },
     targets,
     { critical: ctx.critical, canMove },
   );
@@ -85,12 +93,12 @@ const pctText = (p) => `${Math.round(p * 100)} %`;
 function probabilityOf(block, without = false) {
   let list = blockTasks(block);
   if (without) list = list.slice(0, -1);
-  return scheduleBlock(list, state.settings[block], nowMinutesFor(state.viewDate)).probability;
+  return scheduleBlock(list, blockRange(state.settings, block), nowMinutesFor(state.viewDate)).probability;
 }
 
 /**
  * Si la tarea recién agregada deja su bloque bajo 50 % (y antes no lo estaba), ofrecer
- * en el mismo momento llevarla a donde sí cabe: el otro bloque de hoy o mañana en la mañana.
+ * en el mismo momento llevarla a donde sí cabe: un bloque posterior del mismo día o el primero de mañana.
  */
 function warnIfOverloaded(task, before) {
   if (!task.date || !task.block || state.viewDate < todayISO()) return;
@@ -98,13 +106,11 @@ function warnIfOverloaded(task, before) {
   if (after === null || after >= OVERLOAD_BELOW || (before !== null && before !== undefined && before < OVERLOAD_BELOW)) return;
 
   const nowMin = nowMinutesFor(state.viewDate);
-  const other = task.block === 'am' ? 'pm' : 'am';
-  const next = shiftDate(state.viewDate, 1);
-  const options = [];
-  if (other === 'pm' && scheduleBlock([], state.settings.pm, nowMin).remaining > 0) {
-    options.push({ date: state.viewDate, block: 'pm', label: 'a la tarde', range: state.settings.pm, nowMin, tasks: blockTasks('pm') });
-  }
-  options.push({ date: next, block: 'am', label: `el ${shortLabel(next).split(' ')[0]} en la mañana`, range: state.settings.am, nowMin: null, tasks: blockTasks('am', next) });
+  const options = blocksAfter(state.settings, task.block)
+    .filter((b) => scheduleBlock([], b, nowMin).remaining > 0)
+    .map((b) => ({ date: state.viewDate, block: b.id, label: `a ${blockLabel(b.id)}`, range: blockRange(state.settings, b.id), nowMin, tasks: blockTasks(b.id) }));
+  const tomorrow = tomorrowTarget();
+  options.push({ ...tomorrow, label: `el ${weekday(tomorrow.date)} en ${blockLabel(tomorrow.block)}` });
 
   const moved = { ...task, order: Number.MAX_SAFE_INTEGER, dependencies: [] };
   const fit = options
@@ -112,7 +118,7 @@ function warnIfOverloaded(task, before) {
     .map((o) => ({ ...o, p: scheduleBlock([...o.tasks, moved], o.range, o.nowMin).probability }))
     .find((o) => o.p !== null && o.p >= OVERLOAD_BELOW);
 
-  const where = BLOCK_LABEL[task.block];
+  const where = blockLabel(task.block);
   if (!fit) {
     showToast(`Con "${task.title}", ${where} queda en ${pctText(after)}.`);
     return;
@@ -121,7 +127,7 @@ function warnIfOverloaded(task, before) {
     label: 'Mover',
     run: () => {
       planTask(task.id, fit.block, fit.date);
-      showToast(`"${task.title}" → ${fit.date === state.viewDate ? BLOCK_LABEL[fit.block] : `${shortLabel(fit.date)}, en la mañana`}.`);
+      showToast(`"${task.title}" → ${fit.date === state.viewDate ? blockLabel(fit.block) : `${shortLabel(fit.date)}, en ${blockLabel(fit.block)}`}.`);
     },
   });
 }
@@ -142,20 +148,19 @@ function renderSuggestion(el, sug) {
 
 /**
  * Próximo bloque que todavía no termina, contando desde ahora:
- * la mañana de hoy, la tarde de hoy o la mañana del día siguiente.
+ * el siguiente bloque de hoy o, si ya terminaron todos, el primero del día siguiente.
  */
 function nextOpenBlock() {
   const today = todayISO();
   const now = nowMinutes();
-  let target;
-  if (now < toMinutes(state.settings.am.end)) target = { date: today, block: 'am' };
-  else if (now < toMinutes(state.settings.pm.end)) target = { date: today, block: 'pm' };
-  else target = { date: shiftDate(today, 1), block: 'am' };
+  const open = blocksOf(state.settings).find((b) => now < toMinutes(b.end));
+  const target = open ? { date: today, block: open.id } : { date: shiftDate(today, 1), block: firstBlock(state.settings).id };
   const isToday = target.date === today;
+  const icon = blockIcon(state.settings, target.block);
   return {
     ...target,
-    label: isToday ? `→ ${target.block.toUpperCase()}` : `→ ${shortLabel(target.date).split(' ')[0]} ${target.block.toUpperCase()}`,
-    title: isToday ? `Mover a ${BLOCK_LABEL[target.block]} de hoy` : `Mover al ${shortLabel(target.date)}, en ${BLOCK_LABEL[target.block]}`,
+    label: isToday ? `→ ${icon}` : `→ ${weekday(target.date)} ${icon}`,
+    title: isToday ? `Mover a ${blockLabel(target.block)} de hoy` : `Mover al ${shortLabel(target.date)}, en ${blockLabel(target.block)}`,
   };
 }
 
@@ -172,14 +177,14 @@ function renderEndedBar(el, block, pending, next) {
 
 // ---------- Cierre del día ----------
 
-/** ¿Ya terminó la tarde de hoy (y hay algo que cerrar)? */
+/** ¿Ya terminó el último bloque de hoy (y hay algo que cerrar)? */
 function dayIsClosing() {
   return state.viewDate === todayISO()
-    && nowMinutes() >= toMinutes(state.settings.pm.end)
+    && nowMinutes() >= toMinutes(lastBlock(state.settings).end)
     && dayTasks().length > 0;
 }
 
-/** Resumen al terminar la tarde: hecho, pendiente, real vs estimado y mover lo pendiente a mañana. */
+/** Resumen al terminar el último bloque: hecho, pendiente, real vs estimado y mover lo pendiente a mañana. */
 function renderDayClose() {
   const section = document.getElementById('day-close');
   section.hidden = !dayIsClosing();
@@ -192,9 +197,9 @@ function renderDayClose() {
   const real = timed.reduce((sum, t) => sum + trackedMs(t) / 60000, 0);
   const planned = timed.reduce((sum, t) => sum + t.minutes, 0);
   const tomorrow = shiftDate(state.viewDate, 1);
-  const tomorrowLabel = shortLabel(tomorrow).split(' ')[0];
+  const first = firstBlock(state.settings);
 
-  const lines = [h('h2', {}, '☾ Cierre del día')];
+  const lines = [h('h2', {}, '✓ Cierre del día')];
   lines.push(h('p', { class: 'close-stat' },
     h('span', { class: 'close-done' }, `✓ ${done.length} de ${work.length} hecha${work.length === 1 ? '' : 's'}`),
     timed.length ? h('span', {
@@ -209,8 +214,8 @@ function renderDayClose() {
       h('span', { class: 'close-actions' },
         h('button', {
           class: 'close-btn primary', dataset: { close: 'next' },
-          title: `Mover las pendientes al ${shortLabel(tomorrow)}, en la mañana`,
-        }, `Todo → ${tomorrowLabel} AM`),
+          title: `Mover las pendientes al ${shortLabel(tomorrow)}, en ${blockLabel(first.id)}`,
+        }, `Todo → ${weekday(tomorrow)} ${first.icon}`),
         h('button', { class: 'close-btn', dataset: { close: 'backlog' }, title: 'Enviar las pendientes al backlog' }, 'Todo ⤓'))));
   } else {
     lines.push(h('p', { class: 'close-clear' }, 'Nada pendiente. Buen día ✓'));
@@ -236,8 +241,12 @@ function renderOverdue(ctx) {
     section.querySelector('.list').replaceChildren();
     return;
   }
-  list.sort((a, b) => a.date.localeCompare(b.date) || a.block.localeCompare(b.block) || a.order - b.order);
+  const rank = (id) => blockIndex(state.settings, id);
+  list.sort((a, b) => a.date.localeCompare(b.date) || rank(a.block) - rank(b.block) || a.order - b.order);
   section.querySelector('.count').textContent = `(${list.length})`;
+  section.querySelector('.bulk-actions').replaceChildren(...blocksOf(state.settings).map((b) => h('button', {
+    class: 'bulk-btn', dataset: { bulk: b.id }, title: `Mover todas a ${b.icon} ${b.title} de hoy`,
+  }, `Todo → ${b.icon}`)));
   section.querySelector('.list').replaceChildren(...list.map((task) => renderCard(task, {
     ctx, draggable: true, plan: true, unplan: true, when: true, dim: dimmed(task),
   })));
@@ -293,9 +302,37 @@ function epicSummary(list, ctx) {
     .join(' · ');
 }
 
+// ---------- Tablero: una sección por bloque de Ajustes ----------
+
+const blockTemplate = document.getElementById('block-template');
+
+/** Crea (o actualiza) las secciones del tablero según los bloques configurados. */
+function syncBoard() {
+  const board = document.getElementById('board');
+  const blocks = blocksOf(state.settings);
+  const current = [...board.children].map((s) => s.dataset.block).join(',');
+  if (current !== blocks.map((b) => b.id).join(',')) {
+    board.replaceChildren(...blocks.map((b) => {
+      const section = blockTemplate.content.firstElementChild.cloneNode(true);
+      section.dataset.block = b.id;
+      section.querySelector('.list').dataset.list = b.id;
+      attachEpicAutocomplete(section.querySelector('.quick-add input'), activeEpics);
+      return section;
+    }));
+  }
+  for (const b of blocks) {
+    const section = board.querySelector(`.block[data-block="${b.id}"]`);
+    section.querySelector('.block-icon').textContent = b.icon;
+    section.querySelector('.block-title').textContent = b.title;
+    section.querySelector('.list').setAttribute('aria-label', `Tareas de ${b.title}`);
+    section.querySelector('.quick-add input').setAttribute('aria-label', `Nueva tarea en ${b.title}`);
+  }
+  return blocks;
+}
+
 function renderBlock(block, ctx) {
   const section = document.querySelector(`.block[data-block="${block}"]`);
-  const range = state.settings[block];
+  const range = blockRange(state.settings, block);
   const list = blockTasks(block);
   const sched = scheduleBlock(list, range, nowMinutesFor(state.viewDate));
 
@@ -364,7 +401,7 @@ export function renderDay() {
   renderFilters();
   renderOverdue(ctx);
   renderDayClose();
-  BLOCKS.forEach((block) => renderBlock(block, ctx));
+  syncBoard().forEach((b) => renderBlock(b.id, ctx));
   renderBacklog(ctx);
   refreshDepsMenu();
 }
@@ -397,7 +434,7 @@ function depCandidates(task) {
     .filter((o) => canDepend(task, o) && (o.date === task.date || !o.done))
     .sort((a, b) => rank(a) - rank(b)
       || (a.date || '').localeCompare(b.date || '')
-      || (a.block || '').localeCompare(b.block || '')
+      || blockIndex(state.settings, a.block) - blockIndex(state.settings, b.block)
       || a.order - b.order);
 }
 
@@ -416,8 +453,9 @@ function fillDepsMenu() {
   for (const other of candidates) {
     const checked = task.dependencies.includes(other.id);
     const blocked = !checked && wouldCreateCycle(state.tasks, task.id, other.id);
-    const where = other.date === task.date ? BLOCK_ICON[other.block] || '⤓'
-      : other.date ? `${shortLabel(other.date)} ${BLOCK_ICON[other.block]}` : '⤓';
+    const icon = blockIcon(state.settings, other.block);
+    const where = other.date === task.date ? icon || '⤓'
+      : other.date ? `${shortLabel(other.date)} ${icon}` : '⤓';
     const box = h('input', { type: 'checkbox', checked, disabled: blocked });
     box.addEventListener('change', () => setDependency(task.id, other.id, box.checked));
     nodes.push(h('label', {
@@ -520,9 +558,12 @@ function persistFromDom() {
 }
 
 function setupDragAndDrop() {
-  document.querySelectorAll('#view-day .list[data-list]').forEach((ul) => {
-    ul.addEventListener('dragover', (e) => {
-      if (!draggingId) return;
+  // Delegado en la vista: las secciones de los bloques se crean y recrean según Ajustes.
+  const lists = document.getElementById('view-day');
+  {
+    lists.addEventListener('dragover', (e) => {
+      const ul = e.target.closest?.('.list[data-list]');
+      if (!draggingId || !ul) return;
       e.preventDefault();
       ul.classList.add('drag-over');
 
@@ -548,14 +589,16 @@ function setupDragAndDrop() {
       if (after) ul.insertBefore(dragged, after);
       else ul.append(dragged);
     });
-    ul.addEventListener('dragleave', (e) => {
-      if (!ul.contains(e.relatedTarget)) ul.classList.remove('drag-over');
+    lists.addEventListener('dragleave', (e) => {
+      const ul = e.target.closest?.('.list[data-list]');
+      if (ul && !ul.contains(e.relatedTarget)) ul.classList.remove('drag-over');
     });
-    ul.addEventListener('drop', (e) => {
+    lists.addEventListener('drop', (e) => {
+      if (!e.target.closest?.('.list[data-list]')) return;
       e.preventDefault();
       dropped = true;
     });
-  });
+  }
 
   const view = document.getElementById('view-day');
   view.addEventListener('dragstart', (e) => {
@@ -590,22 +633,22 @@ function setupDragAndDrop() {
 // ---------- Eventos ----------
 
 export function setupDay() {
-  document.querySelectorAll('.block').forEach((section) => {
-    const block = section.dataset.block;
-    const form = section.querySelector('.quick-add');
+  // Quick-add de cada bloque (delegado: las secciones se crean según Ajustes)
+  const board = document.getElementById('board');
+  board.addEventListener('submit', (e) => {
+    const form = e.target.closest('.quick-add');
+    if (!form) return;
+    e.preventDefault();
+    const block = form.closest('.block').dataset.block;
     const input = form.querySelector('input');
-    attachEpicAutocomplete(input, activeEpics);
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const before = block && probabilityOf(block);
-      const task = addFromText(input.value, { date: state.viewDate, block });
-      if (!task) return;
-      input.value = '';
-      warnIfOverloaded(task, task.block === block ? before : probabilityOf(task.block, true));
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') input.value = '';
-    });
+    const before = probabilityOf(block);
+    const task = addFromText(input.value, { date: state.viewDate, block });
+    if (!task) return;
+    input.value = '';
+    if (task !== true) warnIfOverloaded(task, task.block === block ? before : probabilityOf(task.block, true));
+  });
+  board.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && e.target.matches('.quick-add input')) e.target.value = '';
   });
 
   const view = document.getElementById('view-day');
@@ -635,9 +678,9 @@ export function setupDay() {
         unplanMany(ids);
         showToast(`${n} al backlog.`);
       } else {
-        const tomorrow = shiftDate(state.viewDate, 1);
-        planMany(ids, 'am', tomorrow);
-        showToast(`${n} → ${shortLabel(tomorrow)}, en la mañana.`);
+        const { date, block } = tomorrowTarget();
+        planMany(ids, block, date);
+        showToast(`${n} → ${shortLabel(date)}, en ${blockLabel(block)}.`);
       }
       return;
     }

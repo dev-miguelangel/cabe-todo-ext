@@ -6,11 +6,11 @@
 
 <br clear="left">
 
-Extensión de Chrome (Manifest V3) para planificar **un solo día** en dos bloques: **mañana (AM)** y **tarde (PM)**.
+Extensión de Chrome (Manifest V3) para planificar **un solo día** en bloques: por defecto **mañana** y **tarde**, o hasta 5 bloques propios (título, ícono y horario).
 
 Por fuera es un tablero simple de tarjetas. Por dentro usa [PERT](https://es.wikipedia.org/wiki/T%C3%A9cnica_de_revisi%C3%B3n_y_evaluaci%C3%B3n_de_programas) para responder una sola pregunta:
 
-> **¿Me alcanza la mañana (o la tarde) para todo lo que puse?**
+> **¿Me alcanza este bloque del día para todo lo que puse?**
 
 El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: solo ve resultados en lenguaje simple ("85 % de terminar a tiempo").
 
@@ -32,6 +32,7 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 ## Funcionalidades
 
 - **Crear una tarea en menos de 3 segundos**: una caja de texto y Enter (`Informe 2h ? pm #web`).
+- **Bloques personalizables**: hasta 5 por día, cada uno con título, ícono y horario, sin superponerse.
 - **Pronóstico por bloque**: probabilidad de terminar a tiempo, calculada con PERT y calibrada con tu tiempo real.
 - **Dependencias** ("va después de…") que ordenan el bloque y marcan la ruta crítica.
 - **Temporizador por tarea** con alarma sonora y temporizador flotante en las páginas que visitas.
@@ -63,7 +64,8 @@ Requiere Chrome 116 o superior (Side Panel API y documentos *offscreen*).
 | --- | --- |
 | `Responder correos` | Tarea con la duración por defecto, en el bloque actual |
 | `Informe mensual 2h` | 2 horas de duración estimada |
-| `Llamar a Juan 15m pm` | 15 minutos, en el bloque de la tarde |
+| `Llamar a Juan 15m @tarde` | 15 minutos, en el bloque *Tarde* (sirve con cualquier bloque: `@gym`) |
+| `Llamar a Juan 15m pm` | Igual que `@tarde`: `am` / `pm` siguen funcionando |
 | `Revisar PR 1h ?` | No estoy seguro: más margen en el pronóstico |
 | `Pagar luz 10m !` | Estoy seguro: menos margen |
 | `Diseño home 3h #web` | Asignada a la épica *web* |
@@ -96,7 +98,7 @@ cabe-todo/
 │   │   └── offscreen/         # Documento offscreen para reproducir sonido
 │   ├── views/                 # Vistas del panel: día, épicas, docs y ajustes
 │   ├── components/            # Piezas de UI reutilizables: tarjeta, modal, comentarios, editor
-│   ├── core/                  # Lógica de dominio pura: PERT, parser, rutinas, temporizador
+│   ├── core/                  # Lógica de dominio pura: PERT, bloques, parser, rutinas, temporizador
 │   ├── services/              # Estado y persistencia: store, storage, sonido
 │   ├── utils/                 # Utilidades: fechas, Markdown, helpers de DOM, arranque de tema
 │   └── styles/                # Temas visuales (theme-trello.css)

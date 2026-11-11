@@ -1098,3 +1098,39 @@ kbd { background: var(--field); }
 .repeat-section .mf-actions { margin-top: 8px; }
 .task .repeat-mark { color: var(--muted); }
 .task-meta .meta-link + .meta-link { margin-left: 10px; }
+
+/* ---------- Ajustes: bloques del día ---------- */
+.blocks-editor { flex-direction: column; align-items: stretch !important; container-type: inline-size; }
+.blocks-editor .settings-note { margin: 0; }
+.block-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.block-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 6px;
+  padding: 6px; border-radius: 10px; background: var(--raised);
+  box-shadow: inset 0 0 0 1px transparent;
+}
+.block-row.invalid { box-shadow: inset 0 0 0 1px var(--over); }
+.block-row.invalid .block-times input { color: var(--over); }
+.settings .block-icon-select { padding: 6px 4px; font-size: 15px; text-align: center; }
+.block-title-input {
+  min-width: 0; font: inherit; padding: 6px 10px; border: 0; border-radius: 8px;
+  background: var(--field); color: var(--text);
+}
+.block-title-input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.block-times { display: inline-flex; align-items: center; gap: 4px; }
+.block-dash { color: var(--muted); }
+.block-remove {
+  border: 0; background: none; color: var(--muted); padding: 4px 6px; border-radius: 6px; font-size: 12px;
+}
+.block-remove:hover:not(:disabled) { color: var(--over); background: var(--hover); }
+.block-remove:disabled { opacity: 0.3; cursor: not-allowed; }
+.blocks-editor #add-block { align-self: flex-start; padding: 4px 0; }
+.blocks-editor #add-block:disabled { color: var(--muted); cursor: not-allowed; }
+.overdue-head .bulk-actions { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.task .plan { flex-wrap: wrap; }
+/* En el panel angosto: horas debajo del título */
+@container (max-width: 460px) {
+  .block-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .block-remove { grid-column: 3; grid-row: 1; }
+  .block-times { grid-column: 1 / -1; grid-row: 2; }
+  .settings .block-times input { flex: 1; min-width: 0; padding: 6px 8px; }
+}

@@ -6,12 +6,11 @@ import { todayISO, toMinutes } from '../utils/dates.js';
 import { isRunning, zeroAt, remainingMs, timerConflicts } from '../core/timer.js';
 import { activeBlockingMeeting, timerBlockedBy } from '../core/pert.js';
 import { dueInstances } from '../core/routines.js';
+import { blocksOf, blockById } from '../core/blocks.js';
 
 /** Rutas absolutas desde la raíz de la extensión (el worker vive en src/background/). */
 const ICON_URL = '/assets/icons/icon128.png';
 
-const BLOCKS = ['am', 'pm'];
-const BLOCK_NAME = { am: 'mañana', pm: 'tarde' };
 const ALARM_PREFIX = 'block-end-';
 // Si el computador estaba dormido y la alarma llega tarde, no avisar algo que ya no sirve.
 const MAX_DELAY_MS = 60 * 60 * 1000;
@@ -33,10 +32,12 @@ function nextOccurrence(hhmm, now = new Date()) {
 
 async function scheduleAlarms() {
   const { settings } = await loadData();
-  await Promise.all(BLOCKS.map((b) => chrome.alarms.clear(ALARM_PREFIX + b)));
+  // Borrar todas las de fin de bloque (también las de bloques que ya no existen)
+  const alarms = await chrome.alarms.getAll();
+  await Promise.all(alarms.filter((a) => a.name.startsWith(ALARM_PREFIX)).map((a) => chrome.alarms.clear(a.name)));
   if (!settings.notify) return;
-  for (const block of BLOCKS) {
-    chrome.alarms.create(ALARM_PREFIX + block, { when: nextOccurrence(settings[block].end) });
+  for (const block of blocksOf(settings)) {
+    chrome.alarms.create(ALARM_PREFIX + block.id, { when: nextOccurrence(block.end) });
   }
 }
 
@@ -47,17 +48,19 @@ async function notifyBlockEnd(block) {
   const own = tasks.filter((t) => t.date === today && t.block === block);
   if (!own.length) return;
   const pending = own.filter((t) => !t.done);
-  const name = BLOCK_NAME[block];
+  const info = blockById(settings, block);
+  if (!info) return;
+  const name = `${info.icon} ${info.title}`;
 
   let title;
   let message;
   if (pending.length) {
     const n = pending.length;
-    title = `Terminó la ${name}`;
+    title = `Terminó ${name}`;
     const list = pending.slice(0, 3).map((t) => t.title).join(', ') + (n > 3 ? '…' : '');
     message = `${n === 1 ? 'Te queda 1 tarea' : `Te quedan ${n} tareas`}: ${list}`;
   } else {
-    title = `Terminaste todo lo de la ${name}`;
+    title = `Terminaste todo en ${name}`;
     message = `${own.length} tarea${own.length > 1 ? 's' : ''} hecha${own.length > 1 ? 's' : ''}.`;
   }
   chrome.notifications.create(`cabetodo-${today}-${block}`, {

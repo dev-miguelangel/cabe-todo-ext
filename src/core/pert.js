@@ -5,6 +5,9 @@
 // de terminar el bloque a tiempo.
 
 import { toISO, shiftDate, toMinutes, nowMinutes } from '../utils/dates.js';
+import { blocksOf, blockForTime, blockIndex } from './blocks.js';
+
+export { blockForTime };
 
 /** Multiplicadores de O y P sobre M según la certeza del usuario. */
 export const CERTAINTY = {
@@ -14,7 +17,6 @@ export const CERTAINTY = {
   unsure: { o: 0.5, p: 3 },
 };
 
-const BLOCKS = ['am', 'pm'];
 const MAX_FORECAST_DAYS = 366;
 
 /** Minutos disponibles en un bloque { start: "08:00", end: "13:00" }. */
@@ -28,10 +30,11 @@ export function isNowInBlock(range, now = new Date()) {
   return current >= toMinutes(range.start) && current < toMinutes(range.end);
 }
 
-/** Bloque por defecto según la hora: antes del fin de la mañana → am, si no → pm. */
+/** Bloque por defecto según la hora: el que está en curso o el próximo; después del último, el último. */
 export function currentBlock(settings, now = new Date()) {
   const current = nowMinutes(now);
-  return current < toMinutes(settings.am.end) ? 'am' : 'pm';
+  const blocks = blocksOf(settings);
+  return (blocks.find((b) => current < toMinutes(b.end)) || blocks.at(-1)).id;
 }
 
 // ---------- Calibración: aprender de cuánto tardas de verdad ----------
@@ -143,10 +146,6 @@ export function meetingRange(task) {
   return { start: toMinutes(task.meeting.start), end: toMinutes(task.meeting.end) };
 }
 
-/** Bloque al que pertenece una hora: antes del fin de la mañana → am; si no → pm. */
-export function blockForTime(hhmm, settings) {
-  return toMinutes(hhmm) < toMinutes(settings.am.end) ? 'am' : 'pm';
-}
 
 /** Intervalos ocupados por reuniones que bloquean (pendientes), recortados a [lo, hi] y unidos. */
 export function blockedIntervals(tasks, lo, hi) {
@@ -310,23 +309,27 @@ export function wouldCreateCycle(dayTasks, taskId, predId) {
 }
 
 /**
- * Regla: una tarea no puede estar en la mañana si algo de lo que depende está en la tarde.
- * Mueve esas tareas (y en cascada sus dependientes) al final de la tarde.
+ * Regla: una tarea no puede estar en un bloque anterior al de algo de lo que depende
+ * (no puede ir en la mañana si su dependencia está en la tarde).
+ * Mueve esas tareas (y en cascada sus dependientes) al final del bloque de su dependencia.
  * Muta `dayTasks` y devuelve [{ task, because }] con lo que se movió.
  */
-export function enforceBlockOrder(dayTasks) {
+export function enforceBlockOrder(dayTasks, settings) {
   const byId = new Map(dayTasks.map((t) => [t.id, t]));
+  const rank = (id) => blockIndex(settings, id);
   const moved = [];
   let changed = true;
   while (changed) {
     changed = false;
     for (const t of dayTasks) {
-      if (t.block !== 'am' || isMeeting(t)) continue; // las reuniones tienen hora fija
-      const blocker = (t.dependencies || []).map((id) => byId.get(id)).find((p) => p && p.block === 'pm');
+      if (!t.block || isMeeting(t)) continue; // las reuniones tienen hora fija
+      const blocker = (t.dependencies || []).map((id) => byId.get(id))
+        .filter((p) => p && p.block && rank(p.block) > rank(t.block))
+        .sort((a, b) => rank(b.block) - rank(a.block))[0];
       if (!blocker) continue;
-      const pmOrders = dayTasks.filter((x) => x.block === 'pm').map((x) => x.order);
-      t.block = 'pm';
-      t.order = pmOrders.length ? Math.max(...pmOrders) + 1 : 0;
+      const orders = dayTasks.filter((x) => x.block === blocker.block).map((x) => x.order);
+      t.block = blocker.block;
+      t.order = orders.length ? Math.max(...orders) + 1 : 0;
       moved.push({ task: t, because: blocker });
       changed = true;
     }
@@ -387,7 +390,8 @@ export function epicForecast(epic, tasks, settings, now = new Date()) {
     variance += est.variance;
   }
   const sigma = Math.sqrt(variance);
-  const avgBlock = (blockCapacity(settings.am) + blockCapacity(settings.pm)) / 2 || 1;
+  const blocks = blocksOf(settings);
+  const avgBlock = blocks.reduce((sum, b) => sum + blockCapacity(b), 0) / blocks.length || 1;
 
   let capacity = null;
   let probability = null;
@@ -397,8 +401,8 @@ export function epicForecast(epic, tasks, settings, now = new Date()) {
     capacity = 0;
     let day = today;
     for (let i = 0; i < MAX_FORECAST_DAYS && day <= epic.target_date; i += 1) {
-      for (const block of BLOCKS) {
-        const range = settings[block];
+      for (const range of blocks) {
+        const block = range.id;
         const start = toMinutes(range.start);
         const end = toMinutes(range.end);
         const from = day === today ? Math.min(end, Math.max(start, current)) : start;

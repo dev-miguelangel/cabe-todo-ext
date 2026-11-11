@@ -12,10 +12,10 @@ import {
   setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat,
 } from '../services/store.js';
 import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
+import { blockName, blockRange, firstBlock } from '../core/blocks.js';
 import { createComments } from './comments.js';
 import { h, openModal, closeModal, isModalOpen, showToast } from '../utils/ui.js';
 
-const BLOCK_NAME = { am: '☀︎ mañana', pm: '☾ tarde' };
 
 // Estado del modal (sobrevive a los re-render que provoca cada cambio guardado)
 let currentId = null;
@@ -29,7 +29,7 @@ const comments = createComments({ rerender: () => render() });
 function whereText(task) {
   if (!task.date) return '⤓ backlog';
   const day = task.date === todayISO() ? 'hoy' : shortLabel(task.date);
-  return `${day} · ${BLOCK_NAME[task.block]}`;
+  return `${day} · ${blockName(state.settings, task.block)}`;
 }
 
 // ---------- Secciones ----------
@@ -74,7 +74,7 @@ function repeatSection(task) {
     title: days.includes(d) ? 'Quitar este día' : 'Agregar este día',
     onclick: () => save(days.includes(d) ? days.filter((x) => x !== d) : [...days, d]),
   }, DAY_LETTER[d]);
-  const where = task.meeting ? `${task.meeting.start}–${task.meeting.end}` : BLOCK_NAME[routine?.block || task.block || 'am'];
+  const where = task.meeting ? `${task.meeting.start}–${task.meeting.end}` : blockName(state.settings, routine?.block || task.block || firstBlock(state.settings).id);
   return h('section', { class: 'detail-section repeat-section' },
     h('h3', {}, routine ? `↻ Se repite ${repeatLabel(days)}` : '↻ Repetir'),
     h('div', { class: 'repeat-days', role: 'group', 'aria-label': 'Días' }, ...ALL_DAYS.map(chip)),
@@ -227,8 +227,8 @@ function newMeetingForm(task) {
     };
   }
   const date = task.date || state.viewDate;
-  // Hoy: próxima media hora; otro día: inicio del bloque de la tarea (o de la mañana)
-  let start = toMinutes(state.settings[task.block || 'am'].start);
+  // Hoy: próxima media hora; otro día: inicio del bloque de la tarea (o del primero)
+  let start = toMinutes(blockRange(state.settings, task.block).start);
   if (date === todayISO()) start = Math.max(start, Math.ceil(nowMinutes() / 30) * 30);
   const duration = task.minutes || 30;
   return {

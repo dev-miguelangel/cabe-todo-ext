@@ -1,9 +1,10 @@
 // Wrapper de chrome.storage.local. Si se abre panel.html fuera de la extensión
 // (por ejemplo, directo en el navegador para probar), usa localStorage.
 
+import { DEFAULT_BLOCKS, migrateBlocks } from '../core/blocks.js';
+
 const DEFAULT_SETTINGS = {
-  am: { start: '08:00', end: '13:00' },
-  pm: { start: '14:00', end: '19:00' },
+  blocks: DEFAULT_BLOCKS, // bloques del día (Ajustes): de 1 a 5, sin superponerse
   default_minutes: 30,
   notify: true,
   timer_sound: true,
@@ -79,13 +80,9 @@ export async function loadData() {
   };
 }
 
+/** Completa ajustes faltantes. Los de antes ({ am, pm } fijos) pasan a `blocks` con ids 'am' y 'pm'. */
 function withDefaults(settings) {
-  return {
-    ...DEFAULT_SETTINGS,
-    ...settings,
-    am: { ...DEFAULT_SETTINGS.am, ...settings.am },
-    pm: { ...DEFAULT_SETTINGS.pm, ...settings.pm },
-  };
+  return { ...DEFAULT_SETTINGS, ...migrateBlocks(settings) };
 }
 
 export function saveData({ tasks, epics, routines }) {

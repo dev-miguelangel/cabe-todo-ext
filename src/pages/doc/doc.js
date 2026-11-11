@@ -8,10 +8,10 @@ import { formatMinutes } from '../../core/parser.js';
 import { todayISO, shortLabel } from '../../utils/dates.js';
 import { isRunning, remainingMs, formatCountdown } from '../../core/timer.js';
 import { h, showToast, applyTheme } from '../../utils/ui.js';
+import { blockName } from '../../core/blocks.js';
 import { markdownEditor } from '../../components/md-editor.js';
 
 const SAVE_DELAY = 700;
-const BLOCK_NAME = { am: '☀︎ mañana', pm: '☾ tarde' };
 const taskId = new URLSearchParams(location.search).get('task');
 // Esqueleto opcional para empezar una documentación vacía
 const TEMPLATE = '## Objetivo\n\n\n## Notas\n\n\n## Resultado\n\n';
@@ -64,7 +64,7 @@ function onInput(value) {
 function whereText(task) {
   if (!task.date) return '⤓ backlog';
   const day = task.date === todayISO() ? 'hoy' : shortLabel(task.date);
-  return `${day} · ${BLOCK_NAME[task.block]}`;
+  return `${day} · ${blockName(state.settings, task.block)}`;
 }
 
 function renderHead(task) {

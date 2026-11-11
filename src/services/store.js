@@ -10,6 +10,7 @@ import {
   enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
 } from '../core/pert.js';
 import { parseQuickAdd, tagKey } from '../core/parser.js';
+import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBlock } from '../core/blocks.js';
 import { routineFrom, dueInstances, materializableDates, repeatLabel } from '../core/routines.js';
 import { todayISO } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
@@ -79,18 +80,27 @@ export function setView(changes) {
   emit();
 }
 
+/** Tareas o rutinas con un bloque que ya no existe (p. ej. al restaurar un respaldo): al primer bloque. */
+function fixOrphanBlocks() {
+  const ids = new Set(blocksOf(state.settings).map((b) => b.id));
+  const fallback = firstBlock(state.settings).id;
+  for (const t of state.tasks) if (t.date && t.block && !ids.has(t.block)) t.block = fallback;
+  for (const r of state.routines) if (r.block && !ids.has(r.block)) r.block = fallback;
+}
+
 function commit() {
+  fixOrphanBlocks();
   const removed = pruneInvalidDeps(state.tasks);
   if (removed) {
     notify(`Se ${removed > 1 ? `quitaron ${removed} dependencias` : 'quitó 1 dependencia'}: entre días distintos solo se puede depender de tareas de la misma épica.`);
   }
   const dates = new Set(state.tasks.map((t) => t.date).filter(Boolean));
   for (const date of dates) {
-    const moved = enforceBlockOrder(state.tasks.filter((t) => t.date === date));
+    const moved = enforceBlockOrder(state.tasks.filter((t) => t.date === date), state.settings);
     if (moved.length) {
       const { task, because } = moved[0];
       const extra = moved.length > 1 ? ` (y ${moved.length - 1} más)` : '';
-      notify(`"${task.title}"${extra} pasó a la tarde: va después de "${because.title}".`);
+      notify(`"${task.title}"${extra} pasó a ${blockName(state.settings, task.block)}: va después de "${because.title}".`);
     }
   }
   saveData({ tasks: state.tasks, epics: state.epics, routines: state.routines });
@@ -218,7 +228,7 @@ function checkEpicComplete(epicId) {
  * (en la bandeja, escribir am/pm la planifica directo en el día que se está viendo).
  */
 export function addFromText(text, where) {
-  const parsed = parseQuickAdd(text);
+  const parsed = parseQuickAdd(text, blockWords(state.settings));
   if (!parsed) return false;
 
   let epicId = where.epicId || null;
@@ -253,7 +263,7 @@ export function addFromText(text, where) {
   };
   // "cada día" / "hábiles" / "cada lun,jue": crear la rutina
   if (parsed.repeat) {
-    const routine = routineFrom(task, { id: newId('r'), days: parsed.repeat, startDate: date || todayISO() });
+    const routine = routineFrom(task, { id: newId('r'), days: parsed.repeat, startDate: date || todayISO(), block: firstBlock(state.settings).id });
     state.routines.push(routine);
     if (!date) {
       // Desde el backlog: solo el molde; las tareas aparecen solas en los días que tocan
@@ -313,6 +323,7 @@ export function setRepeat(taskId, days) {
     id: current?.id || newId('r'),
     days,
     startDate: current?.start_date || task.date || todayISO(),
+    block: firstBlock(state.settings).id,
   });
   routine.generated = [...new Set([...generated, ...routine.generated])];
   if (current) Object.assign(current, routine, { created_at: current.created_at });
@@ -324,7 +335,7 @@ export function setRepeat(taskId, days) {
 
 /** Edición en línea: mismo formato del quick-add. Sin #etiqueta = sin épica. */
 export function editFromText(id, text) {
-  const parsed = parseQuickAdd(text);
+  const parsed = parseQuickAdd(text, blockWords(state.settings));
   if (!parsed) return false;
   // Reunión: su horario se cambia en el modal; aquí solo título y épica
   if (isMeeting(findTask(id) || {})) {
@@ -394,19 +405,39 @@ export const overdueTasks = (today) =>
 
 // ---------- Ajustes ----------
 
-/** Valida y guarda ajustes. Devuelve un mensaje de error o null. */
+/**
+ * Valida y guarda ajustes. Devuelve un mensaje de error o null.
+ * Si se borra un bloque, sus tareas y rutinas pasan al bloque vecino (el anterior, o el siguiente).
+ */
 export function saveSettings(next) {
-  const m = (hhmm) => {
-    const [h, min] = hhmm.split(':').map(Number);
-    return h * 60 + min;
-  };
-  if (!(m(next.am.start) < m(next.am.end))) return 'La mañana debe terminar después de empezar.';
-  if (!(m(next.pm.start) < m(next.pm.end))) return 'La tarde debe terminar después de empezar.';
-  if (m(next.am.end) > m(next.pm.start)) return 'La tarde debe empezar cuando termina la mañana o después.';
-  state.settings = { ...state.settings, ...next };
+  const blocks = next.blocks ? next.blocks.map((b) => ({ ...b, title: b.title.trim() })) : blocksOf(state.settings);
+  const problem = validateBlocks(blocks);
+  if (problem) return problem;
+  const old = blocksOf(state.settings);
+  const removed = old.filter((b) => !blocks.some((x) => x.id === b.id));
+  const remap = new Map(removed.map((b) => [b.id, neighborBlock(old, b.id, blocks)]));
+  const sorted = blocksOf({ blocks });
+
+  state.settings = { ...state.settings, ...next, blocks: sorted };
+  if (remap.size) {
+    for (const t of state.tasks) if (remap.has(t.block)) t.block = remap.get(t.block);
+    for (const r of state.routines) if (remap.has(r.block)) r.block = remap.get(r.block);
+    saveSettingsRaw(state.settings);
+    commit(); // reordena y guarda las tareas movidas
+    return null;
+  }
   saveSettingsRaw(state.settings);
   emit();
   return null;
+}
+
+/** Cuántas tareas (pendientes, de hoy en adelante) y rutinas tiene un bloque: para avisar antes de borrarlo. */
+export function blockUsage(id) {
+  const today = todayISO();
+  return {
+    tasks: state.tasks.filter((t) => t.block === id && t.date && t.date >= today && !t.done).length,
+    routines: state.routines.filter((r) => r.block === id).length,
+  };
 }
 
 // ---------- Respaldo ----------

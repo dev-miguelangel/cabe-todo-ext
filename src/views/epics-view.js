@@ -8,6 +8,7 @@ import {
   createEpic, renameEpic, setEpicTarget, archiveEpic, restoreEpic, deleteEpic,
   addFromText, updateTask, planTask, unplanTask, toggleTimer,
 } from '../services/store.js';
+import { blocksOf, blockIndex } from '../core/blocks.js';
 import { h } from '../utils/ui.js';
 import { renderCard } from '../components/cards.js';
 import { showTaskModal } from '../components/task-modal.js';
@@ -43,7 +44,7 @@ function renderEpic(epic, ctx) {
   const own = epicTasks(epic.id);
   const backlog = own.filter((t) => t.date === null).sort((a, b) => a.done - b.done || a.order - b.order);
   const planned = own.filter((t) => t.date !== null)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.block.localeCompare(b.block) || a.order - b.order);
+    .sort((a, b) => a.date.localeCompare(b.date) || blockIndex(state.settings, a.block) - blockIndex(state.settings, b.block) || a.order - b.order);
   const pct = fc.total ? (fc.doneCount / fc.total) * 100 : 0;
 
   const remaining = fc.pendingCount
@@ -139,7 +140,7 @@ export function renderEpics() {
   root.replaceChildren(...nodes);
 
   document.getElementById('plan-date-hint').textContent =
-    `Los botones → AM / → PM planifican en: ${dayLabel(state.viewDate).toLowerCase()}`;
+    `Los botones → ${blocksOf(state.settings).map((b) => b.icon).join(' ')} planifican en: ${dayLabel(state.viewDate).toLowerCase()}`;
 
   root.querySelectorAll('[data-focus-key]').forEach((el) => {
     if (drafts.has(el.dataset.focusKey)) el.value = drafts.get(el.dataset.focusKey);

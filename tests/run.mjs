@@ -291,7 +291,7 @@ console.log('OK: parser + PERT + épicas');
       },
       onChanged: on('storage'),
     },
-    alarms: { create: (n, o) => { alarms[n] = o; }, clear: async (n) => { delete alarms[n]; }, onAlarm: on('alarm') },
+    alarms: { create: (n, o) => { alarms[n] = o; }, clear: async (n) => { delete alarms[n]; }, getAll: async () => Object.keys(alarms).map((name) => ({ name })), onAlarm: on('alarm') },
     notifications: { create: (id, o) => notes.push(o), clear() {}, onClicked: on('notif') },
     runtime: { onInstalled: on('installed'), onStartup: on('startup'), onMessage: on('message'), sendMessage() {} },
     sidePanel: { setPanelBehavior: async () => {}, open: async () => {} },
@@ -481,7 +481,7 @@ console.log('OK: parser + PERT + épicas');
   assert.deepEqual(back.tasks[0].comments, [], 'se normalizan las tareas');
   assert.equal(back.epics[0].color, S.PALETTE[0], 'colores viejos pasan a la paleta');
   assert.equal(back.settings.default_minutes, 45);
-  assert.equal(back.settings.am.start, '08:00', 'ajustes faltantes toman su valor por defecto');
+  assert.equal(back.settings.blocks[0].start, '08:00', 'ajustes faltantes toman su valor por defecto');
   assert.throws(() => S.parseBackup('no es json'), /JSON válido/);
   assert.throws(() => S.parseBackup('{"tasks":[],"epics":[]}'), /no es un respaldo/);
   assert.throws(() => S.parseBackup(JSON.stringify({ app: 'cabe-todo', tasks: [{ id: 1 }], epics: [] })), /dañadas/);
@@ -518,4 +518,68 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(R.dueInstances([r], '2026-11-13', opts).tasks.length, 0, 'antes de empezar: no');
   assert.deepEqual(R.materializableDates('2026-11-16', '2026-12-30'), ['2026-11-16'], 'no llena días lejanos');
   console.log('OK: rutinas (cada día / hábiles / cada lun,jue)');
+}
+
+// ---------- Bloques personalizables ----------
+{
+  const B = await import(root + '/src/core/blocks.js');
+  const P = await import(root + '/src/core/pert.js');
+  const { parseQuickAdd } = await import(root + '/src/core/parser.js');
+  const S = await import(root + '/src/services/storage.js');
+  const b = (id, title, start, end, icon = '●') => ({ id, title, icon, start, end });
+  const three = { blocks: [b('am', 'Mañana', '08:00', '12:00'), b('x', 'Almuerzo', '12:00', '13:00'), b('pm', 'Tarde', '14:00', '18:00')] };
+
+  // migración del formato antiguo { am, pm }
+  const old = B.migrateBlocks({ am: { start: '07:00', end: '12:00' }, pm: { start: '13:00', end: '17:00' }, notify: true });
+  assert.deepEqual(old.blocks.map((x) => [x.id, x.title, x.start, x.end]), [['am', 'Mañana', '07:00', '12:00'], ['pm', 'Tarde', '13:00', '17:00']]);
+  assert.ok(!('am' in old) && old.notify === true, 'sin claves viejas, conserva el resto');
+  assert.equal(S.parseBackup(JSON.stringify({ app: 'pert-day', tasks: [], epics: [], settings: { am: { start: '09:00', end: '12:00' } } })).settings.blocks[0].start, '09:00');
+
+  // validación: superposición, máximo, títulos, horas
+  assert.equal(B.validateBlocks(three.blocks), null);
+  assert.match(B.validateBlocks([b('a', 'A', '08:00', '12:00'), b('b', 'B', '11:30', '13:00')]), /"A" \(08:00–12:00\) y "B" \(11:30–13:00\) se superponen/);
+  assert.equal(B.validateBlocks([b('a', 'A', '08:00', '12:00'), b('b', 'B', '12:00', '13:00')]), null, 'pegados sí se puede');
+  assert.match(B.validateBlocks([1, 2, 3, 4, 5, 6].map((i) => b('b' + i, 'B' + i, `0${i}:00`, `0${i}:30`))), /hasta 5/);
+  assert.match(B.validateBlocks([]), /al menos un bloque/);
+  assert.match(B.validateBlocks([b('a', '  ', '08:00', '09:00')]), /título/);
+  assert.match(B.validateBlocks([b('a', 'A', '10:00', '09:00')]), /terminar después/);
+  assert.match(B.validateBlocks([b('a', 'Foco', '08:00', '09:00'), b('b', 'foco', '10:00', '11:00')]), /dos bloques/);
+
+  // hora → bloque; bloque en curso; orden por hora aunque se guarden desordenados
+  assert.equal(B.blockForTime('12:30', three), 'x');
+  assert.equal(B.blockForTime('13:30', three), 'pm', 'entre bloques: el siguiente');
+  assert.equal(B.blockForTime('22:00', three), 'pm', 'después del último: el último');
+  assert.equal(P.currentBlock(three, new Date(2026, 0, 5, 12, 10)), 'x');
+  assert.deepEqual(B.blocksOf({ blocks: [three.blocks[2], three.blocks[0]] }).map((x) => x.id), ['am', 'pm']);
+  assert.deepEqual(B.blocksAfter(three, 'am').map((x) => x.id), ['x', 'pm']);
+  assert.equal(B.neighborBlock(three.blocks, 'x', [three.blocks[0], three.blocks[2]]), 'am', 'al borrar: el anterior');
+  assert.equal(B.neighborBlock(three.blocks, 'am', three.blocks.slice(1)), 'x', 'si era el primero: el siguiente');
+  assert.deepEqual(B.nextFreeRange(three.blocks), { start: '18:00', end: '19:00' });
+  assert.deepEqual(B.nextFreeRange([b('a', 'A', '08:00', '23:59')]), { start: '00:00', end: '01:00' }, 'antes del primero');
+  assert.deepEqual(B.nextFreeRange([b('a', 'A', '00:00', '12:00'), b('b', 'B', '12:30', '23:59')]), { start: '12:00', end: '12:30' }, 'hueco entre bloques');
+  assert.equal(B.nextFreeRange([b('a', 'A', '00:00', '12:00'), b('b', 'B', '12:10', '23:59')]), null, 'sin huecos de 15 min');
+
+  // quick-add: @bloque por título y palabras de siempre
+  const w = B.blockWords({ blocks: [...three.blocks, b('g', 'Deep work', '19:00', '21:00')] });
+  assert.equal(parseQuickAdd('Comer 30m @almuerzo', w).block, 'x');
+  assert.equal(parseQuickAdd('Leer 1h @deep', w).block, 'g');
+  assert.equal(parseQuickAdd('Leer 1h @DeepWork', w).block, 'g');
+  assert.equal(parseQuickAdd('Llamar a Juan pm', w).block, 'pm');
+  assert.equal(parseQuickAdd('Ir al almuerzo', w).block, null, 'el título suelto no es bloque (solo con @)');
+  assert.equal(parseQuickAdd('Ver @nada 1h', w).title, 'Ver @nada');
+  const noDefaults = B.blockWords({ blocks: [b('g', 'Gym', '07:00', '08:00')] });
+  assert.equal(parseQuickAdd('Correr tarde', noDefaults).block, null, 'sin bloque "pm", "tarde" no es bloque');
+
+  // dependencias entre 3 bloques: la que depende pasa al bloque de su dependencia
+  const t = (id, block, deps = [], order = 0) => ({ id, title: id, block, order, minutes: 30, certainty: 'normal', dependencies: deps, done: false });
+  const day = [t('a', 'am', ['c']), t('m', 'x'), t('c', 'pm'), t('d', 'x', ['c'])];
+  const moved = P.enforceBlockOrder(day, three);
+  assert.deepEqual(moved.map((x) => x.task.id).sort(), ['a', 'd']);
+  assert.ok(day.every((x) => x.id === 'm' || x.block === 'pm'));
+  assert.equal(P.enforceBlockOrder([t('a', 'x', ['b']), t('b', 'am')], three).length, 0, 'depender de un bloque anterior está bien');
+
+  // pronóstico de épica con 3 bloques: capacidad = suma de todos
+  const fc = P.epicForecast({ id: 'e', target_date: '2026-01-05' }, [{ ...t('e1', null), epic_id: 'e', date: null }], three, new Date(2026, 0, 5, 0, 0));
+  assert.equal(fc.capacity, 4 * 60 + 60 + 4 * 60);
+  console.log('OK: bloques personalizables (hasta 5, sin superponerse, @bloque, migración)');
 }

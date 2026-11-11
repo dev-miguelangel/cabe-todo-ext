@@ -1,21 +1,128 @@
-// Vista "Ajustes": horarios de los bloques, duración por defecto, avisos y atajo de teclado.
+// Vista "Ajustes": bloques del día, duración por defecto, avisos y atajo de teclado.
 
-import { state, saveSettings, calibrationInfo, exportBackup, readBackup, restoreBackup } from '../services/store.js';
-import { showToast } from '../utils/ui.js';
+import { state, saveSettings, calibrationInfo, exportBackup, readBackup, restoreBackup, blockUsage } from '../services/store.js';
+import { showToast, h } from '../utils/ui.js';
+import { blocksOf, validateBlocks, nextFreeRange, neighborBlock, MAX_BLOCKS, MAX_TITLE, BLOCK_ICONS } from '../core/blocks.js';
 import { todayISO } from '../utils/dates.js';
 import { playCasio } from '../services/casio.js';
 
 const form = () => document.getElementById('settings-form');
+
+// ---------- Editor de bloques ----------
+
+let blocksDirty = false; // hay cambios sin guardar en los bloques: no pisarlos al re-renderizar
+
+function blockRow(b, count) {
+  const icons = BLOCK_ICONS.includes(b.icon) ? BLOCK_ICONS : [b.icon, ...BLOCK_ICONS];
+  return h('li', { class: 'block-row', dataset: { id: b.id } },
+    h('select', { class: 'block-icon-select', name: 'block-icon', 'aria-label': 'Ícono del bloque', title: 'Ícono' },
+      ...icons.map((icon) => h('option', { value: icon, selected: icon === b.icon }, icon))),
+    h('input', {
+      class: 'block-title-input', name: 'block-title', type: 'text', value: b.title, maxlength: MAX_TITLE,
+      placeholder: 'Título', 'aria-label': 'Título del bloque', required: true,
+    }),
+    h('span', { class: 'block-times' },
+      h('input', { type: 'time', name: 'block-start', value: b.start, 'aria-label': 'Desde', required: true }),
+      h('span', { class: 'block-dash', 'aria-hidden': 'true' }, '–'),
+      h('input', { type: 'time', name: 'block-end', value: b.end, 'aria-label': 'Hasta', required: true })),
+    h('button', {
+      type: 'button', class: 'block-remove', title: count > 1 ? 'Quitar bloque' : 'Necesitas al menos un bloque',
+      'aria-label': `Quitar ${b.title}`, disabled: count <= 1,
+    }, '✕'));
+}
+
+function renderBlockRows(blocks) {
+  document.getElementById('block-rows').replaceChildren(...blocks.map((b) => blockRow(b, blocks.length)));
+  document.getElementById('add-block').disabled = blocks.length >= MAX_BLOCKS;
+  document.getElementById('add-block').title = blocks.length >= MAX_BLOCKS ? `Máximo ${MAX_BLOCKS} bloques` : '';
+}
+
+/** Bloques tal como están en el formulario (sin guardar). */
+function readBlockRows() {
+  return [...document.querySelectorAll('#block-rows .block-row')].map((li) => ({
+    id: li.dataset.id,
+    icon: li.querySelector('[name="block-icon"]').value,
+    title: li.querySelector('[name="block-title"]').value,
+    start: li.querySelector('[name="block-start"]').value,
+    end: li.querySelector('[name="block-end"]').value,
+  }));
+}
+
+/** Marca en rojo los bloques que se superponen y muestra el motivo. Devuelve el problema o null. */
+function checkBlockRows(showError) {
+  const blocks = readBlockRows();
+  const problem = validateBlocks(blocks);
+  const toMin = (t) => (t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) : NaN);
+  const rows = [...document.querySelectorAll('#block-rows .block-row')];
+  rows.forEach((li, i) => {
+    const b = blocks[i];
+    const bad = !(toMin(b.start) < toMin(b.end)) || blocks.some((o, j) => j !== i
+      && toMin(b.start) < toMin(o.end) && toMin(o.start) < toMin(b.end));
+    li.classList.toggle('invalid', bad);
+  });
+  if (showError) {
+    const error = document.getElementById('settings-error');
+    error.textContent = problem || '';
+    error.hidden = !problem;
+  }
+  return problem;
+}
+
+function setupBlocksEditor() {
+  const rows = document.getElementById('block-rows');
+  document.getElementById('add-block').addEventListener('click', () => {
+    const blocks = readBlockRows();
+    if (blocks.length >= MAX_BLOCKS) return;
+    const range = nextFreeRange(blocks);
+    if (!range) {
+      showToast('No quedan horas libres en el día: acorta un bloque primero.');
+      return;
+    }
+    const icon = BLOCK_ICONS.find((i) => !blocks.some((b) => b.icon === i)) || BLOCK_ICONS[0];
+    let id;
+    do id = `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`; while (blocks.some((b) => b.id === id));
+    blocksDirty = true;
+    renderBlockRows([...blocks, { id, icon, title: '', ...range }]);
+    rows.querySelector(`[data-id="${id}"] [name="block-title"]`).focus();
+    checkBlockRows(false);
+  });
+  rows.addEventListener('click', (e) => {
+    const remove = e.target.closest('.block-remove');
+    if (!remove) return;
+    blocksDirty = true;
+    const id = remove.closest('.block-row').dataset.id;
+    renderBlockRows(readBlockRows().filter((b) => b.id !== id));
+    checkBlockRows(true);
+  });
+  rows.addEventListener('input', () => {
+    blocksDirty = true;
+    checkBlockRows(true);
+  });
+}
+
+/** Si se quitan bloques con tareas o rutinas, pedir confirmación indicando a dónde pasan. */
+function confirmRemovedBlocks(next) {
+  const old = blocksOf(state.settings);
+  for (const b of old.filter((o) => !next.some((n) => n.id === o.id))) {
+    const { tasks, routines } = blockUsage(b.id);
+    if (!tasks && !routines) continue;
+    const to = next.find((n) => n.id === neighborBlock(old, b.id, next));
+    const what = [
+      tasks ? `${tasks} tarea${tasks > 1 ? 's' : ''} pendiente${tasks > 1 ? 's' : ''}` : '',
+      routines ? `${routines} rutina${routines > 1 ? 's' : ''}` : '',
+    ].filter(Boolean).join(' y ');
+    // eslint-disable-next-line no-alert
+    if (!confirm(`"${b.title}" tiene ${what}. Pasarán a "${to.title.trim() || 'el bloque vecino'}". ¿Quitar el bloque?`)) return false;
+  }
+  return true;
+}
 
 export function renderSettings() {
   const f = form();
   // No pisar lo que el usuario está editando.
   if (f.contains(document.activeElement)) return;
   const s = state.settings;
-  f.elements['am-start'].value = s.am.start;
-  f.elements['am-end'].value = s.am.end;
-  f.elements['pm-start'].value = s.pm.start;
-  f.elements['pm-end'].value = s.pm.end;
+  if (!blocksDirty) renderBlockRows(blocksOf(s));
   f.elements['default-minutes'].value = String(s.default_minutes);
   f.elements.theme.value = s.theme || 'chrome';
   f.elements.notify.checked = Boolean(s.notify);
@@ -55,16 +162,11 @@ export function setupSettings() {
 
   f.addEventListener('submit', (e) => {
     e.preventDefault();
-    const values = ['am-start', 'am-end', 'pm-start', 'pm-end'].map((n) => f.elements[n].value);
-    if (values.some((v) => !v)) {
-      error.textContent = 'Completa todas las horas.';
-      error.hidden = false;
-      return;
-    }
-    const [amStart, amEnd, pmStart, pmEnd] = values;
+    const blocks = readBlockRows();
+    if (checkBlockRows(true)) return;
+    if (!confirmRemovedBlocks(blocks)) return;
     const problem = saveSettings({
-      am: { start: amStart, end: amEnd },
-      pm: { start: pmStart, end: pmEnd },
+      blocks,
       default_minutes: Number(f.elements['default-minutes'].value),
       theme: f.elements.theme.value,
       notify: f.elements.notify.checked,
@@ -76,12 +178,16 @@ export function setupSettings() {
     error.textContent = problem || '';
     error.hidden = !problem;
     if (!problem) {
+      blocksDirty = false;
+      renderBlockRows(blocksOf(state.settings)); // ya ordenados por hora
       document.activeElement?.blur();
       saved.hidden = false;
       clearTimeout(savedTimer);
       savedTimer = setTimeout(() => { saved.hidden = true; }, 2000);
     }
   });
+
+  setupBlocksEditor();
 
   // El tema se aplica y guarda al elegirlo (sin esperar a "Guardar")
   f.elements.theme.addEventListener('change', () => {

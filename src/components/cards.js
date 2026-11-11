@@ -5,6 +5,8 @@ import { blockersOf, timerBlockedBy } from '../core/pert.js';
 import { markdownExcerpt } from '../utils/markdown.js';
 import { shortLabel, dayLabel } from '../utils/dates.js';
 import { isRunning, trackedMs, remainingMs, formatTracked, formatLeft } from '../core/timer.js';
+import { blocksOf, blockIcon } from '../core/blocks.js';
+import { state } from '../services/store.js';
 
 /**
  * Chip de tiempo de la fila: cuánto queda (o cuánto se pasó). Clic = pausar/reanudar.
@@ -28,7 +30,6 @@ export function updateTimerChip(chip, task, allTasks = []) {
 }
 
 const template = document.getElementById('task-template');
-const BLOCK_ICON = { am: '☀︎', pm: '☾' };
 
 function signed(minutes) {
   return minutes >= 0 ? formatMinutes(minutes) : `−${formatMinutes(-minutes)}`;
@@ -41,14 +42,14 @@ function whereLabel(pred, task) {
 }
 
 export function whenLabel(task) {
-  return task.date ? `${shortLabel(task.date)} · ${BLOCK_ICON[task.block]}` : 'backlog';
+  return task.date ? `${shortLabel(task.date)} · ${blockIcon(state.settings, task.block)}` : 'backlog';
 }
 
 /**
  * opts:
  *  ctx       { byId, epicsById, critical:Set, planDate }
  *  item      resultado de scheduleBlock para esta tarea (hora estimada, holgura)
- *  draggable, link, plan (botones → AM/PM), unplan (↩︎ al backlog), when (mostrar fecha), dim
+ *  draggable, link, plan (botones → de cada bloque), unplan (↩︎ al backlog), when (mostrar fecha), dim
  *  ended     { date, block, label, title } si el bloque ya terminó: → siguiente bloque / ⤓ backlog
  */
 export function renderCard(task, opts) {
@@ -138,8 +139,15 @@ export function renderCard(task, opts) {
     const plan = li.querySelector('.plan');
     plan.hidden = false;
     const day = dayLabel(ctx.planDate).toLowerCase();
-    plan.querySelector('[data-block="am"]').title = `Planificar el ${day} en la mañana`;
-    plan.querySelector('[data-block="pm"]').title = `Planificar el ${day} en la tarde`;
+    plan.replaceChildren(...blocksOf(state.settings).map((b) => {
+      const btn = document.createElement('button');
+      btn.className = 'plan-btn';
+      btn.dataset.block = b.id;
+      btn.textContent = `→ ${b.icon}`;
+      btn.title = `Planificar el ${day} en ${b.icon} ${b.title}`;
+      btn.setAttribute('aria-label', btn.title);
+      return btn;
+    }));
   }
   li.querySelector('.unplan').hidden = !(opts.unplan && task.date && !task.done && !meeting);
   if (opts.ended && !task.done && !meeting) {

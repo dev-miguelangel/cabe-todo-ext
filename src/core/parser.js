@@ -1,14 +1,16 @@
 // Quick-add: convierte "Informe mensual 2h ? pm #web" en { title, minutes, block, certainty, epicTag, repeat }.
 // "Standup 15m am cada día" / "hábiles" / "cada lun,jue" → repeat: días de la semana (0 = domingo).
+// Bloque: "@gym" / "@tarde" (cualquier bloque, por su título) o las palabras de siempre am/pm/mañana/tarde.
 // Los tokens se leen desde el final del texto; los que no se escribieron quedan en null.
 
 import { takeRepeat } from './routines.js';
+import { DEFAULT_BLOCK_WORDS, fold } from './blocks.js';
 
 const DURATION = /^(\d+(?:[.,]\d+)?)(m|min|mins|h|hr|hrs)$/;
 const HOURS_MINUTES = /^(\d+)h(\d{1,2})m?$/;
 // Debe empezar con letra: "Issue #42" no crea una épica.
 const EPIC_TAG = /^#(\p{L}[\p{L}\p{N}_-]*)$/u;
-const BLOCK_WORDS = { am: 'am', pm: 'pm', 'mañana': 'am', manana: 'am', tarde: 'pm' };
+const BLOCK_TAG = /^@(\p{L}[\p{L}\p{N}_-]*)$/u;
 const CERTAINTY_MARKS = { '?': 'unsure', '!': 'sure' };
 // "mañana"/"tarde" son palabras normales en español: no se toman como bloque
 // si van precedidas de estas palabras ("Reunión de la tarde", "Llamar en la mañana").
@@ -26,7 +28,8 @@ function parseDuration(word) {
   return null;
 }
 
-export function parseQuickAdd(text) {
+/** blockWords: { tags, words } de blockWords(ajustes); por defecto, los bloques Mañana y Tarde. */
+export function parseQuickAdd(text, blockWords = DEFAULT_BLOCK_WORDS) {
   const words = text.trim().split(/\s+/).filter(Boolean);
   let minutes = null;
   let block = null;
@@ -67,11 +70,21 @@ export function parseQuickAdd(text) {
       }
     }
 
-    if (block === null && BLOCK_WORDS[word]) {
+    if (block === null) {
+      const tag = original.match(BLOCK_TAG);
+      const id = tag && blockWords.tags[fold(tag[1])];
+      if (id) {
+        block = id;
+        words.pop();
+        continue;
+      }
+    }
+
+    if (block === null && blockWords.words[word]) {
       const isAbbrev = word === 'am' || word === 'pm';
       const prev = words[words.length - 2].toLowerCase();
       if (isAbbrev || !NATURAL_PREFIX.has(prev)) {
-        block = BLOCK_WORDS[word];
+        block = blockWords.words[word];
         words.pop();
         continue;
       }

@@ -6,6 +6,7 @@ import { renderEpics, setupEpics, isEpicsBusy } from '../../views/epics-view.js'
 import { renderSettings, setupSettings } from '../../views/settings-view.js';
 import { renderDocs, setupDocs } from '../../views/docs-view.js';
 import { currentBlock } from '../../core/pert.js';
+import { firstBlock } from '../../core/blocks.js';
 import { showToast, applyTheme } from '../../utils/ui.js';
 import { todayISO } from '../../utils/dates.js';
 
@@ -75,9 +76,9 @@ async function init() {
   if (state.tab === 'day') focusQuickAdd();
 }
 
-/** Foco en el quick-add del bloque en curso (o el de la mañana si es otro día). */
+/** Foco en el quick-add del bloque en curso (o el primero si es otro día). */
 function focusQuickAdd() {
-  const block = state.viewDate === todayISO() ? currentBlock(state.settings) : 'am';
+  const block = state.viewDate === todayISO() ? currentBlock(state.settings) : firstBlock(state.settings).id;
   document.querySelector(`.block[data-block="${block}"] .quick-add input`)?.focus();
 }
 
