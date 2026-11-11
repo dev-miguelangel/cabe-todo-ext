@@ -1,4 +1,4 @@
-// Vista "Hoy" (mínima): la lista de tareas de hoy, sin tablero. Cada bloque empieza con una línea
+// Vista "Hoy" (mínima): la lista de tareas del día, sin tablero (‹ › para ver otros días). Cada bloque empieza con una línea
 // horizontal y a la derecha su pronóstico, nombre y horario: ───────── 85% | Mañana | 08:00 - 13:00
 // Clic en el porcentaje: tooltip con el detalle del pronóstico y, si el bloque va mal, la misma
 // sugerencia ("✦ Si mueves…") con su botón Mover. Un ✦ junto al % avisa que hay sugerencia.
@@ -7,18 +7,19 @@
 
 import {
   state, blockTasks, backlogTasks, overdueTasks, updateTask, toggleTimer, findTask, findEpic, addFromText, editFromText,
-  activeEpics, planTask, applyOrder,
+  activeEpics, planTask, applyOrder, ensureRoutines, applyTaskToRoutine,
 } from '../services/store.js';
 import { computeSuggestion, renderSuggestion } from '../components/suggestion.js';
 import { h, attachEpicAutocomplete, showToast } from '../utils/ui.js';
-import { todayISO, dayLabel, nowMinutes, toMinutes } from '../utils/dates.js';
+import { todayISO, dayLabel, nowMinutes, toMinutes, shiftDate, shortLabel } from '../utils/dates.js';
 import { formatMinutes, toQuickAddText } from '../core/parser.js';
 import { scheduleBlock, criticalIds, isNowInBlock, currentBlock } from '../core/pert.js';
-import { blocksOf, blockById } from '../core/blocks.js';
+import { blocksOf, blockById, firstBlock } from '../core/blocks.js';
 import { renderCard } from '../components/cards.js';
 import { showTaskModal } from '../components/task-modal.js';
 import { showSyntaxHelp } from '../components/syntax-help.js';
 import { showBacklogPicker } from '../components/backlog-picker.js';
+import { showUpcoming } from '../components/upcoming.js';
 
 /**
  * Pronóstico corto del bloque: { text: "85%", cls, head, detail } (con su color),
@@ -43,11 +44,34 @@ function forecastOf(sched) {
 // Tooltip abierto con clic: 'dot:<bloque>' o 'pct:<bloque>' (se mantiene aunque la lista se re-renderice)
 let openTip = null;
 
+// ---------- Día que se está viendo ----------
+// null = hoy (y sigue siendo "hoy" al pasar la medianoche); si no, 'YYYY-MM-DD'.
+let pinnedDate = null;
+const viewDate = () => pinnedDate || todayISO();
+
+/** "Ahora" en minutos para el día que se ve: fin del día si ya pasó, -1 si todavía no llega. */
+function nowFor(date) {
+  const today = todayISO();
+  if (date < today) return 24 * 60;
+  if (date > today) return -1;
+  return nowMinutes();
+}
+
+/** Ir a un día (desde ‹ ›, "Volver a hoy" o los próximos 7 días). */
+export function goToDate(iso) {
+  const today = todayISO();
+  pinnedDate = iso === today ? null : iso;
+  openTip = null;
+  // Las rutinas de un día próximo se crean al mirarlo (si se crean, el guardado re-renderiza)
+  if (!(iso > today && ensureRoutines(true, [iso]))) renderMinimal();
+}
+
 /** Avance del bloque según la hora: { pct 0–100, state 'before' | 'now' | 'after', tip: [título, detalle] }. */
 function blockProgress(block, nowMin) {
   const start = toMinutes(block.start);
   const end = toMinutes(block.end);
   const length = formatMinutes(end - start);
+  if (nowMin < 0) return { pct: 0, state: 'before', tip: [`${block.start} – ${block.end}`, `dura ${length}`] }; // otro día, futuro
   if (nowMin < start) {
     return { pct: 0, state: 'before', tip: [`Empieza en ${formatMinutes(start - nowMin)}`, `a las ${block.start} · dura ${length}`] };
   }
@@ -122,8 +146,10 @@ function blockDivider(block, now, sched, nowMin, sug) {
 }
 
 export function renderMinimal() {
-  const today = todayISO();
+  const today = viewDate(); // el día que se ve (se llama "today" por costumbre del resto del código)
+  const isToday = today === todayISO();
   document.getElementById('minimal-day').textContent = dayLabel(today);
+  document.getElementById('minimal-today').hidden = isToday;
   const ctx = {
     allTasks: state.tasks,
     byId: new Map(state.tasks.map((t) => [t.id, t])),
@@ -131,17 +157,18 @@ export function renderMinimal() {
     critical: criticalIds(state.tasks),
     planDate: today,
   };
-  const nowMin = nowMinutes();
+  const nowMin = nowFor(today);
+  const schedNow = nowMin < 0 ? null : nowMin; // día futuro: el bloque se pronostica completo
   let pending = 0;
   let total = 0;
   const nodes = blocksOf(state.settings).flatMap((block) => {
     const list = blockTasks(block.id, today);
     // Mismo orden que el tablero (dependencias y reuniones por horario)
-    const sched = scheduleBlock(list, block, nowMin);
+    const sched = scheduleBlock(list, block, schedNow);
     const { items } = sched;
     total += items.length;
     pending += items.filter((i) => !i.task.done).length;
-    const now = isNowInBlock(block);
+    const now = isToday && isNowInBlock(block);
     const blockEnded = sched.remaining <= 0;
     const cards = items.map((item) => renderCard(item.task, { ctx, item, blockEnded, draggable: true }));
     if (now) cards.find((li) => !li.classList.contains('done'))?.classList.add('current');
@@ -151,20 +178,22 @@ export function renderMinimal() {
   });
   document.getElementById('minimal-count').textContent = total
     ? `${pending} pendiente${pending === 1 ? '' : 's'} de ${total}`
-    : 'Nada planificado para hoy';
+    : `Nada planificado para ${isToday ? 'hoy' : 'este día'}`;
   document.getElementById('minimal-list').replaceChildren(...nodes);
 
   // A dónde va una tarea si no se nombra un bloque (en el placeholder, sin texto extra)
-  const target = blockById(state.settings, currentBlock(state.settings));
-  document.querySelector('#minimal-add input').placeholder = `+ Nueva tarea en ${target.title}`;
+  const target = blockById(state.settings, isToday ? currentBlock(state.settings) : firstBlock(state.settings).id);
+  document.querySelector('#minimal-add input').placeholder = isToday
+    ? `+ Nueva tarea en ${target.title}`
+    : `+ Nueva tarea para el ${shortLabel(today)}`;
 
   // Cuántas tareas esperan en el backlog o quedaron de días anteriores (en el botón que las trae a hoy)
-  const inBacklog = backlogTasks().filter((t) => !t.done).length + overdueTasks(today).length;
+  const inBacklog = backlogTasks().filter((t) => !t.done).length + overdueTasks(todayISO()).length;
   const badge = document.getElementById('backlog-count');
   badge.hidden = !inBacklog;
   badge.textContent = inBacklog > 99 ? '99+' : String(inBacklog);
   document.getElementById('backlog-picker-btn').title = inBacklog
-    ? `${inBacklog} tarea${inBacklog === 1 ? '' : 's'} pendiente${inBacklog === 1 ? '' : 's'} para pasar a hoy (backlog y días anteriores)`
+    ? `${inBacklog} tarea${inBacklog === 1 ? '' : 's'} pendiente${inBacklog === 1 ? '' : 's'} para pasar a ${isToday ? 'hoy' : 'este día'} (backlog y días anteriores)`
     : 'Nada pendiente fuera de hoy';
 }
 
@@ -194,13 +223,26 @@ function startEdit(li) {
   input.focus();
   input.select();
 
+  const snapshot = (t) => JSON.stringify([t.title, t.minutes, t.certainty, t.epic_id, t.block, t.meeting]);
+  const before = snapshot(task);
   let finished = false;
   const finish = (save) => {
     if (finished) return;
     finished = true;
     const value = input.value;
     input.replaceWith(titleEl);
-    if (!save || !editFromText(task.id, value)) renderMinimal();
+    if (!save || !editFromText(task.id, value)) {
+      renderMinimal();
+      return;
+    }
+    // Tarea de una rutina: el cambio es solo de este día, salvo que se aplique a todas
+    const now = findTask(task.id);
+    if (now?.routine_id && snapshot(now) !== before) {
+      showToast(`Cambiaste "${now.title}" solo este día.`, {
+        label: 'Aplicar a todas',
+        run: () => { applyTaskToRoutine(now.id); showToast(`Listo: las próximas "${now.title}" quedan igual.`); },
+      });
+    }
   };
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') finish(true);
@@ -213,7 +255,7 @@ function startEdit(li) {
 function persistOrder(list) {
   const lists = [];
   for (const li of list.children) {
-    if (li.classList.contains('block-divider')) lists.push({ date: todayISO(), block: li.dataset.block, ids: [] });
+    if (li.classList.contains('block-divider')) lists.push({ date: viewDate(), block: li.dataset.block, ids: [] });
     else if (li.classList.contains('task') && lists.length) lists.at(-1).ids.push(li.dataset.id);
   }
   applyOrder(lists);
@@ -274,15 +316,22 @@ export function setupMinimal() {
   attachEpicAutocomplete(input, activeEpics);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    // Hoy, en el bloque en curso; "… tarde", "@gym", "am"/"pm", "mañana" o "viernes" lo cambian
-    const task = addFromText(input.value, { date: todayISO(), block: currentBlock(state.settings) });
+    // El día que se ve (hoy: en el bloque en curso; otro día: en el primero);
+    // "… tarde", "@gym", "am"/"pm", "mañana" o "viernes" lo cambian
+    const date = viewDate();
+    const block = date === todayISO() ? currentBlock(state.settings) : firstBlock(state.settings).id;
+    const task = addFromText(input.value, { date, block });
     if (task) input.value = '';
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') input.value = '';
   });
   document.getElementById('syntax-help-btn').addEventListener('click', showSyntaxHelp);
-  document.getElementById('backlog-picker-btn').addEventListener('click', showBacklogPicker);
+  document.getElementById('backlog-picker-btn').addEventListener('click', () => showBacklogPicker(viewDate()));
+  document.getElementById('upcoming-btn').addEventListener('click', () => showUpcoming(goToDate));
+  document.getElementById('minimal-prev').addEventListener('click', () => goToDate(shiftDate(viewDate(), -1)));
+  document.getElementById('minimal-next').addEventListener('click', () => goToDate(shiftDate(viewDate(), 1)));
+  document.getElementById('minimal-today').addEventListener('click', () => goToDate(todayISO()));
 
   const list = document.getElementById('minimal-list');
   setupDragAndDrop(list);

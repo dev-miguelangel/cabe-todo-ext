@@ -25,9 +25,16 @@
 
   <!-- ===== Hoy: las tareas de hoy en una lista (vista mínima) ===== -->
   <div id="view-minimal" hidden>
-    <header class="done-top">
-      <h1 id="minimal-day"></h1>
-      <p class="docs-count" id="minimal-count"></p>
+    <header class="done-top minimal-top">
+      <div class="day-nav">
+        <button type="button" class="day-nav-btn" id="minimal-prev" title="Día anterior" aria-label="Día anterior">‹</button>
+        <h1 id="minimal-day"></h1>
+        <button type="button" class="day-nav-btn" id="minimal-next" title="Día siguiente" aria-label="Día siguiente">›</button>
+        <button type="button" class="round-btn upcoming-btn" id="upcoming-btn" title="Próximos 7 días" aria-label="Ver las tareas de los próximos 7 días">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M12 14h2M16 14h0.5M8 17h2M12 17h2"/></svg>
+        </button>
+      </div>
+      <p class="docs-count"><span id="minimal-count"></span><button type="button" class="link-btn minimal-today" id="minimal-today" hidden>Volver a hoy</button></p>
     </header>
     <form class="quick-add minimal-add" id="minimal-add" autocomplete="off">
       <input type="text" placeholder="+ Nueva tarea" aria-label="Nueva tarea para hoy">
@@ -49,6 +56,15 @@
       <p class="docs-count" id="done-count"></p>
     </header>
     <ul class="done-list" id="done-list" aria-label="Tareas completadas por día"></ul>
+  </div>
+
+  <!-- ===== Rutinas: lo que se repite ===== -->
+  <div id="view-routines" hidden>
+    <header class="done-top">
+      <h1>Rutinas</h1>
+      <p class="docs-count" id="routines-count"></p>
+    </header>
+    <ul class="routine-list" id="routine-list" aria-label="Rutinas"></ul>
   </div>
 
   <!-- ===== Documentación ===== -->
@@ -172,6 +188,10 @@
     <button class="tab" role="tab" data-tab="done">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.2 12.3l2.6 2.6 5-5.4"/></svg>
       <span>Hechas</span>
+    </button>
+    <button class="tab" role="tab" data-tab="routines">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3M4.5 12A7.5 7.5 0 0 1 17.3 6.7"/><path d="M17.5 3v4h-4M6.5 21v-4h4"/></svg>
+      <span>Rutinas</span>
     </button>
     <button class="tab" role="tab" data-tab="docs">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h7l4.5 4.5v10a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 4 18V6a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M13.5 3.5V8H18M8 12.5h8M8 16h5"/></svg>

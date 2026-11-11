@@ -24,8 +24,8 @@ const MAX_MINUTES = 12 * 60;
 
 // ---------- Días ----------
 const WEEKDAY = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6 };
-// Palabras que se van junto con el día: "para mañana", "el viernes", "este jueves"
-const DATE_CONNECTORS = new Set(['para', 'el', 'este', 'esta', 'proximo', 'del']);
+// Palabras que se van junto con el día: "para mañana", "de mañana", "el viernes", "este jueves"
+const DATE_CONNECTORS = new Set(['para', 'el', 'este', 'esta', 'proximo', 'del', 'de']);
 
 /** Próximo día de la semana `wd` desde `today` (si es hoy, hoy). */
 function nextWeekday(today, wd) {

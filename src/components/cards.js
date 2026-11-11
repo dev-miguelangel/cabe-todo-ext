@@ -5,7 +5,7 @@ import { blockersOf, timerBlockedBy } from '../core/pert.js';
 import { markdownExcerpt } from '../utils/markdown.js';
 import { shortLabel, dayLabel } from '../utils/dates.js';
 import { isRunning, trackedMs, remainingMs, formatTracked, formatLeft } from '../core/timer.js';
-import { blocksOf, blockIcon } from '../core/blocks.js';
+import { blocksOf, blockIcon, blockName } from '../core/blocks.js';
 import { state } from '../services/store.js';
 
 /**
@@ -50,7 +50,8 @@ export function whenLabel(task) {
  *  ctx         { byId, epicsById, critical:Set, planDate }
  *  item        resultado de scheduleBlock para esta tarea (hora estimada, holgura)
  *  blockEnded  el bloque ya terminó: no marcar como atrasadas (irían todas)
- *  draggable, plan (botones → de cada bloque), unplan (↩︎ al backlog), when (mostrar fecha), showEpic
+ *  draggable, plan (botones → de cada bloque), unplan (↩︎ al backlog), when (mostrar fecha), showEpic,
+ *  showBlock (mostrar el bloque: en listas que no van separadas por bloque)
  */
 export function renderCard(task, opts) {
   const { ctx } = opts;
@@ -87,6 +88,7 @@ export function renderCard(task, opts) {
   // Línea secundaria: cuándo (en la vista de épica) y de qué depende
   const meta = [];
   if (opts.when) meta.push(whenLabel(task));
+  if (opts.showBlock && !task.meeting && task.block) meta.push(blockName(state.settings, task.block));
   const preds = task.dependencies.map((id) => ctx.byId.get(id)).filter(Boolean);
   if (preds.length) {
     const names = preds.map((p) => {

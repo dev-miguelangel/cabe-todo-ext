@@ -664,6 +664,7 @@ console.log('OK: parser + PERT + épicas');
   assert.deepEqual([q('Llamar por la mañana').title, q('Llamar por la mañana').date], ['Llamar por la mañana', null], '"la mañana" es parte del título');
   assert.equal(q('Informe pasado mañana').date, '2026-11-13');
   assert.equal(q('Informe hoy').date, '2026-11-11');
+  assert.deepEqual([q('Informe de mañana').title, q('Informe de mañana').date], ['Informe', '2026-11-12'], '"de" se va con el día');
   assert.deepEqual([q('Enviar factura el viernes').title, q('Enviar factura el viernes').date], ['Enviar factura', '2026-11-13']);
   assert.equal(q('Informe miércoles').date, '2026-11-11', 'el mismo día de la semana: hoy');
   assert.equal(q('Informe martes').date, '2026-11-17', 'un día que ya pasó: la semana siguiente');
@@ -688,4 +689,57 @@ console.log('OK: parser + PERT + épicas');
   S.editFromText(d.id, 'Comprar pan 15m pasado mañana tarde');
   assert.deepEqual([S.findTask(d.id).date, S.findTask(d.id).block], [shiftDate(today, 2), 'pm']);
   console.log('OK: el store crea reuniones y tareas de otros días desde el texto');
+}
+
+// ---------- Rutinas: administrar (vista Rutinas y "¿solo esta o todas?") ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const { todayISO, shiftDate, parseISO } = await import(root + '/src/utils/dates.js');
+  const today = todayISO();
+  const wd = (iso) => parseISO(iso).getDay();
+  const names = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+  const short = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+  const tomorrow = shiftDate(today, 1);
+
+  // "cada <otro día>" escrito hoy: solo el molde, sin tarea de hoy
+  const before = S.state.tasks.length;
+  const r1 = S.addFromText(`Gimnasio 1h cada ${short[wd(tomorrow)]}`, { date: today, block: 'pm' });
+  assert.equal(r1, true, 'devuelve true: solo se creó la rutina');
+  assert.equal(S.state.tasks.length, before, 'no crea una tarea hoy si hoy no le toca');
+  const gym = S.state.routines.find((r) => r.title === 'Gimnasio');
+  assert.equal(S.nextOccurrence(gym), tomorrow);
+
+  // al mirar mañana se crea su tarea (horizonte de 2 semanas; más allá no)
+  assert.equal(S.ensureRoutines(true, [tomorrow, shiftDate(today, 30)]), true);
+  const gymTomorrow = () => S.state.tasks.find((t) => t.routine_id === gym.id && t.date === tomorrow);
+  assert.ok(gymTomorrow(), 'se creó la de mañana');
+  assert.equal(S.state.tasks.filter((t) => t.routine_id === gym.id).length, 1);
+
+  // editar la rutina: cambia el molde y la tarea pendiente ya creada
+  assert.match(S.updateRoutine(gym.id, { title: ' ', days: gym.days }), /título/);
+  assert.match(S.updateRoutine(gym.id, { title: 'Gym', days: [] }), /un día/);
+  assert.equal(S.updateRoutine(gym.id, { title: 'Gimnasio fuerte', days: gym.days, minutes: 90, block: 'am' }), null);
+  assert.deepEqual([gymTomorrow().title, gymTomorrow().minutes, gymTomorrow().block], ['Gimnasio fuerte', 90, 'am']);
+  // quitarle el día de mañana: su tarea pendiente (sin tiempo registrado) se va
+  const otherDay = [0, 1, 2, 3, 4, 5, 6].find((d) => d !== wd(tomorrow) && d !== wd(today));
+  assert.equal(S.updateRoutine(gym.id, { days: [otherDay] }), null);
+  assert.equal(gymTomorrow(), undefined, 'ya no le toca mañana');
+
+  // reunión semanal escrita para mañana: "Aplicar a todas" desde una tarea
+  const m = S.addFromText(`Reunión equipo ${names[wd(tomorrow)]} 10am 1h cada ${short[wd(tomorrow)]}`, { date: today, block: 'am' });
+  assert.equal(m.date, tomorrow);
+  const weekly = S.findRoutine(m.routine_id);
+  S.setMeeting(m.id, { date: m.date, start: '11:00', end: '12:30', blocking: true });
+  assert.equal(weekly.meeting.start, '10:00', 'reprogramar una vez no cambia la rutina');
+  S.applyTaskToRoutine(m.id);
+  assert.deepEqual([weekly.meeting.start, weekly.meeting.end, weekly.minutes], ['11:00', '12:30', 90], 'aplicar a todas sí');
+
+  // eliminar la rutina: se van sus pendientes, las hechas se quedan sueltas
+  const done = { ...m, id: 'hecha-1', date: shiftDate(today, -7), done: true, done_at: new Date().toISOString() };
+  S.state.tasks.push(done);
+  assert.equal(S.deleteRoutine(weekly.id), 1, 'borra la pendiente de mañana');
+  assert.ok(!S.findRoutine(weekly.id), 'la rutina ya no existe');
+  assert.equal(S.findTask(m.id), undefined);
+  assert.equal(S.findTask('hecha-1').routine_id, null, 'la hecha queda en el historial, sin rutina');
+  console.log('OK: rutinas (editar, eliminar, aplicar a todas, próxima fecha, ver días próximos)');
 }

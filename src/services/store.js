@@ -11,8 +11,8 @@ import {
 } from '../core/pert.js';
 import { parseQuickAdd, tagKey } from '../core/parser.js';
 import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBlock, BACKLOG } from '../core/blocks.js';
-import { routineFrom, dueInstances, repeatLabel } from '../core/routines.js';
-import { todayISO, shortLabel } from '../utils/dates.js';
+import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../core/routines.js';
+import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
 
 export { PALETTE } from './storage.js';
@@ -281,8 +281,9 @@ export function addFromText(text, where) {
   if (parsed.repeat) {
     const routine = routineFrom(task, { id: newId('r'), days: parsed.repeat, startDate: date || todayISO(), block: firstBlock(state.settings).id });
     state.routines.push(routine);
-    if (!date) {
-      // Desde el backlog: solo el molde; las tareas aparecen solas en los días que tocan
+    if (!date || !routine.days.includes(weekdayOf(date))) {
+      // Desde el backlog (o un día que no le toca, como "cada lunes" escrito un miércoles):
+      // solo el molde; las tareas aparecen solas en los días que tocan
       ensureRoutines(false);
       commit();
       notify(`↻ "${task.title}" se repite ${repeatLabel(routine.days)}.`);
@@ -305,21 +306,136 @@ export function addFromText(text, where) {
 
 export const findRoutine = (id) => (id ? state.routines.find((r) => r.id === id) : null);
 
+/** Cuántos días hacia adelante se crean tareas de rutina al mirarlos (Hoy ‹ ›, próximos 7 días). */
+const ROUTINE_HORIZON_DAYS = 14;
+
 /**
- * Crea las tareas de las rutinas que tocan hoy.
+ * Crea las tareas de las rutinas que tocan hoy y, si se pide, en otros días próximos que se están mirando.
  * save=false: solo prepara (quien llama hace commit). Devuelve true si creó algo.
  */
-export function ensureRoutines(save = true) {
+export function ensureRoutines(save = true, extraDates = []) {
   if (!state.routines.length) return false;
+  const today = todayISO();
+  const limit = shiftDate(today, ROUTINE_HORIZON_DAYS);
+  const dates = [today, ...extraDates.filter((d) => d > today && d <= limit)];
   let created = 0;
-  const { tasks, routines } = dueInstances(state.routines, todayISO(), { newId: () => newId('t'), orderFor: nextOrder });
-  if (tasks.length) {
+  for (const date of [...new Set(dates)]) {
+    const { tasks, routines } = dueInstances(state.routines, date, { newId: () => newId('t'), orderFor: nextOrder });
+    if (!tasks.length) continue;
     state.tasks.push(...tasks);
     state.routines = routines;
-    created = tasks.length;
+    created += tasks.length;
   }
   if (created && save) commit();
   return created > 0;
+}
+
+// ---------- Rutinas: administrarlas (vista Rutinas y "¿solo esta o todas?") ----------
+
+/** Tareas de una rutina que siguen pendientes (de `from` en adelante, si se indica). */
+const pendingInstances = (routineId, from = null) => state.tasks.filter((t) =>
+  t.routine_id === routineId && !t.done && (!from || (t.date && t.date >= from)));
+
+/** Próximo día (de hoy en adelante, hasta 2 semanas) en que toca la rutina y su tarea sigue pendiente. */
+export function nextOccurrence(routine, from = todayISO()) {
+  for (let i = 0; i <= ROUTINE_HORIZON_DAYS; i += 1) {
+    const date = shiftDate(from, i);
+    if (date < routine.start_date || !routine.days.includes(weekdayOf(date))) continue;
+    const task = state.tasks.find((t) => t.routine_id === routine.id && t.date === date);
+    if (task ? !task.done : !routine.generated.includes(date)) return date;
+  }
+  return null;
+}
+
+/** Copia el molde a las tareas pendientes de hoy en adelante (salvo `exceptId`). */
+function propagateRoutine(routine, exceptId = null) {
+  for (const t of pendingInstances(routine.id, todayISO())) {
+    if (t.id === exceptId) continue;
+    Object.assign(t, {
+      title: routine.title,
+      minutes: routine.minutes,
+      certainty: routine.certainty,
+      epic_id: routine.epic_id,
+      meeting: routine.meeting ? { ...routine.meeting } : null,
+    });
+    if (routine.meeting) t.block = blockForTime(routine.meeting.start, state.settings);
+    else if (t.block !== routine.block) {
+      t.block = routine.block;
+      t.order = nextOrder(t.date, t.block);
+    }
+  }
+}
+
+/**
+ * Edita una rutina desde la vista Rutinas: { title, days, minutes, block, meeting: { start, end } | null }.
+ * Cambia el molde y sus tareas pendientes de hoy en adelante. Devuelve un mensaje de error o null.
+ */
+export function updateRoutine(id, changes) {
+  const routine = findRoutine(id);
+  if (!routine) return 'La rutina ya no existe.';
+  const title = (changes.title ?? routine.title).trim();
+  const days = changes.days ?? routine.days;
+  if (!title) return 'Escribe un título.';
+  if (!days.length) return 'Elige al menos un día.';
+  let { meeting } = routine;
+  let minutes = Number(changes.minutes ?? routine.minutes);
+  if (changes.meeting !== undefined) meeting = changes.meeting ? { blocking: true, ...routine.meeting, ...changes.meeting } : null;
+  if (meeting) {
+    if (!meeting.start || !meeting.end) return 'Indica la hora de inicio y de fin.';
+    minutes = toMin(meeting.end) - toMin(meeting.start);
+    if (minutes <= 0) return 'La reunión debe terminar después de empezar.';
+  } else if (!(minutes > 0)) return 'Indica una duración.';
+  Object.assign(routine, {
+    title,
+    days: ALL_DAYS.filter((d) => days.includes(d)),
+    minutes,
+    meeting,
+    block: meeting ? blockForTime(meeting.start, state.settings) : changes.block ?? routine.block,
+  });
+  propagateRoutine(routine);
+  // Tareas ya creadas para días que dejaron de tocar (sin tiempo registrado): fuera
+  const today = todayISO();
+  state.tasks = state.tasks.filter((t) => !(t.routine_id === id && !t.done && t.date && t.date >= today
+    && !routine.days.includes(weekdayOf(t.date)) && !t.time_entries.length));
+  ensureRoutines(false);
+  commit();
+  return null;
+}
+
+/**
+ * Elimina una rutina: se borran sus tareas pendientes (salvo las que tienen tiempo registrado,
+ * que quedan como tareas sueltas) y las hechas se conservan en el historial.
+ */
+export function deleteRoutine(id) {
+  const routine = findRoutine(id);
+  if (!routine) return 0;
+  const drop = new Set(state.tasks.filter((t) => t.routine_id === id && !t.done && !t.time_entries.length).map((t) => t.id));
+  state.tasks = state.tasks.filter((t) => !drop.has(t.id));
+  for (const t of state.tasks) {
+    if (t.routine_id === id) t.routine_id = null;
+    if (t.dependencies.some((d) => drop.has(d))) t.dependencies = t.dependencies.filter((d) => !drop.has(d));
+  }
+  state.routines = state.routines.filter((r) => r.id !== id);
+  commit();
+  return drop.size;
+}
+
+/** "Aplicar a todas": lo que tiene ahora esta tarea pasa a su rutina y a sus próximas tareas. */
+export function applyTaskToRoutine(taskId) {
+  const task = findTask(taskId);
+  const routine = findRoutine(task?.routine_id);
+  if (!task || !routine) return false;
+  Object.assign(routine, {
+    title: task.title,
+    minutes: task.minutes,
+    certainty: task.certainty,
+    epic_id: task.epic_id ?? null,
+    block: task.block || routine.block,
+    meeting: task.meeting ? { ...task.meeting } : null,
+  });
+  propagateRoutine(routine, task.id);
+  commit();
+  return true;
 }
 
 /**

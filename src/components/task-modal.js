@@ -9,7 +9,7 @@ import {
 import { markdownExcerpt } from '../utils/markdown.js';
 import {
   state, findTask, findEpic, updateTask, setDependency, subscribe, toggleTimer, resetTimer, deleteTask,
-  setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat,
+  setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat, deleteRoutine, applyTaskToRoutine, setView,
 } from '../services/store.js';
 import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
 import { blockName, blockRange, firstBlock } from '../core/blocks.js';
@@ -24,6 +24,7 @@ let tick = null;
 let blockedById = null; // reunión que impide iniciar el temporizador (para notar cuando cambia)
 let repeatOpen = false; // sección "Repetir" abierta en una tarea que aún no se repite
 let meetingForm = null; // formulario de reunión abierto: { date, start, end, mode, duration, blocking, error }
+let deleteAsk = false; // tarea de una rutina: preguntando "¿solo esta o todas?" antes de borrar
 const comments = createComments({ rerender: () => render() });
 
 function whereText(task) {
@@ -76,7 +77,11 @@ function repeatSection(task) {
   }, DAY_LETTER[d]);
   const where = task.meeting ? `${task.meeting.start}–${task.meeting.end}` : blockName(state.settings, routine?.block || task.block || firstBlock(state.settings).id);
   return h('section', { class: 'detail-section repeat-section' },
-    h('h3', {}, routine ? `↻ Se repite ${repeatLabel(days)}` : '↻ Repetir'),
+    h('h3', {}, routine ? `↻ Se repite ${repeatLabel(days)}` : '↻ Repetir',
+      routine ? h('button', {
+        type: 'button', class: 'link-btn repeat-manage', title: 'Ver y editar todas tus rutinas',
+        onclick: () => { closeModal(); setView({ tab: 'routines' }); },
+      }, 'Administrar rutinas') : null),
     h('div', { class: 'repeat-days', role: 'group', 'aria-label': 'Días' }, ...ALL_DAYS.map(chip)),
     h('p', { class: 'repeat-note' }, routine
       ? `Se crea sola esos días (${where}), con lo que tiene esta tarea ahora.`
@@ -89,8 +94,36 @@ function repeatSection(task) {
         : h('button', { type: 'button', class: 'ghost small', onclick: () => { repeatOpen = false; render(); } }, 'Cancelar')));
 }
 
-/** Pie del modal: borrar la tarea (con confirmación). */
+/** Pie del modal: borrar la tarea (con confirmación; si se repite, "¿solo esta o todas?"). */
 function footerSection(task) {
+  const routine = findRoutine(task.routine_id);
+  if (routine && deleteAsk) {
+    return h('footer', { class: 'modal-footer delete-ask' },
+      h('p', {}, `"${task.title}" se repite ${repeatLabel(routine.days)}. ¿Qué quieres borrar?`),
+      h('div', { class: 'mf-actions' },
+        h('button', {
+          type: 'button', class: 'danger-btn', title: 'Borra la de este día; la rutina sigue',
+          onclick: () => {
+            closeModal();
+            deleteTask(task.id); // no vuelve a aparecer: su día ya quedó como creado
+            showToast(`"${task.title}" borrada solo este día. La rutina sigue.`);
+          },
+        }, 'Solo esta'),
+        h('button', {
+          type: 'button', class: 'danger-btn', title: 'Termina la rutina y borra sus tareas pendientes',
+          onclick: () => {
+            closeModal();
+            deleteTask(task.id);
+            deleteRoutine(routine.id);
+            showToast(`Rutina "${routine.title}" terminada: se borraron esta y las próximas.`);
+          },
+        }, 'Esta y las próximas'),
+        h('button', { type: 'button', class: 'ghost small', onclick: () => { deleteAsk = false; render(); } }, 'Cancelar')));
+  }
+  if (routine) {
+    return h('footer', { class: 'modal-footer' },
+      h('button', { type: 'button', class: 'danger-btn', onclick: () => { deleteAsk = true; render(); } }, 'Borrar tarea'));
+  }
   return h('footer', { class: 'modal-footer' },
     h('button', {
       type: 'button',
@@ -241,6 +274,7 @@ function saveMeetingForm(task) {
   const f = meetingForm;
   const end = f.mode === 'duration' && f.start ? toHHMM(toMinutes(f.start) + Number(f.duration)) : f.end;
   const wasMeeting = Boolean(task.meeting);
+  const before = wasMeeting ? `${task.meeting.start}–${task.meeting.end}` : null; // antes de guardar (setMeeting muta la tarea)
   const error = setMeeting(task.id, { date: f.date, start: f.start, end, blocking: f.blocking });
   if (error) {
     f.error = error;
@@ -249,6 +283,15 @@ function saveMeetingForm(task) {
   }
   meetingForm = null;
   render();
+  // Una reunión de rutina reprogramada: el cambio es solo de este día, salvo que se aplique a todas
+  const now = findTask(task.id);
+  if (now?.routine_id && wasMeeting && before !== `${now.meeting.start}–${now.meeting.end}`) {
+    showToast(`Reunión reprogramada: ${f.start}–${end}, solo este día.`, {
+      label: 'Aplicar a todas',
+      run: () => { applyTaskToRoutine(task.id); showToast(`Todas las "${now.title}" quedan de ${now.meeting.start} a ${now.meeting.end}.`); },
+    });
+    return;
+  }
   showToast(wasMeeting ? `Reunión reprogramada: ${f.start}–${end}.` : `"${task.title}" ahora es una reunión.`);
 }
 
@@ -406,6 +449,7 @@ function onClose() {
   currentId = null;
   meetingForm = null;
   repeatOpen = false;
+  deleteAsk = false;
   comments.stopEditing();
   clearInterval(tick);
   tick = null;

@@ -33,14 +33,14 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 
 - **Crear una tarea en menos de 3 segundos**: una caja de texto y Enter (`Informe 2h ? pm #web`).
 - **Bloques personalizables**: hasta 5 por día, cada uno con título, ícono y horario, sin superponerse.
-- **Vistas**: *Hoy* (las tareas de hoy por bloque, con su campo para agregar, pronóstico y avance), *Épicas*, *Hechas* (completadas por día), *Docs* (tareas con documentación) y *Ajustes*.
+- **Vistas**: *Hoy* (las tareas del día por bloque, con su campo para agregar, pronóstico y avance; ‹ › para otros días y 📅 para los próximos 7), *Épicas*, *Hechas* (completadas por día), *Rutinas* (todo lo que se repite: editar o eliminar), *Docs* (tareas con documentación) y *Ajustes*.
 - **Tema claro / oscuro** con el botón ☾ / ☀︎ de arriba a la derecha (también en la documentación).
 - **Pronóstico por bloque**: probabilidad de terminar a tiempo, calculada con PERT y calibrada con tu tiempo real.
 - **Dependencias** ("va después de…") que ordenan el bloque y marcan la ruta crítica.
 - **Temporizador por tarea** con alarma sonora y temporizador flotante en las páginas que visitas.
 - **Reuniones** con horario fijo, que pueden bloquear tu tiempo o correr en paralelo, y terminan solas a su hora.
 - **Épicas**: agrupan trabajo de varios días, con progreso, fecha objetivo y bandeja propia.
-- **Rutinas**: tareas que se repiten (`cada día`, `hábiles`, `cada lun,jue`).
+- **Rutinas**: tareas que se repiten (`cada día`, `hábiles`, `cada lun,jue`). Al editar o borrar una, eliges si es *solo esta* o *todas*.
 - **Documentación por tarea** en Markdown, en una pestaña a pantalla completa, con buscador en la vista *Docs*.
 - **Cierre del día**: resumen de lo hecho frente a lo estimado, y mover lo pendiente con un clic.
 - **Respaldo**: exportar e importar todos tus datos en JSON.
@@ -102,7 +102,7 @@ cabe-todo/
 │   │   ├── panel/             # Side panel: panel.html · panel.js · panel.css (estilos base)
 │   │   ├── doc/               # Pestaña de documentación de una tarea
 │   │   └── offscreen/         # Documento offscreen para reproducir sonido
-│   ├── views/                 # Vistas del panel: Hoy, Épicas, Hechas, Docs y Ajustes
+│   ├── views/                 # Vistas del panel: Hoy, Épicas, Hechas, Rutinas, Docs y Ajustes
 │   ├── components/            # Piezas de UI reutilizables: tarjeta, modal, comentarios, editor
 │   ├── core/                  # Lógica de dominio pura: PERT, bloques, parser, rutinas, temporizador
 │   ├── services/              # Estado y persistencia: store, storage, sonido

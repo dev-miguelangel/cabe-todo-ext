@@ -6,16 +6,19 @@ import { renderSettings, setupSettings } from '../../views/settings-view.js';
 import { renderDocs, setupDocs } from '../../views/docs-view.js';
 import { renderDone, setupDone } from '../../views/done-view.js';
 import { renderMinimal, setupMinimal, isMinimalBusy } from '../../views/minimal-view.js';
+import { renderRoutines, setupRoutines, isRoutinesBusy } from '../../views/routines-view.js';
 import { updateTimerChip } from '../../components/cards.js';
 import { setupThemeToggle, renderThemeToggle } from '../../components/theme-toggle.js';
 import { showToast, applyTheme } from '../../utils/ui.js';
 
 const TAB_KEY = 'cabetodo:tab';
-const TABS = ['minimal', 'epics', 'done', 'docs', 'settings'];
-const VIEWS = { minimal: renderMinimal, epics: renderEpics, done: renderDone, docs: renderDocs, settings: renderSettings };
+const TABS = ['minimal', 'epics', 'done', 'routines', 'docs', 'settings'];
+const VIEWS = {
+  minimal: renderMinimal, epics: renderEpics, done: renderDone, routines: renderRoutines, docs: renderDocs, settings: renderSettings,
+};
 
 function isBusy() {
-  return isEpicsBusy() || isMinimalBusy();
+  return isEpicsBusy() || isMinimalBusy() || isRoutinesBusy();
 }
 
 function render() {
@@ -58,6 +61,7 @@ async function init() {
   setupMinimal();
   setupEpics();
   setupDone();
+  setupRoutines();
   setupDocs();
   setupSettings();
   setupKeyboard();
