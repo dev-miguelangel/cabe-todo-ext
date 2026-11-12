@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Política de privacidad · Cabe Todo</title>
+  <meta name="description" content="Cabe Todo no recopila, no envía y no vende ningún dato. Todo lo que escribes se queda en tu navegador.">
+  <link rel="icon" href="https://raw.githubusercontent.com/dev-miguelangel/cabe-todo-ext/main/assets/icons/icon32.png">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f8f7; --card: #ffffff; --text: #17201b; --muted: #5b6660;
+      --border: #dfe5e1; --accent: #138a3e; --accent-soft: #e5f6eb; --code: #eef2ef;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1411; --card: #171d19; --text: #eef2ef; --muted: #9aa59f;
+        --border: #2a332d; --accent: #1db954; --accent-soft: #15301f; --code: #222a25;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    main { max-width: 760px; margin: 0 auto; padding: 48px 16px 64px; }
+    header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+    header img { width: 44px; height: 44px; }
+    header span { font-weight: 700; font-size: 20px; }
+    h1 { font-size: 34px; line-height: 1.2; letter-spacing: -0.01em; margin: 24px 0 4px; }
+    .updated { color: var(--muted); margin: 0 0 28px; font-size: 14px; }
+    h2 { font-size: 21px; margin: 40px 0 10px; }
+    a { color: var(--accent); }
+    code { background: var(--code); padding: 1px 6px; border-radius: 5px; font-size: 0.88em; }
+    .summary {
+      background: var(--accent-soft); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+      border-radius: 10px; padding: 16px 20px; margin: 0;
+    }
+    .summary p { margin: 0; }
+    ul { padding-left: 22px; }
+    li { margin: 4px 0; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    th { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    td:first-child { white-space: nowrap; }
+    footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="https://raw.githubusercontent.com/dev-miguelangel/cabe-todo-ext/main/assets/icons/icon128.png" alt="">
+    <span>Cabe Todo</span>
+  </header>
+
+  <h1>Política de privacidad</h1>
+  <p class="updated">Última actualización: 11 de noviembre de 2026</p>
+
+  <p>Cabe Todo es una extensión de Chrome para planificar las tareas del día. Esta política explica qué datos maneja y qué hace con ellos.</p>
+
+  <h2>Resumen</h2>
+  <div class="summary">
+    <p><strong>Cabe Todo no recopila, no envía y no vende ningún dato.</strong> No tiene servidores, cuentas, analítica ni publicidad. Todo lo que escribes se queda en tu navegador.</p>
+  </div>
+
+  <h2>Qué datos guarda y dónde</h2>
+  <p>La extensión guarda en el almacenamiento local de Chrome (<code>chrome.storage.local</code>), dentro de tu equipo:</p>
+  <ul>
+    <li>tus tareas, reuniones, rutinas y épicas (títulos, duraciones, fechas, bloques y estado);</li>
+    <li>la documentación y los comentarios que escribes en cada tarea;</li>
+    <li>los tiempos que registras con el temporizador;</li>
+    <li>tus ajustes (bloques del día, plantillas, tema, avisos, orden del menú).</li>
+  </ul>
+  <p>Estos datos nunca salen de tu equipo. Ni el desarrollador ni terceros tienen acceso a ellos. Se borran al desinstalar la extensión.</p>
+
+  <h2>Respaldo</h2>
+  <p>Si usas <strong>Ajustes → Respaldo → Exportar</strong>, la extensión descarga un archivo JSON con tus datos en la carpeta que elijas. Ese archivo es tuyo: la extensión no lo sube a ningún lugar.</p>
+
+  <h2>Permisos</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Permiso</th><th>Para qué se usa</th></tr></thead>
+      <tbody>
+        <tr><td><code>storage</code></td><td>Guardar tus tareas y ajustes en tu equipo.</td></tr>
+        <tr><td><code>sidePanel</code></td><td>Mostrar la app en el panel lateral de Chrome.</td></tr>
+        <tr><td><code>alarms</code></td><td>Avisarte cuando termina un bloque, cuando el temporizador llega a cero y cuando empieza una reunión, y crear las rutinas del día.</td></tr>
+        <tr><td><code>notifications</code></td><td>Mostrar esos avisos.</td></tr>
+        <tr><td><code>offscreen</code></td><td>Reproducir el sonido de la alarma del temporizador.</td></tr>
+        <tr><td><code>scripting</code></td><td>Mostrar el temporizador flotante en las páginas, solo si lo activas.</td></tr>
+        <tr><td>Acceso a sitios web<br>(opcional)</td><td>Se pide solo si activas el temporizador flotante en <strong>Ajustes → Preferencias</strong>. Sirve únicamente para dibujar el botón flotante del temporizador sobre las páginas. <strong>La extensión no lee, guarda ni modifica el contenido de las páginas.</strong> Puedes revocarlo cuando quieras desde <code>chrome://extensions</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Código remoto</h2>
+  <p>La extensión no descarga ni ejecuta código remoto. Todo su código viene dentro del paquete publicado.</p>
+
+  <h2>Menores de edad</h2>
+  <p>La extensión no está dirigida a menores de 13 años y no recopila datos de nadie.</p>
+
+  <h2>Cambios a esta política</h2>
+  <p>Si la política cambia, se actualizará esta página con su nueva fecha.</p>
+
+  <h2>Contacto</h2>
+  <p>Para preguntas sobre privacidad, escribe a <a href="mailto:dev.miguelangel.jaimen+cabetodo@gmail.com">dev.miguelangel.jaimen+cabetodo@gmail.com</a>.</p>
+
+  <footer>Cabe Todo · <a href="https://github.com/dev-miguelangel/cabe-todo-ext">Código fuente en GitHub</a></footer>
+</main>
+</body>
+</html>

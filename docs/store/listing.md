@@ -98,7 +98,7 @@ Marcar las tres certificaciones:
 - No uso ni transfiero datos de usuarios para fines no relacionados con el propósito único del elemento.
 - No uso ni transfiero datos de usuarios para determinar la solvencia crediticia ni con fines de préstamo.
 
-**URL de la política de privacidad**: https://github.com/dev-miguelangel/cabe-todo-ext/blob/main/docs/privacy.md
+**URL de la política de privacidad**: https://dev-miguelangel.github.io/cabe-todo-ext/privacidad.html (GitHub Pages, carpeta `docs/` de `main`; fuente en `docs/privacidad.html`)
 
 ## Distribución
 
