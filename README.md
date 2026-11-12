@@ -14,6 +14,8 @@ Por fuera es un tablero simple de tarjetas. Por dentro usa [PERT](https://es.wik
 
 El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: solo ve resultados en lenguaje simple ("85 % de terminar a tiempo").
 
+> 📱 **¿En el celular?** Usa [Cabe Todo Web](https://cabe-todo-web.vercel.app), la versión instalable (PWA) con las mismas vistas. El respaldo de **Ajustes → Respaldo** sirve en los dos lados: exporta aquí e importa allá, o al revés. [Código](https://github.com/dev-miguelangel/cabe-todo-web).
+
 ---
 
 ## Tabla de contenidos
