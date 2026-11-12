@@ -1047,3 +1047,34 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(a.id, b.id, 'dos equipos crean la misma tarea');
   console.log('OK: tareas de rutina con id fijo');
 }
+
+// ---------- Google Drive: la secuencia y los mensajes de error ----------
+{
+  const { runSync, googleDrive, DriveAuthError } = await import(root + '/src/services/drive-api.js');
+  const S = await import(root + '/src/services/store.js');
+  const d = { file: null, version: 0, uploads: 0 };
+  const drive = {
+    find: async () => (d.file ? { id: 'f1' } : null),
+    download: async () => d.file,
+    modified: async () => `v${d.version}`,
+    create: async (text) => { d.file = text; d.version += 1; return { id: 'f1' }; },
+    update: async (id, text) => { d.file = text; d.version += 1; d.uploads += 1; },
+  };
+  const local = { exportText: () => S.exportBackup(), read: (t) => S.readBackup(t), merge: (x) => S.mergeBackup(x), saveUndo: async () => {} };
+  assert.equal((await runSync(drive, local)).created, true, 'sin archivo: se crea');
+  const remote = JSON.parse(d.file);
+  remote.tasks.push({ id: 'desde-web', title: 'Desde la web', minutes: 15, date: null, block: null, done: false, order: 0, updated_at: new Date(Date.now() + 1000).toISOString() });
+  d.file = JSON.stringify(remote);
+  const r = await runSync(drive, local, { fileId: 'f1' });
+  assert.equal(r.summary.tasks.added, 1);
+  assert.ok(S.findTask('desde-web'));
+
+  // Errores de Google → mensajes claros
+  const reply = (status, body) => async () => ({ ok: false, status, json: async () => body });
+  const failWith = (status, body) => googleDrive('t', reply(status, body)).find();
+  await assert.rejects(failWith(401, {}), (e) => e instanceof DriveAuthError);
+  await assert.rejects(failWith(403, { error: { errors: [{ reason: 'insufficientPermissions' }] } }), (e) => e instanceof DriveAuthError);
+  await assert.rejects(failWith(403, { error: { errors: [{ reason: 'accessNotConfigured' }], message: 'Google Drive API has not been used in project 1 before or it is disabled.' } }), /no está activada/);
+  await assert.rejects(failWith(429, {}), /esperar un momento/);
+  console.log('OK: Google Drive (secuencia y mensajes de error)');
+}

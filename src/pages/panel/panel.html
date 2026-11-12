@@ -34,6 +34,9 @@
         <button type="button" class="round-btn upcoming-btn" id="upcoming-btn" title="Próximos 7 días" aria-label="Ver las tareas de los próximos 7 días">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M12 14h2M16 14h0.5M8 17h2M12 17h2"/></svg>
         </button>
+        <button type="button" class="round-btn sync-btn" id="drive-sync-btn" title="Sincronizar con Google Drive" aria-label="Sincronizar con Google Drive" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 0 1-14.3 4.9M4 12a8 8 0 0 1 14.3-4.9"/><path d="M18.5 3.5v4h-4M5.5 20.5v-4h4"/></svg>
+        </button>
       </div>
       <p class="docs-count"><span id="minimal-count"></span><button type="button" class="link-btn minimal-today" id="minimal-today" hidden>Volver a hoy</button></p>
     </header>
@@ -203,6 +206,28 @@
           <li><code>cada día</code> <code>hábiles</code> <code>cada lun,jue</code> se repite</li>
         </ul>
         <p>Arrastra una tarea para moverla de bloque · doble clic para editar · ◆ otras dependen de ella · ⧖ bloqueada</p>
+      </div>
+    </details>
+
+    <details class="settings settings-section drive-section" data-section="drive" id="drive-section">
+      <summary>
+        <span class="ss-head"><span class="ss-title">Sincronizar con Google Drive</span><span class="ss-chevron" aria-hidden="true"></span></span>
+        <span class="ss-desc" id="drive-desc">La misma lista en el celular y en la extensión.</span>
+      </summary>
+      <div class="ss-body">
+        <div id="drive-off">
+          <p>Guarda tus datos en un archivo privado de <strong>tu</strong> Google Drive (<code>Cabe Todo/cabe-todo-sync.json</code>) y mézclalos con los de tus otros equipos con un toque.</p>
+          <p class="settings-note">Cabe Todo solo puede ver ese archivo, no el resto de tu Drive. Experimental: por ahora solo funciona con cuentas autorizadas.</p>
+          <button type="button" class="primary small" id="drive-connect">Conectar Google Drive</button>
+          <p class="settings-note drive-setup-note">Configuración en Google Cloud (URI de redireccionamiento): <code id="drive-setup"></code></p>
+        </div>
+        <div id="drive-on" hidden>
+          <p id="drive-status"></p>
+          <div class="backup-actions">
+            <button type="button" class="primary small" id="drive-sync">Sincronizar ahora</button>
+            <button type="button" class="link-btn" id="drive-disconnect">Desconectar</button>
+          </div>
+        </div>
       </div>
     </details>
 

@@ -1285,3 +1285,13 @@ button.prob-tag { cursor: pointer; }
 .import-choice:hover { border-color: var(--accent); }
 .import-choice.primary-choice { border-color: var(--accent); }
 .import-choice.primary-choice strong { color: var(--accent-text); }
+
+/* Sincronizar con Google Drive: botón ⟳ de Hoy y estado "sincronizando" */
+.day-nav .sync-btn { width: 28px; height: 28px; margin-left: 6px; }
+.day-nav .sync-btn svg { width: 16px; height: 16px; }
+.sync-btn.is-busy svg { animation: drive-spin 0.9s linear infinite; }
+.is-busy { opacity: 0.7; cursor: progress; }
+@keyframes drive-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sync-btn.is-busy svg { animation: none; } }
+.drive-section .ss-body p { margin: 0 0 8px; }
+.drive-setup-note { margin-top: 10px !important; overflow-wrap: anywhere; }

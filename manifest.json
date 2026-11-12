@@ -10,7 +10,8 @@
     "alarms",
     "notifications",
     "offscreen",
-    "scripting"
+    "scripting",
+    "identity"
   ],
   "optional_host_permissions": [
     "http://*/*",
