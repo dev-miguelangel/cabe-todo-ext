@@ -49,4 +49,4 @@ Si la política cambia, se actualizará este documento con su nueva fecha.
 
 ## Contacto
 
-Para preguntas sobre privacidad, escribe a **[tu correo de contacto]**.
+Para preguntas sobre privacidad, escribe a [dev.miguelangel.jaimen+cabetodo@gmail.com](mailto:dev.miguelangel.jaimen+cabetodo@gmail.com).

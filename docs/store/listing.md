@@ -64,7 +64,11 @@ TU INFORMACIÓN ES TUYA
 | Mosaico promocional pequeño | `promo-small-440x280.png` | 440×280 |
 | Mosaico de marquesina (opcional) | `promo-marquee-1400x560.png` | 1400×560 |
 
-**Sitio web / Asistencia**: la URL pública del repositorio o de la página de soporte, si la tienes.
+**Sitio web**: https://github.com/dev-miguelangel/cabe-todo-ext
+
+**Asistencia**: https://github.com/dev-miguelangel/cabe-todo-ext/issues
+
+**Correo de contacto**: dev.miguelangel.jaimen+cabetodo@gmail.com
 
 ## Prácticas de privacidad
 
@@ -94,7 +98,7 @@ Marcar las tres certificaciones:
 - No uso ni transfiero datos de usuarios para fines no relacionados con el propósito único del elemento.
 - No uso ni transfiero datos de usuarios para determinar la solvencia crediticia ni con fines de préstamo.
 
-**URL de la política de privacidad**: la dirección pública de [`docs/privacy.md`](../privacy.md). El repositorio es privado, así que publícala en un lugar público, por ejemplo un gist público o GitHub Pages.
+**URL de la política de privacidad**: https://github.com/dev-miguelangel/cabe-todo-ext/blob/main/docs/privacy.md
 
 ## Distribución
 
@@ -106,5 +110,5 @@ Marcar las tres certificaciones:
 - [ ] `node tests/run.mjs` pasa.
 - [ ] `node scripts/release.mjs` genera el zip nuevo.
 - [ ] Probar el zip: descomprimirlo, cargarlo en `chrome://extensions` y revisar Hoy, Épicas, Docs y el temporizador flotante. Al activar el temporizador flotante, Chrome debe pedir el permiso.
-- [ ] Política de privacidad publicada y con correo de contacto.
+- [x] Política de privacidad publicada y con correo de contacto.
 - [ ] Correo de contacto verificado en la cuenta de desarrollador. El registro único cuesta USD 5.
