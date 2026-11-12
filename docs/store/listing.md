@@ -88,11 +88,20 @@ TU INFORMACIÓN ES TUYA
 | `notifications` | Muestra esos avisos al usuario (fin de bloque, temporizador en cero, inicio de reunión). |
 | `offscreen` | Reproduce el sonido de la alarma del temporizador: en Manifest V3 el service worker no puede reproducir audio, así que usa un documento offscreen con el motivo AUDIO_PLAYBACK. |
 | `scripting` | Registra el content script del temporizador flotante solo después de que el usuario lo activa en Ajustes y concede el acceso opcional a los sitios. |
+| `identity` | Solo si el usuario activa "Sincronizar con Google Drive": abre la ventana de inicio de sesión de Google (`chrome.identity.launchWebAuthFlow`) para obtener el permiso `drive.file` sobre el archivo de sincronización que la extensión crea en el Drive del propio usuario. |
 | Permiso de host (opcional: `http://*/*`, `https://*/*`) | Opcional y pedido en tiempo de ejecución. Solo se usa para dibujar sobre las páginas un botón flotante con la cuenta del temporizador de la tarea en curso y la cuenta regresiva de la próxima reunión. El script lee únicamente el almacenamiento de la propia extensión; no lee, guarda ni modifica el contenido de las páginas. |
 
 **¿Usas código remoto?** No. Todo el código JavaScript viene incluido en el paquete.
 
-**Uso de datos**: no marcar ninguna categoría. La extensión no recopila ni transmite datos: todo queda en `chrome.storage.local` en el equipo del usuario.
+**Uso de datos**:
+- **Sin sincronización:** el desarrollador no recibe nada; todo queda en `chrome.storage.local`.
+- **Con "Sincronizar con Google Drive" (opcional, a pedido del usuario):** las tareas y la documentación viajan directo del navegador al Google Drive **del propio usuario**. No pasan por servidores del desarrollador.
+- **Qué marcar en el formulario:** el desarrollador no recibe datos, así que en principio no corresponde marcar categorías. Ninguna describe bien "texto propio del usuario guardado en su propio Drive". Si el formulario o el revisor exigen declarar la sincronización, revisar las definiciones vigentes de la tienda antes de elegir y explicarlo en la justificación. En cualquier caso no se piden nombre, correo, contactos ni historial.
+
+**Google OAuth (antes de abrir la sincronización a todos):**
+- Hoy la app de Google está en modo **Prueba**: solo funciona con las cuentas agregadas como usuarios de prueba. Por eso la sección dice "Experimental".
+- **Para que funcione con cualquiera:** en Google Cloud → Pantalla de consentimiento → **Publicar app**. `drive.file` no es un alcance sensible, así que solo pide verificar la marca: página principal, política de privacidad en un dominio verificado y logo.
+- **Al publicar en la tienda:** agregar en el cliente OAuth la URI `https://<id de la tienda>.chromiumapp.org/`. Ajustes de la extensión publicada la muestra.
 
 Marcar las tres certificaciones:
 
@@ -112,5 +121,6 @@ Marcar las tres certificaciones:
 - [ ] `node tests/run.mjs` pasa.
 - [ ] `node scripts/release.mjs` genera el zip nuevo.
 - [ ] Probar el zip: descomprimirlo, cargarlo en `chrome://extensions` y revisar Hoy, Épicas, Docs y el temporizador flotante. Al activar el temporizador flotante, Chrome debe pedir el permiso.
-- [x] Política de privacidad publicada y con correo de contacto.
+- [x] Política de privacidad publicada y con correo de contacto (incluye la sincronización con Google Drive).
+- [ ] Si se quiere ofrecer la sincronización a todos: publicar la app de OAuth y agregar la URI de redirección del id de la tienda.
 - [ ] Correo de contacto verificado en la cuenta de desarrollador. El registro único cuesta USD 5.

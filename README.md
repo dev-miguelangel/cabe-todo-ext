@@ -45,6 +45,7 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 - **Rutinas**: tareas que se repiten (`cada día`, `hábiles`, `cada lun,jue`). Al editar o borrar una, eliges si es *solo esta* o *todas*.
 - **Documentación por tarea** en Markdown, en una pestaña a pantalla completa, con buscador en la vista *Docs*.
 - **Cierre del día**: resumen de lo hecho frente a lo estimado, y mover lo pendiente con un clic.
+- **Sincronizar con Google Drive** (experimental): la misma lista en la extensión y en el celular. Un archivo privado en tu Drive; **Sincronizar** lo trae, lo mezcla y lo sube.
 - **Respaldo**: exportar e importar todos tus datos en JSON. Al importar eliges **Mezclar** (suma lo del respaldo; en cada tarea queda la versión más reciente y lo borrado en un lado se borra en el otro) o **Reemplazar todo**.
 - **Temas**: oscuro (Chrome) y claro estilo Trello.
 
@@ -201,4 +202,4 @@ El acceso a los sitios web es **opcional**: solo se pide al activar el temporiza
 
 ## Privacidad
 
-Cabe Todo no tiene backend ni cuentas, y no envía datos a ningún servidor. Todo queda en el almacenamiento local de tu navegador. El respaldo JSON se descarga en tu equipo y solo tú decides dónde guardarlo. Ver la [política de privacidad](docs/privacy.md).
+Cabe Todo no tiene backend ni cuentas propias, y no envía datos a ningún servidor del desarrollador. Todo queda en el almacenamiento local de tu navegador. El respaldo JSON se descarga en tu equipo y solo tú decides dónde guardarlo. La sincronización con Google Drive es opcional y usa un archivo de **tu** Drive (permiso `drive.file`). Ver la [política de privacidad](docs/privacy.md).

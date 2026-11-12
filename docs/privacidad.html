@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Política de privacidad · Cabe Todo</title>
-  <meta name="description" content="Cabe Todo no recopila, no envía y no vende ningún dato. Todo lo que escribes se queda en tu navegador.">
+  <meta name="description" content="El desarrollador de Cabe Todo no recopila ni recibe ningún dato. Todo queda en tu equipo y, si lo activas, en tu propio Google Drive.">
   <link rel="icon" href="https://raw.githubusercontent.com/dev-miguelangel/cabe-todo-ext/main/assets/icons/icon32.png">
   <style>
     :root {
@@ -56,29 +56,47 @@
   </header>
 
   <h1>Política de privacidad</h1>
-  <p class="updated">Última actualización: 11 de noviembre de 2026</p>
+  <p class="updated">Última actualización: 12 de noviembre de 2026</p>
 
-  <p>Cabe Todo es una extensión de Chrome para planificar las tareas del día. Esta política explica qué datos maneja y qué hace con ellos.</p>
+  <p>Cabe Todo planifica las tareas del día. Existe como extensión de Chrome y como app web instalable (<a href="https://cabe-todo-web.vercel.app">cabe-todo-web.vercel.app</a>). Esta política explica qué datos maneja y qué hace con ellos.</p>
 
   <h2>Resumen</h2>
   <div class="summary">
-    <p><strong>Cabe Todo no recopila, no envía y no vende ningún dato.</strong> No tiene servidores, cuentas, analítica ni publicidad. Todo lo que escribes se queda en tu navegador.</p>
+    <p><strong>El desarrollador no recopila, no recibe y no vende ningún dato.</strong> Cabe Todo no tiene servidores propios, cuentas, analítica ni publicidad. Todo lo que escribes se guarda en tu equipo. Solo si tú activas <strong>Sincronizar con Google Drive</strong>, tus datos se guardan también en un archivo de <strong>tu propio</strong> Google Drive, para verlos en tus otros equipos.</p>
   </div>
 
   <h2>Qué datos guarda y dónde</h2>
-  <p>La extensión guarda en el almacenamiento local de Chrome (<code>chrome.storage.local</code>), dentro de tu equipo:</p>
+  <p>Cabe Todo guarda en tu equipo:</p>
   <ul>
     <li>tus tareas, reuniones, rutinas y épicas (títulos, duraciones, fechas, bloques y estado);</li>
     <li>la documentación y los comentarios que escribes en cada tarea;</li>
     <li>los tiempos que registras con el temporizador;</li>
-    <li>tus ajustes (bloques del día, plantillas, tema, avisos, orden del menú).</li>
+    <li>tus ajustes (bloques del día, plantillas, tema, avisos, orden del menú);</li>
+    <li>la fecha de cada cambio y los borrados recientes (60 días), para poder mezclar los datos de tus equipos.</li>
   </ul>
-  <p>Estos datos nunca salen de tu equipo. Ni el desarrollador ni terceros tienen acceso a ellos. Se borran al desinstalar la extensión.</p>
+  <p>En la extensión se guardan en el almacenamiento local de Chrome (<code>chrome.storage.local</code>). En la app web, en el almacenamiento del navegador (IndexedDB). Ni el desarrollador ni terceros tienen acceso a estos datos. Se borran al desinstalar la extensión o al borrar los datos del sitio en el navegador.</p>
 
   <h2>Respaldo</h2>
-  <p>Si usas <strong>Ajustes → Respaldo → Exportar</strong>, la extensión descarga un archivo JSON con tus datos en la carpeta que elijas. Ese archivo es tuyo: la extensión no lo sube a ningún lugar.</p>
+  <p>Si usas <strong>Ajustes → Respaldo</strong>, Cabe Todo crea un archivo JSON con tus datos:</p>
+  <ul>
+    <li><strong>Exportar</strong> o <strong>Descargar</strong> lo deja en la carpeta que elijas.</li>
+    <li>En el celular, <strong>Compartir…</strong> lo entrega a la app que tú elijas (WhatsApp, correo, Drive…).</li>
+  </ul>
+  <p>Cabe Todo no lo sube a ningún lugar por su cuenta.</p>
 
-  <h2>Permisos</h2>
+  <h2>Sincronización con Google Drive (opcional)</h2>
+  <p>Si activas <strong>Ajustes → Sincronizar con Google Drive</strong>:</p>
+  <ul>
+    <li><strong>Permiso que se pide:</strong> Google te pide permiso para que Cabe Todo use tu Drive con el alcance <code>drive.file</code>. Con él, Cabe Todo <strong>solo puede ver y modificar los archivos que ella misma crea</strong>, no el resto de tu Drive.</li>
+    <li><strong>Archivo que se usa:</strong> Cabe Todo crea una carpeta <code>Cabe Todo</code> con un archivo <code>cabe-todo-sync.json</code>, que contiene los mismos datos del respaldo.</li>
+    <li><strong>Sincronizar:</strong> al tocar <strong>Sincronizar</strong>, Cabe Todo descarga ese archivo, lo mezcla con lo de tu equipo y lo vuelve a subir. La comunicación es directa entre tu navegador y Google; no pasa por ningún servidor del desarrollador.</li>
+    <li><strong>Permiso de acceso (token):</strong> Google entrega un permiso temporal de alrededor de una hora. Se guarda solo mientras el navegador está abierto (<code>chrome.storage.session</code> en la extensión, <code>sessionStorage</code> en la web) y nunca se envía a otro lugar que no sea Google.</li>
+    <li><strong>No se pide</strong> tu nombre, tu correo ni tus contactos.</li>
+    <li><strong>Para dejar de usarla:</strong> <strong>Desconectar</strong> revoca el permiso y olvida la conexión en ese equipo. También puedes quitar el acceso en <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>. El archivo en tu Drive no se borra solo: puedes eliminarlo cuando quieras.</li>
+  </ul>
+  <p>El uso y la transferencia que hace Cabe Todo de la información recibida de las API de Google se ajustan a la <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de datos de usuario de los servicios de las API de Google</a>, incluidos los requisitos de uso limitado. Los datos de tu Drive se usan solo para sincronizar tu lista: no se usan para publicidad, no se venden ni se comparten con nadie.</p>
+
+  <h2>Permisos de la extensión</h2>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Permiso</th><th>Para qué se usa</th></tr></thead>
@@ -89,16 +107,17 @@
         <tr><td><code>notifications</code></td><td>Mostrar esos avisos.</td></tr>
         <tr><td><code>offscreen</code></td><td>Reproducir el sonido de la alarma del temporizador.</td></tr>
         <tr><td><code>scripting</code></td><td>Mostrar el temporizador flotante en las páginas, solo si lo activas.</td></tr>
+        <tr><td><code>identity</code></td><td>Abrir la ventana de Google para dar el permiso de Drive, solo si activas la sincronización.</td></tr>
         <tr><td>Acceso a sitios web<br>(opcional)</td><td>Se pide solo si activas el temporizador flotante en <strong>Ajustes → Preferencias</strong>. Sirve únicamente para dibujar el botón flotante del temporizador sobre las páginas. <strong>La extensión no lee, guarda ni modifica el contenido de las páginas.</strong> Puedes revocarlo cuando quieras desde <code>chrome://extensions</code>.</td></tr>
       </tbody>
     </table>
   </div>
 
   <h2>Código remoto</h2>
-  <p>La extensión no descarga ni ejecuta código remoto. Todo su código viene dentro del paquete publicado.</p>
+  <p>La extensión no descarga ni ejecuta código remoto: todo su código viene dentro del paquete publicado. La app web carga la librería de inicio de sesión de Google (<code>accounts.google.com/gsi/client</code>) solo para la sincronización con Drive.</p>
 
   <h2>Menores de edad</h2>
-  <p>La extensión no está dirigida a menores de 13 años y no recopila datos de nadie.</p>
+  <p>Cabe Todo no está dirigida a menores de 13 años y no recopila datos de nadie.</p>
 
   <h2>Cambios a esta política</h2>
   <p>Si la política cambia, se actualizará esta página con su nueva fecha.</p>

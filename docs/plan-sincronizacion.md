@@ -2,7 +2,7 @@
 
 Ver y editar la misma lista en todos mis equipos (extensión de Chrome y web en el celular) con un botón **Sincronizar**. Los datos se guardan en mi propio Google Drive, de forma privada.
 
-**Estado:** etapas 1 (mezcla), 2 (Drive en la web) y 3 (Drive en la extensión) hechas. Etapa 4 (textos, tienda y versiones) pendiente.
+**Estado:** hecho. Extensión v1.0.8 y web v1.1.0. La sincronización es experimental mientras la app de Google siga en modo prueba.
 
 ## Decisiones
 
@@ -77,7 +77,7 @@ Las cuotas gratuitas de la API de Drive sobran para esto.
 ## Privacidad y tienda
 
 - **Política de privacidad (`docs/privacy.md` y `privacidad.html`):** agregar que, si se activa la sincronización, los datos se guardan en el Google Drive del usuario. El desarrollador no tiene acceso a ellos.
-- **Ficha de la Chrome Web Store:** agregar el permiso `identity` con su justificación y actualizar "uso de datos". Los datos se transmiten a Google Drive solo por acción del usuario.
+- **Ficha de la Chrome Web Store:** agregar el permiso `identity` con su justificación y actualizar "uso de datos". ✅ Hecho en `docs/store/listing.md`, que incluye los pasos para publicar la app de OAuth si algún día se abre a todos. Los datos se transmiten a Google Drive solo por acción del usuario.
 - **Textos que cambian:** "Sin cuentas ni servidores" pasa a "Sin cuentas propias; sincronización opcional con tu Google Drive".
 
 ## Etapas
@@ -102,7 +102,7 @@ Las cuotas gratuitas de la API de Drive sobran para esto.
    - Pruebas: más reciente gana, borrados, comentarios, rutinas, referencias y mezclar dos veces lo mismo.
 2. ✅ **Drive en la web:** iniciar sesión, buscar o crear el archivo, sincronizar, resumen y "Última sincronización: …". Probado en el celular.
 3. ✅ **Drive en la extensión:** `chrome.identity`, el mismo flujo, y probar con la web en paralelo.
-4. **Textos y tienda:** política de privacidad, ficha de la Chrome Web Store, README y nueva versión de las dos apps.
+4. ✅ **Textos y tienda:** política de privacidad, ficha de la Chrome Web Store, README y nueva versión de las dos apps.
 
 ## Riesgos
 
