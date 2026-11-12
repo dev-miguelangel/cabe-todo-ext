@@ -1,4 +1,5 @@
 """Genera assets/icons/icon{16,32,48,128}.png: círculo verde, círculo blanco interior y un check verde.
+El de 128 deja el dibujo en 96x96 con 16 px de margen transparente, como pide la Chrome Web Store.
 Sin dependencias: escribe PNG con zlib. Uso: python3 scripts/make_icons.py"""
 import struct, zlib, math, os
 
@@ -14,9 +15,13 @@ def seg_dist(px, py, ax, ay, bx, by):
 # Check en coordenadas normalizadas [-1, 1], trazo con puntas redondeadas
 CHECK = [(-0.36, 0.02), (-0.1, 0.28), (0.38, -0.22)]
 
+PADDING = {128: 16}  # margen transparente por tamaño (px)
+
 def pixel(x, y, size):
-    u = (x / size) * 2 - 1
-    v = (y / size) * 2 - 1
+    pad = PADDING.get(size, 0)
+    art = size - 2 * pad
+    u = ((x - pad) / art) * 2 - 1
+    v = ((y - pad) / art) * 2 - 1
     r = math.hypot(u, v)
     if r > 0.96:
         return None

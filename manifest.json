@@ -2,13 +2,19 @@
   "manifest_version": 3,
   "name": "Cabe Todo",
   "version": "1.0.6",
-  "description": "Planifica tus tareas en mañana y tarde, y sabe si te alcanza el día.",
+  "minimum_chrome_version": "116",
+  "description": "Planifica tu día en bloques y sabe a tiempo si te alcanza: tareas, reuniones, rutinas y documentación en el panel lateral.",
   "permissions": [
     "storage",
     "sidePanel",
     "alarms",
     "notifications",
-    "offscreen"
+    "offscreen",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "src/background/background.js",
@@ -39,17 +45,5 @@
       },
       "description": "Abrir Cabe Todo"
     }
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
-      "js": [
-        "src/content/float-timer.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ]
+  }
 }

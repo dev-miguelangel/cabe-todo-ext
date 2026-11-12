@@ -283,7 +283,11 @@ console.log('OK: parser + PERT + épicas');
     ],
   };
   const L = {};
-  const on = (name) => ({ addListener: (fn) => { L[name] = fn; } });
+  // Varios módulos pueden escuchar lo mismo (el store también escucha storage): L[name] los llama a todos
+  const on = (name) => ({ addListener: (fn) => {
+    const prev = L[name];
+    L[name] = prev ? (...a) => { prev(...a); return fn(...a); } : fn;
+  } });
   const alarms = {};
   const notes = [];
   globalThis.chrome = {
@@ -300,9 +304,20 @@ console.log('OK: parser + PERT + épicas');
     sidePanel: { setPanelBehavior: async () => {}, open: async () => {} },
     offscreen: { hasDocument: async () => false, createDocument: async () => {}, closeDocument: async () => {} },
     windows: { getLastFocused: async () => ({ id: 1 }) },
+    permissions: { contains: async () => perms.granted, onAdded: on('permAdded'), onRemoved: on('permRemoved') },
+    scripting: {
+      getRegisteredContentScripts: async ({ ids }) => scripts.filter((x) => ids.includes(x.id)),
+      registerContentScripts: async (list) => { scripts.push(...list); },
+      unregisterContentScripts: async ({ ids }) => { scripts.splice(0, scripts.length, ...scripts.filter((x) => !ids.includes(x.id))); },
+      executeScript: async (o) => { injected.push(o.target.tabId); },
+    },
+    tabs: { query: async () => [{ id: 7 }, { id: 8 }], create() {} },
   };
+  const perms = { granted: false };
+  const scripts = [];
+  const injected = [];
   await import(root + '/src/background/background.js');
-  globalThis.__bg = { mem, L }; // para pruebas posteriores del service worker
+  globalThis.__bg = { mem, L, perms, scripts, injected }; // para pruebas posteriores del service worker
   const running = (id) => { const e = mem.tasks.find((t) => t.id === id).time_entries; return e.length > 0 && !e.at(-1).end; };
 
   await L.alarm({ name: 'meeting-start', scheduledTime: Date.now() });
@@ -872,4 +887,35 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(S.findTask(t.id).doc, '# Hola');
   assert.ok(S.findTask(t.id).pinned_at, 'deshacer devuelve también el anclaje');
   console.log('OK: eliminar documentación (con deshacer)');
+}
+
+// ---------- Botón flotante: content script solo con permiso y ajuste ----------
+{
+  const { mem, L, perms, scripts, injected } = globalThis.__bg;
+  const settle = () => new Promise((r) => setTimeout(r, 20));
+  mem.settings = { float_timer: true };
+  L.installed();
+  await settle();
+  assert.equal(scripts.length, 0, 'sin permiso no se registra nada');
+  perms.granted = true;
+  L.permAdded({ origins: ['https://*/*'] });
+  await settle();
+  assert.deepEqual(scripts.map((x) => x.js[0]), ['src/content/float-timer.js'], 'con permiso se registra');
+  assert.deepEqual(injected, [7, 8], 'y se carga en las pestañas ya abiertas');
+  L.permAdded({});
+  await settle();
+  assert.equal(scripts.length, 1, 'no se registra dos veces');
+  mem.settings = { float_timer: false };
+  L.storage({ settings: { oldValue: { float_timer: true }, newValue: { float_timer: false } } }, 'local');
+  await settle();
+  assert.equal(scripts.length, 0, 'al apagarlo en Ajustes se quita');
+  mem.settings = { float_timer: true };
+  L.storage({ settings: { oldValue: { float_timer: false }, newValue: { float_timer: true } } }, 'local');
+  await settle();
+  assert.equal(scripts.length, 1, 'al encenderlo vuelve');
+  perms.granted = false;
+  L.permRemoved({});
+  await settle();
+  assert.equal(scripts.length, 0, 'si se revoca el permiso se quita');
+  console.log('OK: botón flotante (permiso opcional)');
 }

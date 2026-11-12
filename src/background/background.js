@@ -158,6 +158,7 @@ chrome.runtime.onInstalled.addListener(() => {
   scheduleAlarms();
   scheduleTimerAlarm();
   scheduleMeetingAlarm();
+  syncFloatScript();
 });
 chrome.runtime.onStartup.addListener(() => {
   ensureRoutinesToday();
@@ -166,6 +167,7 @@ chrome.runtime.onStartup.addListener(() => {
   scheduleTimerAlarm();
   scheduleMeetingAlarm();
   enforceBlockingMeeting(); // Chrome se abrió en medio de una reunión que bloquea
+  syncFloatScript();
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -196,7 +198,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // Si cambian los horarios o se activan/desactivan los avisos, reprogramar.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
-  if (changes.settings) scheduleAlarms();
+  if (changes.settings) {
+    scheduleAlarms();
+    if (changes.settings.oldValue?.float_timer !== changes.settings.newValue?.float_timer) syncFloatScript();
+  }
   // Iniciar, pausar, reiniciar o cambiar la estimación mueve el momento del cero.
   if (changes.tasks) {
     scheduleTimerAlarm();
@@ -411,3 +416,41 @@ chrome.notifications.onClicked.addListener(async (id) => {
     /* Chrome puede exigir un gesto del usuario: el aviso igual cumplió su función */
   }
 });
+
+// ---------- Permiso para el botón flotante en las páginas ----------
+// El botón flotante es opcional: el acceso a las páginas web se pide recién cuando el usuario lo
+// activa en Ajustes (optional_host_permissions) y el content script se registra solo entonces.
+
+const FLOAT_SCRIPT_ID = 'cabetodo-float-timer';
+const FLOAT_ORIGINS = ['http://*/*', 'https://*/*'];
+let floatSync = Promise.resolve();
+
+/** Registra o quita el content script según el ajuste y el permiso (en cola: nunca dos a la vez). */
+function syncFloatScript() {
+  floatSync = floatSync.then(async () => {
+    const { settings = {} } = await chrome.storage.local.get('settings');
+    const granted = await chrome.permissions.contains({ origins: FLOAT_ORIGINS });
+    const want = granted && settings.float_timer !== false;
+    const registered = (await chrome.scripting.getRegisteredContentScripts({ ids: [FLOAT_SCRIPT_ID] })).length > 0;
+    if (want && !registered) {
+      await chrome.scripting.registerContentScripts([{
+        id: FLOAT_SCRIPT_ID,
+        matches: FLOAT_ORIGINS,
+        js: ['src/content/float-timer.js'],
+        runAt: 'document_idle',
+        persistAcrossSessions: true,
+      }]);
+      // Las pestañas ya abiertas no lo cargan solas: inyectarlo (el script evita cargarse dos veces).
+      const tabs = await chrome.tabs.query({ url: FLOAT_ORIGINS });
+      await Promise.all(tabs.map((tab) => chrome.scripting
+        .executeScript({ target: { tabId: tab.id }, files: ['src/content/float-timer.js'] })
+        .catch(() => {})));
+    } else if (!want && registered) {
+      await chrome.scripting.unregisterContentScripts({ ids: [FLOAT_SCRIPT_ID] });
+    }
+  }).catch((err) => console.error('Cabe Todo: no se pudo actualizar el botón flotante', err));
+  return floatSync;
+}
+
+chrome.permissions.onAdded.addListener(() => syncFloatScript());
+chrome.permissions.onRemoved.addListener(() => syncFloatScript());

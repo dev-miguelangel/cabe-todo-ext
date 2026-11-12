@@ -300,6 +300,37 @@ function renderBlocksSummary() {
   el.title = blocks.map((b) => `${b.icon} ${b.title}: ${b.start}–${b.end}`).join('\n');
 }
 
+// ---------- Permiso del botón flotante ----------
+// Mostrarlo en las páginas necesita acceso a los sitios (permiso opcional): se pide al activarlo.
+
+const FLOAT_ORIGINS = { origins: ['http://*/*', 'https://*/*'] };
+const permissionsApi = typeof chrome !== 'undefined' && chrome.permissions ? chrome.permissions : null;
+let floatGranted = !permissionsApi; // fuera de la extensión (pruebas) no hay permisos que pedir
+
+async function refreshFloatPermission() {
+  if (!permissionsApi) return;
+  const granted = await permissionsApi.contains(FLOAT_ORIGINS).catch(() => false);
+  if (granted === floatGranted) return;
+  floatGranted = granted;
+  renderSettings();
+}
+
+function setupFloatPermission(f) {
+  const box = f.elements['float-timer'];
+  refreshFloatPermission();
+  permissionsApi?.onAdded.addListener(refreshFloatPermission);
+  permissionsApi?.onRemoved.addListener(refreshFloatPermission);
+  box.addEventListener('change', async () => {
+    if (!box.checked || floatGranted || !permissionsApi) return;
+    // Debe pedirse dentro del clic (gesto del usuario)
+    const granted = await permissionsApi.request(FLOAT_ORIGINS).catch(() => false);
+    floatGranted = granted;
+    box.checked = granted;
+    document.getElementById('float-timer-note').hidden = granted;
+    if (!granted) showToast('Sin el permiso, el temporizador se ve solo en el panel.');
+  });
+}
+
 export function renderSettings() {
   renderTabOrderList();
   renderTemplates();
@@ -315,7 +346,8 @@ export function renderSettings() {
   f.elements.theme.value = s.theme || 'chrome';
   f.elements.notify.checked = Boolean(s.notify);
   f.elements['timer-sound'].checked = s.timer_sound !== false;
-  f.elements['float-timer'].checked = s.float_timer !== false;
+  f.elements['float-timer'].checked = s.float_timer !== false && floatGranted;
+  document.getElementById('float-timer-note').hidden = floatGranted;
   f.elements.calibrate.checked = s.calibrate !== false;
   document.getElementById('calibration-info').textContent = calibrationText(calibrationInfo);
   f.elements['meeting-lead'].value = String(s.meeting_lead ?? 10);
@@ -387,6 +419,7 @@ export function setupSettings() {
   });
 
   document.getElementById('test-sound').addEventListener('click', () => playCasio());
+  setupFloatPermission(f);
   setupBackup();
   setupTabOrder();
   setupTemplates();

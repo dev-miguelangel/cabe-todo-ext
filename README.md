@@ -37,7 +37,7 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 - **Tema claro / oscuro** con el botón ☾ / ☀︎ de arriba a la derecha (también en la documentación).
 - **Pronóstico por bloque**: probabilidad de terminar a tiempo, calculada con PERT y calibrada con tu tiempo real.
 - **Dependencias** ("va después de…") que ordenan el bloque y marcan la ruta crítica.
-- **Temporizador por tarea** con alarma sonora y temporizador flotante en las páginas que visitas.
+- **Temporizador por tarea** con alarma sonora y temporizador flotante opcional en las páginas que visitas (se activa en Ajustes y Chrome pide permiso).
 - **Reuniones** con horario fijo, que pueden bloquear tu tiempo o correr en paralelo, y terminan solas a su hora.
 - **Épicas**: agrupan trabajo de varios días, con progreso, fecha objetivo y bandeja propia.
 - **Rutinas**: tareas que se repiten (`cada día`, `hábiles`, `cada lun,jue`). Al editar o borrar una, eliges si es *solo esta* o *todas*.
@@ -89,7 +89,9 @@ cabe-todo/
 │   └── icons/                 # Iconos 16/32/48/128 (generados con scripts/make_icons.py)
 ├── releases/                  # Zips de cada versión (cabe-todo-vX.Y.Z.zip)
 ├── docs/
-│   └── idea.md                # Documento de diseño: objetivos, modelo de datos y decisiones
+│   ├── idea.md                # Documento de diseño: objetivos, modelo de datos y decisiones
+│   ├── privacy.md             # Política de privacidad
+│   └── store/                 # Ficha de la Chrome Web Store: textos, capturas y mosaicos
 ├── scripts/
 │   ├── make_icons.py          # Genera los iconos sin dependencias
 │   └── release.mjs            # Versiona: dist/ minificado + zip en releases/
@@ -97,7 +99,7 @@ cabe-todo/
 │   ├── background/
 │   │   └── background.js      # Service worker: alarmas, notificaciones, reuniones y rutinas
 │   ├── content/
-│   │   └── float-timer.js     # Content script: temporizador flotante en las páginas
+│   │   └── float-timer.js     # Content script: temporizador flotante (se registra solo con permiso)
 │   ├── pages/                 # Puntos de entrada HTML (uno por carpeta)
 │   │   ├── panel/             # Side panel: panel.html · panel.js · panel.css (estilos base)
 │   │   ├── doc/               # Pestaña de documentación de una tarea
@@ -179,6 +181,12 @@ El script:
 
 Para probar la versión minificada antes de publicar, carga la carpeta `dist/` como extensión descomprimida.
 
+### Chrome Web Store
+
+Los textos de la ficha, la justificación de cada permiso, las respuestas de privacidad y la lista previa al envío están en [`docs/store/listing.md`](docs/store/listing.md). Las capturas (1280×800) y los mosaicos promocionales están en `docs/store/`, y la política de privacidad en [`docs/privacy.md`](docs/privacy.md).
+
+El acceso a los sitios web es **opcional**: solo se pide al activar el temporizador flotante. Así la extensión se instala sin la advertencia "Leer y cambiar todos tus datos en todos los sitios web".
+
 ## Convenciones
 
 - **Commits** con [Conventional Commits](https://www.conventionalcommits.org/es/): `feat:`, `fix:`, `refactor:`, `docs:`, `test:`…
@@ -190,4 +198,4 @@ Para probar la versión minificada antes de publicar, carga la carpeta `dist/` c
 
 ## Privacidad
 
-Cabe Todo no tiene backend ni cuentas, y no envía datos a ningún servidor. Todo queda en el almacenamiento local de tu navegador. El respaldo JSON se descarga en tu equipo y solo tú decides dónde guardarlo.
+Cabe Todo no tiene backend ni cuentas, y no envía datos a ningún servidor. Todo queda en el almacenamiento local de tu navegador. El respaldo JSON se descarga en tu equipo y solo tú decides dónde guardarlo. Ver la [política de privacidad](docs/privacy.md).
