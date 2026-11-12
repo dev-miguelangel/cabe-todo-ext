@@ -124,7 +124,7 @@ pages → views → components → services → core · utils
 
 - **`core/`** no usa DOM ni `chrome.*`. Son funciones puras, fáciles de probar con Node.
 - **`services/store.js`** es la única puerta para cambiar el estado: las vistas leen `state` y llaman acciones.
-- **`services/storage.js`** encapsula `chrome.storage.local`. Fuera de la extensión usa `localStorage`, para poder abrir las páginas en un navegador normal.
+- **`services/storage.js`** define los datos guardados: valores por defecto, normalización y formato del respaldo. **`services/storage-backend.js`** decide dónde se guardan: `chrome.storage.local`, o `localStorage` fuera de la extensión, para poder abrir las páginas en un navegador normal. La [versión web](https://github.com/dev-miguelangel/cabe-todo-web) comparte `storage.js` y `store.js` y tiene su propio `storage-backend.js`, con IndexedDB.
 - Una capa solo importa de las capas que tiene a su derecha. Evita imports hacia atrás.
 
 ## Arquitectura

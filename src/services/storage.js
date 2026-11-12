@@ -1,6 +1,7 @@
-// Wrapper de chrome.storage.local. Si se abre panel.html fuera de la extensión
-// (por ejemplo, directo en el navegador para probar), usa localStorage.
+// Datos guardados: valores por defecto, normalización y respaldo. Dónde se guardan lo decide
+// storage-backend.js (chrome.storage en la extensión, IndexedDB en la versión web).
 
+import { getRaw, setRaw, watchRaw } from './storage-backend.js';
 import { DEFAULT_BLOCKS, migrateBlocks } from '../core/blocks.js';
 import { TAB_IDS, normalizeTabOrder } from '../core/tabs.js';
 import { DEFAULT_TEMPLATES, DEFAULT_TEMPLATE_ID, normalizeTemplates } from '../core/templates.js';
@@ -30,33 +31,6 @@ function normalizeEpics(epics) {
 
 // Identifica a esta ventana: así ignoramos los avisos de cambio que provocamos nosotros mismos.
 const WRITER_ID = Math.random().toString(36).slice(2);
-
-const hasChromeStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
-
-async function getRaw(keys) {
-  if (hasChromeStorage) return chrome.storage.local.get(keys);
-  const out = {};
-  for (const k of keys) {
-    try {
-      const v = localStorage.getItem(`cabetodo:${k}`);
-      if (v !== null) out[k] = JSON.parse(v);
-    } catch {
-      /* almacenamiento no disponible: se parte vacío */
-    }
-  }
-  return out;
-}
-
-async function setRaw(obj) {
-  if (hasChromeStorage) return chrome.storage.local.set(obj);
-  for (const [k, v] of Object.entries(obj)) {
-    try {
-      localStorage.setItem(`cabetodo:${k}`, JSON.stringify(v));
-    } catch {
-      /* ignorar */
-    }
-  }
-}
 
 /** Completa campos que no existían en versiones anteriores. */
 export function normalizeTask(task) {
@@ -140,15 +114,13 @@ export function parseBackup(text) {
 
 /** Avisa cuando OTRA ventana con el panel abierto cambia los datos. */
 export function onDataChanged(callback) {
-  if (!hasChromeStorage) return;
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local') return;
-    if (changes.meta?.newValue?.writer === WRITER_ID) return;
+  watchRaw((changes) => {
+    if (changes.meta?.writer === WRITER_ID) return;
     const data = {};
-    if (changes.tasks) data.tasks = (changes.tasks.newValue || []).map(normalizeTask);
-    if (changes.epics) data.epics = normalizeEpics(changes.epics.newValue || []);
-    if (changes.settings) data.settings = withDefaults(changes.settings.newValue || {});
-    if (changes.routines) data.routines = changes.routines.newValue || [];
+    if ('tasks' in changes) data.tasks = (changes.tasks || []).map(normalizeTask);
+    if ('epics' in changes) data.epics = normalizeEpics(changes.epics || []);
+    if ('settings' in changes) data.settings = withDefaults(changes.settings || {});
+    if ('routines' in changes) data.routines = changes.routines || [];
     if (data.tasks || data.epics || data.settings || data.routines) callback(data);
   });
 }
