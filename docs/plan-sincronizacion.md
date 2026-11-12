@@ -2,7 +2,7 @@
 
 Ver y editar la misma lista en todos mis equipos (extensión de Chrome y web en el celular) con un botón **Sincronizar**. Los datos se guardan en mi propio Google Drive, de forma privada.
 
-**Estado:** etapa 1 (mezcla) hecha. Etapas 2 a 4 (Google Drive) pendientes.
+**Estado:** etapa 1 (mezcla) y etapa 2 (Drive en la web) hechas. Etapas 3 y 4 pendientes.
 
 ## Decisiones
 
@@ -100,7 +100,7 @@ Las cuotas gratuitas de la API de Drive sobran para esto.
    - "Importar respaldo" pregunta **Mezclar** o **Reemplazar todo** (`components/import-choice.js`, compartido con la web).
    - Resumen tipo "3 tareas nuevas, 1 épica nueva".
    - Pruebas: más reciente gana, borrados, comentarios, rutinas, referencias y mezclar dos veces lo mismo.
-2. **Drive en la web:** iniciar sesión, buscar o crear el archivo, sincronizar, resumen y "Última sincronización: …". Probado en el celular.
+2. ✅ **Drive en la web:** iniciar sesión, buscar o crear el archivo, sincronizar, resumen y "Última sincronización: …". Probado en el celular.
 3. **Drive en la extensión:** `chrome.identity`, el mismo flujo, y probar con la web en paralelo.
 4. **Textos y tienda:** política de privacidad, ficha de la Chrome Web Store, README y nueva versión de las dos apps.
 
