@@ -265,6 +265,25 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(P.blockForTime('12:30', { am: { end: '13:00' } }), 'am'); assert.equal(P.blockForTime('13:30', { am: { end: '13:00' } }), 'pm');
   console.log('OK: reuniones (bloqueo, pausa de tareas, orden por horario)');
 }
+// ----- Reloj de pruebas: mediodía de hoy -----
+// Las pruebas del service worker crean reuniones reales "de hace 1 min a dentro de 59 min". Cerca de la
+// medianoche cruzarían al día siguiente (fin antes del inicio), así que desde aquí el reloj marca las
+// 12:00 de hoy y sigue avanzando en tiempo real. Es el mismo día: las pruebas de fechas no cambian.
+{
+  const RealDate = Date;
+  const noon = new RealDate();
+  noon.setHours(12, 0, 0, 0);
+  const offset = noon.getTime() - RealDate.now();
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      super(...(args.length ? args : [RealDate.now() + offset]));
+    }
+
+    static now() {
+      return RealDate.now() + offset;
+    }
+  };
+}
 // ----- Service worker: reuniones que empiezan (con la API de Chrome simulada) -----
 {
   const { toISO } = await import(root + '/src/utils/dates.js');
