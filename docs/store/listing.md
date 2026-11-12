@@ -64,9 +64,11 @@ TU INFORMACIÓN ES TUYA
 | Mosaico promocional pequeño | `promo-small-440x280.png` | 440×280 |
 | Mosaico de marquesina (opcional) | `promo-marquee-1400x560.png` | 1400×560 |
 
-**Sitio web**: https://github.com/dev-miguelangel/cabe-todo-ext
+**URL de la página principal**: https://github.com/dev-miguelangel/cabe-todo-ext
 
-**Asistencia**: https://github.com/dev-miguelangel/cabe-todo-ext/issues
+**URL oficial**: déjala vacía. Es opcional y solo acepta sitios verificados en Google Search Console con la misma cuenta de Google del panel de desarrollador; github.com no se puede verificar. Si algún día la quieres, verifica `https://dev-miguelangel.github.io/cabe-todo-ext/` en Search Console con un archivo HTML en `docs/`.
+
+**URL de asistencia**: https://github.com/dev-miguelangel/cabe-todo-ext/issues
 
 **Correo de contacto**: dev.miguelangel.jaimen+cabetodo@gmail.com
 
