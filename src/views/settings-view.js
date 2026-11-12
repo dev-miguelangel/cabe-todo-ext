@@ -1,6 +1,10 @@
 // Vista "Ajustes": bloques del día, duración por defecto, avisos y atajo de teclado.
 
-import { state, saveSettings, calibrationInfo, exportBackup, readBackup, restoreBackup, blockUsage } from '../services/store.js';
+import {
+  state, saveSettings, calibrationInfo, exportBackup, readBackup, restoreBackup, mergeBackup, blockUsage,
+} from '../services/store.js';
+import { askImportMode } from '../components/import-choice.js';
+import { mergeSummaryText } from '../core/merge.js';
 import { showToast, h } from '../utils/ui.js';
 import { blocksOf, validateBlocks, nextFreeRange, neighborBlock, MAX_BLOCKS, MAX_TITLE, BLOCK_ICONS } from '../core/blocks.js';
 import { TAB_IDS, TAB_NAMES, normalizeTabOrder, moveTab } from '../core/tabs.js';
@@ -466,12 +470,13 @@ function setupBackup() {
       return;
     }
     const { tasks, epics } = backup.summary;
-    const ok = window.confirm(
-      `¿Reemplazar todo lo actual (${sizeOf(state.tasks.length, state.epics.length)}) `
-      + `por el respaldo (${sizeOf(tasks, epics)})?\n\nEsto no se puede deshacer: exporta primero si quieres conservar lo actual.`,
-    );
-    if (!ok) return;
-    restoreBackup(backup.data);
-    showToast(`Respaldo restaurado: ${sizeOf(tasks, epics)}.`);
+    const mode = await askImportMode({ tasks: state.tasks.length, epics: state.epics.length }, backup.summary,
+      { note: 'Exporta primero si quieres conservarlo.' });
+    if (mode === 'merge') {
+      showToast(`Respaldo mezclado: ${mergeSummaryText(mergeBackup(backup.data))}.`);
+    } else if (mode === 'replace') {
+      restoreBackup(backup.data);
+      showToast(`Respaldo restaurado: ${sizeOf(tasks, epics)}.`);
+    }
   });
 }

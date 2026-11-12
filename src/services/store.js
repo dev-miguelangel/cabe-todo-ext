@@ -14,6 +14,9 @@ import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBl
 import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../core/routines.js';
 import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
+import {
+  snapshotOf, stampChanges, addTombstones, pruneTombstones, mergeData,
+} from '../core/merge.js';
 
 export { PALETTE } from './storage.js';
 
@@ -22,6 +25,7 @@ export const state = {
   epics: [],
   routines: [],     // tareas que se repiten (moldes)
   settings: null,
+  deleted: {},      // borrados recientes { id: fecha }: para que no "revivan" al mezclar con otro equipo
   tab: 'minimal',    // vista abierta: 'minimal' (Hoy) | 'epics' | 'done' | 'docs' | 'settings'
 };
 
@@ -49,12 +53,40 @@ export function setNotifier(fn) {
   notify = fn;
 }
 
+// ---------- Qué cambió (para mezclar entre equipos) ----------
+// Huellas de lo último guardado: en cada commit() se marca `updated_at` en lo que cambió y se recuerda
+// como borrado lo que ya no está. Los datos que llegan de afuera (otra ventana, el service worker,
+// una mezcla) ya traen sus marcas: solo se toma una huella nueva.
+
+let snapshot = null;
+function takeSnapshot() {
+  snapshot = {
+    tasks: snapshotOf(state.tasks, 'tasks'),
+    epics: snapshotOf(state.epics, 'epics'),
+    routines: snapshotOf(state.routines, 'routines'),
+  };
+}
+
+function stampAll() {
+  if (!snapshot) return;
+  const now = new Date();
+  const iso = now.toISOString();
+  const removed = [
+    ...stampChanges(snapshot.tasks, state.tasks, 'tasks', iso),
+    ...stampChanges(snapshot.epics, state.epics, 'epics', iso),
+    ...stampChanges(snapshot.routines, state.routines, 'routines', iso),
+  ];
+  state.deleted = addTombstones(state.deleted, removed, now);
+}
+
 export async function initStore() {
   const data = await loadData();
   Object.assign(state, data);
+  takeSnapshot();
   recalibrate();
   onDataChanged((changed) => {
     Object.assign(state, changed);
+    takeSnapshot();
     emit({ external: true });
   });
 }
@@ -68,6 +100,8 @@ export async function refreshFromStorage() {
   state.tasks = data.tasks;
   state.epics = data.epics;
   state.routines = data.routines;
+  state.deleted = data.deleted;
+  takeSnapshot();
 }
 
 /** Cambios solo de vista (pestaña): no se guardan. */
@@ -84,7 +118,8 @@ function fixOrphanBlocks() {
   for (const r of state.routines) if (r.block && !ids.has(r.block)) r.block = fallback;
 }
 
-function commit() {
+/** Aplica las reglas, guarda y avisa. stamp: false cuando los datos ya traen sus marcas (mezcla). */
+function commit({ stamp = true } = {}) {
   fixOrphanBlocks();
   const removed = pruneInvalidDeps(state.tasks);
   if (removed) {
@@ -99,7 +134,10 @@ function commit() {
       notify(`"${task.title}"${extra} pasó a ${blockName(state.settings, task.block)}: va después de "${because.title}".`);
     }
   }
-  saveData({ tasks: state.tasks, epics: state.epics, routines: state.routines });
+  if (stamp) stampAll();
+  else state.deleted = pruneTombstones(state.deleted);
+  takeSnapshot();
+  saveData({ tasks: state.tasks, epics: state.epics, routines: state.routines, deleted: state.deleted });
   emit();
 }
 
@@ -320,7 +358,7 @@ export function ensureRoutines(save = true, extraDates = []) {
   const dates = [today, ...extraDates.filter((d) => d > today && d <= limit)];
   let created = 0;
   for (const date of [...new Set(dates)]) {
-    const { tasks, routines } = dueInstances(state.routines, date, { newId: () => newId('t'), orderFor: nextOrder });
+    const { tasks, routines } = dueInstances(state.routines, date, { orderFor: nextOrder });
     if (!tasks.length) continue;
     state.tasks.push(...tasks);
     state.routines = routines;
@@ -559,7 +597,7 @@ export function saveSettings(next) {
   const remap = new Map(removed.map((b) => [b.id, neighborBlock(old, b.id, blocks)]));
   const sorted = blocksOf({ blocks });
 
-  state.settings = { ...state.settings, ...next, blocks: sorted };
+  state.settings = { ...state.settings, ...next, blocks: sorted, updated_at: new Date().toISOString() };
   if (remap.size) {
     for (const t of state.tasks) if (remap.has(t.block)) t.block = remap.get(t.block);
     for (const r of state.routines) if (remap.has(r.block)) r.block = remap.get(r.block);
@@ -599,9 +637,23 @@ export function restoreBackup(data) {
   state.tasks = data.tasks;
   state.epics = data.epics;
   state.routines = data.routines;
-  state.settings = data.settings;
+  state.settings = { ...data.settings, updated_at: new Date().toISOString() };
+  state.deleted = { ...state.deleted, ...(data.deleted || {}) };
   saveSettingsRaw(state.settings);
-  commit();
+  commit(); // lo que se reemplazó cuenta como cambio de ahora (y lo que no venía, como borrado)
+}
+
+/** Mezcla un respaldo (o el archivo de otro equipo) con lo actual. Devuelve { added, updated, removed }. */
+export function mergeBackup(data) {
+  const local = {
+    tasks: state.tasks, epics: state.epics, routines: state.routines, settings: state.settings, deleted: state.deleted,
+  };
+  const { data: merged, summary } = mergeData(local, data);
+  const settingsChanged = merged.settings !== state.settings;
+  Object.assign(state, merged);
+  if (settingsChanged) saveSettingsRaw(state.settings);
+  commit({ stamp: false });
+  return summary;
 }
 
 export function unplanTask(id) {
@@ -782,6 +834,7 @@ export function deleteComment(taskId, commentId) {
   const task = findTask(taskId);
   if (!task) return;
   task.comments = task.comments.filter((c) => c.id !== commentId);
+  state.deleted = addTombstones(state.deleted, [commentId]);
   commit();
 }
 

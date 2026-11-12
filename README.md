@@ -45,7 +45,7 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 - **Rutinas**: tareas que se repiten (`cada día`, `hábiles`, `cada lun,jue`). Al editar o borrar una, eliges si es *solo esta* o *todas*.
 - **Documentación por tarea** en Markdown, en una pestaña a pantalla completa, con buscador en la vista *Docs*.
 - **Cierre del día**: resumen de lo hecho frente a lo estimado, y mover lo pendiente con un clic.
-- **Respaldo**: exportar e importar todos tus datos en JSON.
+- **Respaldo**: exportar e importar todos tus datos en JSON. Al importar eliges **Mezclar** (suma lo del respaldo; en cada tarea queda la versión más reciente y lo borrado en un lado se borra en el otro) o **Reemplazar todo**.
 - **Temas**: oscuro (Chrome) y claro estilo Trello.
 
 ## Instalación
@@ -127,6 +127,7 @@ pages → views → components → services → core · utils
 - **`core/`** no usa DOM ni `chrome.*`. Son funciones puras, fáciles de probar con Node.
 - **`services/store.js`** es la única puerta para cambiar el estado: las vistas leen `state` y llaman acciones.
 - **`services/storage.js`** define los datos guardados: valores por defecto, normalización y formato del respaldo. **`services/storage-backend.js`** decide dónde se guardan: `chrome.storage.local`, o `localStorage` fuera de la extensión, para poder abrir las páginas en un navegador normal. La [versión web](https://github.com/dev-miguelangel/cabe-todo-web) comparte `storage.js` y `store.js` y tiene su propio `storage-backend.js`, con IndexedDB.
+- **`core/merge.js`** mezcla datos de dos equipos: `store.js` marca `updated_at` en lo que cambia y recuerda los borrados (`deleted`), y al mezclar gana lo más reciente. Ver el [plan de sincronización](docs/plan-sincronizacion.md).
 - Una capa solo importa de las capas que tiene a su derecha. Evita imports hacia atrás.
 
 ## Arquitectura

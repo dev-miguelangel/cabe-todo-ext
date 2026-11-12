@@ -1272,3 +1272,16 @@ button.prob-tag { cursor: pointer; }
   background: none; color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer;
 }
 .pick-move:hover, .pick-move:focus-visible { background: var(--hover); color: var(--accent-text); outline: none; }
+
+/* Importar respaldo: Mezclar o Reemplazar */
+.import-choices { display: flex; flex-direction: column; gap: 8px; }
+.import-choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--field); color: var(--text); text-align: left; font: inherit;
+}
+.import-choice strong { font-size: 14px; }
+.import-choice span { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.import-choice:hover { border-color: var(--accent); }
+.import-choice.primary-choice { border-color: var(--accent); }
+.import-choice.primary-choice strong { color: var(--accent-text); }

@@ -5,6 +5,7 @@ import { getRaw, setRaw, watchRaw } from './storage-backend.js';
 import { DEFAULT_BLOCKS, migrateBlocks } from '../core/blocks.js';
 import { TAB_IDS, normalizeTabOrder } from '../core/tabs.js';
 import { DEFAULT_TEMPLATES, DEFAULT_TEMPLATE_ID, normalizeTemplates } from '../core/templates.js';
+import { pruneTombstones } from '../core/merge.js';
 
 const DEFAULT_SETTINGS = {
   blocks: DEFAULT_BLOCKS, // bloques del día (Ajustes): de 1 a 5, sin superponerse
@@ -51,12 +52,13 @@ export function normalizeTask(task) {
 }
 
 export async function loadData() {
-  const { tasks = [], epics = [], settings = {}, routines = [] } = await getRaw(['tasks', 'epics', 'settings', 'routines']);
+  const { tasks = [], epics = [], settings = {}, routines = [], deleted = {} } = await getRaw(['tasks', 'epics', 'settings', 'routines', 'deleted']);
   return {
     tasks: tasks.map(normalizeTask),
     routines,
     epics: normalizeEpics(epics),
     settings: withDefaults(settings),
+    deleted: pruneTombstones(deleted),
   };
 }
 
@@ -68,8 +70,10 @@ function withDefaults(settings) {
   return { ...merged, tab_order: normalizeTabOrder(merged.tab_order), templates, default_template: defaultId };
 }
 
-export function saveData({ tasks, epics, routines }) {
-  return setRaw({ tasks, epics, ...(routines ? { routines } : {}), meta: { writer: WRITER_ID, at: Date.now() } });
+export function saveData({ tasks, epics, routines, deleted }) {
+  return setRaw({
+    tasks, epics, ...(routines ? { routines } : {}), ...(deleted ? { deleted } : {}), meta: { writer: WRITER_ID, at: Date.now() },
+  });
 }
 
 export function saveSettings(settings) {
@@ -83,8 +87,12 @@ export const BACKUP_APP = 'cabe-todo';
 const LEGACY_BACKUP_APPS = ['pert-day'];
 
 /** Objeto listo para JSON.stringify con todo lo guardado. */
-export function makeBackup({ tasks, epics, settings, routines = [] }) {
-  return { app: BACKUP_APP, version: 1, exported_at: new Date().toISOString(), tasks, epics, routines, settings };
+/**
+ * Versión 2: cada tarea, épica y rutina trae `updated_at`, y `deleted` lista los borrados recientes
+ * (para mezclar entre equipos). Los respaldos de versión 1 se siguen leyendo.
+ */
+export function makeBackup({ tasks, epics, settings, routines = [], deleted = {} }) {
+  return { app: BACKUP_APP, version: 2, exported_at: new Date().toISOString(), tasks, epics, routines, settings, deleted };
 }
 
 /**
@@ -109,6 +117,7 @@ export function parseBackup(text) {
     epics: normalizeEpics(data.epics),
     routines: Array.isArray(data.routines) ? data.routines.filter((r) => r && typeof r.id === 'string' && Array.isArray(r.days)) : [],
     settings: withDefaults(data.settings && typeof data.settings === 'object' ? data.settings : {}),
+    deleted: data.deleted && typeof data.deleted === 'object' && !Array.isArray(data.deleted) ? pruneTombstones(data.deleted) : {},
   };
 }
 
@@ -121,6 +130,7 @@ export function onDataChanged(callback) {
     if ('epics' in changes) data.epics = normalizeEpics(changes.epics || []);
     if ('settings' in changes) data.settings = withDefaults(changes.settings || {});
     if ('routines' in changes) data.routines = changes.routines || [];
-    if (data.tasks || data.epics || data.settings || data.routines) callback(data);
+    if ('deleted' in changes) data.deleted = pruneTombstones(changes.deleted || {});
+    if (data.tasks || data.epics || data.settings || data.routines || data.deleted) callback(data);
   });
 }

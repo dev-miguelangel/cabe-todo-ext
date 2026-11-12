@@ -80,19 +80,23 @@ export function routineFrom(task, { id, days, startDate, block = 'am', now = new
   };
 }
 
+/** Id de la tarea de una rutina en un día: el mismo en todos los equipos. */
+export const routineTaskId = (routineId, date) => `${routineId}_${date}`;
+
 /**
  * Tareas nuevas que tocan en `date` (sin repetir días ya creados).
- * newId(): genera ids. Devuelve { tasks, routines } con las rutinas actualizadas
- * (solo cambia `generated`); si no hay nada que crear, tasks = [].
+ * Devuelve { tasks, routines } con las rutinas actualizadas (solo cambia `generated`); si no hay
+ * nada que crear, tasks = []. El id de cada tarea es fijo (routineTaskId): así dos equipos que crean
+ * la misma tarea de una rutina la reconocen como la misma al mezclar.
  */
-export function dueInstances(routines, date, { newId, orderFor, now = new Date() }) {
+export function dueInstances(routines, date, { orderFor, now = new Date() }) {
   const weekday = weekdayOf(date);
   const created = [];
   const oldest = toISO(new Date(parseISO(date).getTime() - KEEP_GENERATED_DAYS * 86400000));
   const next = routines.map((r) => {
     if (!r.days.includes(weekday) || date < r.start_date || r.generated.includes(date)) return r;
     created.push({
-      id: newId(),
+      id: routineTaskId(r.id, date),
       title: r.title,
       note: '',
       date,

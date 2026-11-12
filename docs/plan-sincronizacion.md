@@ -2,7 +2,7 @@
 
 Ver y editar la misma lista en todos mis equipos (extensión de Chrome y web en el celular) con un botón **Sincronizar**. Los datos se guardan en mi propio Google Drive, de forma privada.
 
-**Estado:** propuesta, sin implementar.
+**Estado:** etapa 1 (mezcla) hecha. Etapas 2 a 4 (Google Drive) pendientes.
 
 ## Decisiones
 
@@ -82,7 +82,7 @@ Las cuotas gratuitas de la API de Drive sobran para esto.
 
 ## Etapas
 
-1. **Mezcla en el código compartido** (extensión, con pruebas):
+1. ✅ **Mezcla en el código compartido** (extensión, con pruebas):
    - `updated_at` automático en `commit()`;
    - lista de borrados;
    - ids fijos para las tareas de rutina;
@@ -91,6 +91,15 @@ Las cuotas gratuitas de la API de Drive sobran para esto.
    - "Importar → **Mezclar** o Reemplazar" en las dos apps.
 
    Ya sirve sin Drive.
+
+   **Hecho:**
+   - `src/core/merge.js`: `mergeData`, `stampChanges` y borrados que se olvidan a los 60 días.
+   - `store.js` marca `updated_at` en `commit()` comparando con la huella de lo último guardado; el service worker de la extensión también marca lo que guarda.
+   - Las tareas de rutina tienen id fijo (`<rutina>_<fecha>`). Las que ya existían con ids al azar se unen por rutina y día al mezclar.
+   - Respaldo `version: 2` con `deleted`; los de versión 1 se siguen leyendo.
+   - "Importar respaldo" pregunta **Mezclar** o **Reemplazar todo** (`components/import-choice.js`, compartido con la web).
+   - Resumen tipo "3 tareas nuevas, 1 épica nueva".
+   - Pruebas: más reciente gana, borrados, comentarios, rutinas, referencias y mezclar dos veces lo mismo.
 2. **Drive en la web:** iniciar sesión, buscar o crear el archivo, sincronizar, resumen y "Última sincronización: …". Probado en el celular.
 3. **Drive en la extensión:** `chrome.identity`, el mismo flujo, y probar con la web en paralelo.
 4. **Textos y tienda:** política de privacidad, ficha de la Chrome Web Store, README y nueva versión de las dos apps.

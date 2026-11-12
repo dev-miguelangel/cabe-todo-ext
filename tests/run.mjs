@@ -938,3 +938,112 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(scripts.length, 0, 'si se revoca el permiso se quita');
   console.log('OK: botón flotante (permiso opcional)');
 }
+
+// ---------- Mezclar datos de dos equipos ----------
+{
+  const M = await import(root + '/src/core/merge.js');
+  const T = (id, at, extra = {}) => ({ id, title: id, minutes: 30, date: '2026-11-12', block: 'am', done: false, dependencies: [], comments: [], time_entries: [], epic_id: null, routine_id: null, updated_at: at, ...extra });
+  const base = { epics: [], routines: [], settings: { theme: 'chrome', updated_at: '2026-11-10T00:00:00Z' }, deleted: {} };
+
+  // Gana la edición más reciente, tarea por tarea; lo que existe en un solo lado se agrega
+  let r = M.mergeData(
+    { ...base, tasks: [T('a', '2026-11-12T10:00:00Z', { title: 'A local' }), T('b', '2026-11-12T09:00:00Z', { title: 'B local' })] },
+    { ...base, tasks: [T('a', '2026-11-12T09:00:00Z', { title: 'A remota' }), T('b', '2026-11-12T11:00:00Z', { title: 'B remota' }), T('c', '2026-11-12T08:00:00Z')] },
+  );
+  assert.deepEqual(r.data.tasks.map((t) => t.title).sort(), ['A local', 'B remota', 'c']);
+  assert.deepEqual([r.summary.added, r.summary.updated, r.summary.removed], [1, 1, 0]);
+  assert.equal(M.mergeSummaryText(r.summary), '1 tarea nueva, 1 tarea actualizada');
+
+  // Borrada en un equipo: no revive; editada después de borrarse en el otro: sí
+  r = M.mergeData(
+    { ...base, tasks: [T('a', '2026-11-12T08:00:00Z'), T('b', '2026-11-12T12:00:00Z')] },
+    { ...base, tasks: [], deleted: { a: '2026-11-12T09:00:00Z', b: '2026-11-12T09:00:00Z' } },
+  );
+  assert.deepEqual(r.data.tasks.map((t) => t.id), ['b'], 'a se borró después de su última edición; b se editó después');
+  assert.equal(r.summary.removed, 1);
+  assert.ok(r.data.deleted.a, 'el borrado se conserva para el próximo equipo');
+
+  // Datos de antes (sin updated_at) pierden contra los nuevos
+  r = M.mergeData({ ...base, tasks: [T('a', undefined, { title: 'vieja' })] }, { ...base, tasks: [T('a', '2026-11-01T00:00:00Z', { title: 'nueva' })] });
+  assert.equal(r.data.tasks[0].title, 'nueva');
+
+  // Comentarios: se unen aunque gane la otra versión; los borrados no vuelven
+  const c = (id, text, at) => ({ id, text, created_at: at, updated_at: null });
+  r = M.mergeData(
+    { ...base, tasks: [T('a', '2026-11-12T10:00:00Z', { comments: [c('c1', 'uno', '2026-11-12T08:00:00Z'), c('c3', 'tres', '2026-11-12T09:30:00Z')] })] },
+    { ...base, tasks: [T('a', '2026-11-12T11:00:00Z', { comments: [c('c1', 'uno', '2026-11-12T08:00:00Z'), c('c2', 'dos', '2026-11-12T09:00:00Z')] })], deleted: { c3: '2026-11-12T10:30:00Z' } },
+  );
+  assert.deepEqual(r.data.tasks[0].comments.map((x) => x.text), ['uno', 'dos']);
+
+  // Rutinas: `generated` se une y no cuenta como edición; tareas de la misma rutina y día se juntan
+  const R = (at, generated, title = 'Standup') => ({ id: 'r1', title, days: [1, 2, 3, 4, 5], minutes: 15, block: 'am', generated, updated_at: at });
+  r = M.mergeData(
+    { ...base, routines: [R('2026-11-12T10:00:00Z', ['2026-11-11'], 'Standup equipo')], tasks: [T('t_azar1', '2026-11-12T08:00:00Z', { routine_id: 'r1', done: true })] },
+    { ...base, routines: [R('2026-11-12T07:00:00Z', ['2026-11-12'])], tasks: [T('t_azar2', '2026-11-12T08:30:00Z', { routine_id: 'r1' })] },
+  );
+  assert.equal(r.data.routines[0].title, 'Standup equipo', 'la edición más reciente de la rutina');
+  assert.deepEqual(r.data.routines[0].generated, ['2026-11-11', '2026-11-12']);
+  assert.deepEqual(r.data.tasks.map((t) => t.id), ['t_azar1'], 'queda una por rutina y día (la hecha)');
+  assert.ok(r.data.deleted.t_azar2, 'la repetida no vuelve desde el otro equipo');
+
+  // Referencias a lo borrado: épica, dependencias
+  r = M.mergeData(
+    { ...base, epics: [{ id: 'e1', name: 'Web', updated_at: '2026-11-12T08:00:00Z' }], tasks: [T('a', '2026-11-12T08:00:00Z', { epic_id: 'e1', dependencies: ['x'] })] },
+    { ...base, tasks: [], deleted: { e1: '2026-11-12T09:00:00Z', x: '2026-11-12T09:00:00Z' } },
+  );
+  assert.deepEqual([r.data.epics.length, r.data.tasks[0].epic_id, r.data.tasks[0].dependencies], [0, null, []]);
+
+  // Ajustes: el más reciente
+  r = M.mergeData({ ...base, tasks: [] }, { ...base, tasks: [], settings: { theme: 'trello', updated_at: '2026-11-12T00:00:00Z' } });
+  assert.equal(r.data.settings.theme, 'trello');
+
+  // Mezclar dos veces lo mismo no cambia nada
+  const once = M.mergeData({ ...base, tasks: [T('a', '2026-11-12T08:00:00Z')] }, { ...base, tasks: [T('b', '2026-11-12T08:00:00Z')] }).data;
+  assert.equal(M.mergeSummaryText(M.mergeData(once, once).summary), 'ya estaba al día');
+
+  // Borrados viejos se olvidan
+  assert.deepEqual(Object.keys(M.pruneTombstones({ viejo: '2020-01-01T00:00:00Z', nuevo: new Date().toISOString() })), ['nuevo']);
+  console.log('OK: mezclar datos (más reciente gana, borrados, comentarios, rutinas, referencias)');
+}
+
+// ---------- updated_at y borrados automáticos en el store ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const { mergeSummaryText: mergeText } = await import(root + '/src/core/merge.js');
+  const t = S.addFromText('Para sincronizar 30m', { date: null, block: null });
+  assert.ok(S.findTask(t.id).updated_at, 'una tarea nueva trae updated_at');
+  const other = S.state.tasks.find((x) => x.id !== t.id);
+  const otherStamp = other?.updated_at;
+  await new Promise((r) => setTimeout(r, 5));
+  S.updateTask(t.id, { minutes: 45 });
+  assert.ok(S.findTask(t.id).updated_at > t.created_at, 'editar la marca de nuevo');
+  if (other) assert.equal(other.updated_at, otherStamp, 'las que no cambiaron conservan su marca');
+  S.deleteTask(t.id);
+  assert.ok(S.state.deleted[t.id], 'borrar la recuerda');
+  const backup = JSON.parse(S.exportBackup());
+  assert.equal(backup.version, 2);
+  assert.ok(backup.deleted[t.id], 'el respaldo lleva los borrados');
+
+  // Mezclar un respaldo: agrega lo nuevo sin tocar lo demás
+  const before = S.state.tasks.length;
+  const incoming = S.readBackup(JSON.stringify({
+    ...backup,
+    tasks: [...backup.tasks, { id: 'remota-1', title: 'Desde el celular', minutes: 20, date: null, block: null, done: false, order: 0, updated_at: new Date().toISOString() }],
+  })).data;
+  const summary = S.mergeBackup(incoming);
+  assert.equal(mergeText(summary), '1 tarea nueva');
+  assert.equal(S.state.tasks.length, before + 1);
+  assert.equal(S.findTask(t.id), undefined, 'lo borrado sigue borrado');
+  console.log('OK: updated_at y borrados automáticos; mezclar un respaldo');
+}
+
+// ---------- Rutinas: id fijo por rutina y día ----------
+{
+  const { dueInstances, routineTaskId } = await import(root + '/src/core/routines.js');
+  const routine = { id: 'r9', title: 'Standup', days: [0, 1, 2, 3, 4, 5, 6], minutes: 15, block: 'am', start_date: '2026-01-01', generated: [], certainty: 'normal', epic_id: null, meeting: null };
+  const a = dueInstances([routine], '2026-11-12', { orderFor: () => 0 }).tasks[0];
+  const b = dueInstances([routine], '2026-11-12', { orderFor: () => 0 }).tasks[0];
+  assert.equal(a.id, routineTaskId('r9', '2026-11-12'));
+  assert.equal(a.id, b.id, 'dos equipos crean la misma tarea');
+  console.log('OK: tareas de rutina con id fijo');
+}

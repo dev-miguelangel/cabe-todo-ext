@@ -6,10 +6,17 @@ import { todayISO, toMinutes } from '../utils/dates.js';
 import { isRunning, zeroAt, remainingMs, timerConflicts } from '../core/timer.js';
 import { activeBlockingMeeting, timerBlockedBy } from '../core/pert.js';
 import { dueInstances } from '../core/routines.js';
+import { snapshotOf, stampChanges } from '../core/merge.js';
 import { blocksOf, blockById } from '../core/blocks.js';
 
 /** Rutas absolutas desde la raíz de la extensión (el worker vive en src/background/). */
 const ICON_URL = '/assets/icons/icon128.png';
+
+/** Tareas que se guardan desde aquí: marcar `updated_at` en las que cambiaron (para mezclar entre equipos). */
+function stamped(before, next) {
+  stampChanges(snapshotOf(before, 'tasks'), next, 'tasks');
+  return next;
+}
 
 const ALARM_PREFIX = 'block-end-';
 // Si el computador estaba dormido y la alarma llega tarde, no avisar algo que ya no sirve.
@@ -136,11 +143,10 @@ async function ensureRoutinesToday() {
     const orders = tasks.filter((t) => t.date === date && t.block === block).map((t) => t.order);
     return orders.length ? Math.max(...orders) + 1 : 0;
   };
-  const newId = () => `t_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  const due = dueInstances(routines, today, { newId, orderFor });
+  const due = dueInstances(routines, today, { orderFor });
   if (!due.tasks.length) return;
   await chrome.storage.local.set({
-    tasks: [...tasks, ...due.tasks], routines: due.routines, meta: { writer: 'background', at: Date.now() },
+    tasks: stamped(tasks, [...tasks, ...due.tasks]), routines: due.routines, meta: { writer: 'background', at: Date.now() },
   });
 }
 
@@ -248,7 +254,7 @@ async function startTimerFor(taskId, atMs = Date.now()) {
     if (pause.has(t.id)) return { ...t, time_entries: closeEntry(entries, atMs) };
     return t;
   });
-  await chrome.storage.local.set({ tasks: next, meta: { writer: 'background', at: Date.now() } });
+  await chrome.storage.local.set({ tasks: stamped(tasks, next), meta: { writer: 'background', at: Date.now() } });
   return true;
 }
 
@@ -280,7 +286,7 @@ async function enforceBlockingMeeting() {
     }
     return t;
   });
-  if (changed) await chrome.storage.local.set({ tasks: next, meta: { writer: 'background', at: Date.now() } });
+  if (changed) await chrome.storage.local.set({ tasks: stamped(tasks, next), meta: { writer: 'background', at: Date.now() } });
   return { meeting, startedNow: changed && !trackedSinceStart };
 }
 
@@ -334,7 +340,7 @@ async function onMeetingEnd() {
     const endMs = meetingAt(t, 'end');
     return { ...t, done: true, done_at: new Date(endMs).toISOString(), time_entries: closeEntry(t.time_entries || [], endMs) };
   });
-  await chrome.storage.local.set({ tasks: next, meta: { writer: 'background', at: Date.now() } });
+  await chrome.storage.local.set({ tasks: stamped(tasks, next), meta: { writer: 'background', at: Date.now() } });
   for (const meeting of ending) {
     chrome.notifications.create(`cabetodo-meeting-end-${meeting.id}`, {
       type: 'basic',
@@ -379,7 +385,7 @@ async function pauseRunningTimer() {
     changed = true;
     return { ...t, time_entries: [...entries.slice(0, -1), { ...entries[entries.length - 1], end: now }] };
   });
-  if (changed) await chrome.storage.local.set({ tasks: next, meta: { writer: 'background', at: Date.now() } });
+  if (changed) await chrome.storage.local.set({ tasks: stamped(tasks, next), meta: { writer: 'background', at: Date.now() } });
 }
 
 /** Finalizar una reunión desde el botón flotante: marcarla hecha y cerrar su tiempo. */
@@ -392,7 +398,7 @@ async function finishMeetingFromFloat(taskId) {
     const open = entries.length && !entries[entries.length - 1].end;
     return { ...t, done: true, done_at: now, time_entries: open ? closeEntry(entries, Date.now()) : entries };
   });
-  await chrome.storage.local.set({ tasks: next, meta: { writer: 'background', at: Date.now() } });
+  await chrome.storage.local.set({ tasks: stamped(tasks, next), meta: { writer: 'background', at: Date.now() } });
 }
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
