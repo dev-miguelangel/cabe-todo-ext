@@ -1311,3 +1311,7 @@ button.prob-tag { cursor: pointer; }
 .modal-title-hint code { font-size: 10.5px; }
 .task .actions .edit-btn { font-size: 13px; line-height: 1; padding: 2px 6px; }
 .task .actions .edit-btn:hover { color: var(--accent-text); }
+
+/* ⟳ sin Drive conectado: amarillo, para invitar a conectarlo */
+.sync-btn.sync-off { background: #f6c344; color: #202124; }
+.sync-btn.sync-off:hover { background: #f9d36b; color: #202124; }

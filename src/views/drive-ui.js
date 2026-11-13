@@ -1,8 +1,12 @@
 // Sincronizar con Google Drive: Ajustes → "Sincronizar con Google Drive" y el botón ⟳ de Hoy.
+// El ⟳ siempre está a la vista: amarillo mientras Drive no está conectado (al tocarlo lleva a Ajustes →
+// Sincronizar con Google Drive) y normal cuando lo está (al tocarlo sincroniza).
 // Compartido con la versión web (scripts/sync-core.mjs). El permiso de Google lo maneja drive-session.js,
 // propio de cada app.
 
-import { state, exportBackup, readBackup, mergeBackup } from '../services/store.js';
+import {
+  state, exportBackup, readBackup, mergeBackup, setView,
+} from '../services/store.js';
 import { saveUndoPoint, undoImport } from '../services/undo-point.js';
 import {
   syncNow, isConnected, lastSync, disconnect, prepare, isAvailable, redirectUrl,
@@ -37,11 +41,15 @@ export function renderDrive() {
     return;
   }
   const on = isConnected();
+  const btn = document.getElementById('drive-sync-btn');
+  btn.hidden = false;
+  btn.classList.toggle('sync-off', !on);
+  btn.title = on ? 'Sincronizar con Google Drive' : 'Google Drive no está conectado: toca para conectarlo';
+  btn.setAttribute('aria-label', btn.title);
   const setup = document.getElementById('drive-setup');
   if (setup) setup.textContent = redirectUrl();
   document.getElementById('drive-off').hidden = on;
   document.getElementById('drive-on').hidden = !on;
-  document.getElementById('drive-sync-btn').hidden = !on;
   const last = lastSync();
   const status = last ? `Última sincronización: ${whenText(last.at)}.` : 'Conectado. Todavía no sincronizas desde este equipo.';
   document.getElementById('drive-status').textContent = status;
@@ -56,6 +64,20 @@ export function renderDrive() {
 }
 
 /** Sincronizar (también conecta la primera vez). Debe llamarse directo desde el toque. */
+const TAB_KEY = 'cabetodo:tab';
+
+/** Ir a Ajustes → Sincronizar con Google Drive (abierta y a la vista). */
+export function openDriveSettings() {
+  try { localStorage.setItem(TAB_KEY, 'settings'); } catch { /* sin almacenamiento */ }
+  setView({ tab: 'settings' });
+  const section = document.getElementById('drive-section');
+  section.open = true;
+  requestAnimationFrame(() => {
+    section.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    document.getElementById(isConnected() ? 'drive-sync' : 'drive-connect')?.focus({ preventScroll: true });
+  });
+}
+
 function startSync() {
   if (busy) return;
   busy = true;
@@ -82,7 +104,11 @@ export function setupDrive() {
   });
   document.getElementById('drive-connect').addEventListener('click', startSync);
   document.getElementById('drive-sync').addEventListener('click', startSync);
-  document.getElementById('drive-sync-btn').addEventListener('click', startSync);
+  // ⟳ de Hoy: sin conexión lleva a Ajustes; conectado, sincroniza
+  document.getElementById('drive-sync-btn').addEventListener('click', () => {
+    if (isConnected()) startSync();
+    else openDriveSettings();
+  });
   document.getElementById('drive-disconnect').addEventListener('click', async () => {
     // eslint-disable-next-line no-alert
     if (!window.confirm('¿Desconectar Google Drive en este equipo? Tus datos se quedan aquí y el archivo en tu Drive no se borra.')) return;
