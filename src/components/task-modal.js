@@ -1,7 +1,8 @@
-// Detalle de una tarea (al pincharla): por qué está bloqueada, temporizador y comentarios en Markdown.
+// Detalle de una tarea (al pincharla): editar (tocando el título), por qué está bloqueada, temporizador
+// y comentarios en Markdown.
 
 import { blockersOf, timerBlockedBy } from '../core/pert.js';
-import { formatMinutes } from '../core/parser.js';
+import { formatMinutes, toQuickAddText } from '../core/parser.js';
 import { todayISO, shortLabel, toMinutes, nowMinutes } from '../utils/dates.js';
 import {
   isRunning, trackedMs, formatStopwatch, remainingMs, estimateMs, formatCountdown, formatTracked,
@@ -9,7 +10,7 @@ import {
 import {
   state, findTask, findEpic, updateTask, setDependency, subscribe, toggleTimer, resetTimer, deleteTask,
   setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat, deleteRoutine, applyTaskToRoutine, setView,
-  clearDoc, restoreDoc,
+  clearDoc, restoreDoc, editFromText,
 } from '../services/store.js';
 import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
 import { blockName, blockRange, firstBlock } from '../core/blocks.js';
@@ -26,6 +27,7 @@ let blockedById = null; // reunión que impide iniciar el temporizador (para not
 let repeatOpen = false; // sección "Repetir" abierta en una tarea que aún no se repite
 let meetingForm = null; // formulario de reunión abierto: { date, start, end, mode, duration, blocking, error }
 let deleteAsk = false; // tarea de una rutina: preguntando "¿solo esta o todas?" antes de borrar
+let titleDraft = null;  // editando la tarea (texto como en "+ Nueva tarea"); null = sin editar
 const comments = createComments({ rerender: () => render() });
 
 function whereText(task) {
@@ -418,6 +420,85 @@ export function openDocTab(taskId) {
 
 // ---------- Render ----------
 
+// ---------- Editar: el título del detalle se toca y se escribe como en "+ Nueva tarea" ----------
+
+const snapshotOf = (t) => JSON.stringify([t.title, t.minutes, t.certainty, t.epic_id, t.block, t.date, t.meeting]);
+
+function startTitleEdit(task) {
+  titleDraft = toQuickAddText(task, findEpic(task.epic_id));
+  render();
+  const input = document.querySelector('#modal .modal-title-input');
+  input?.focus();
+  input?.select();
+}
+
+function finishTitleEdit(save) {
+  if (titleDraft === null) return;
+  const task = findTask(currentId);
+  const text = titleDraft;
+  titleDraft = null;
+  if (!task || !save) {
+    render();
+    return;
+  }
+  const before = snapshotOf(task);
+  if (!editFromText(task.id, text)) {
+    render();
+    return;
+  }
+  const now = findTask(task.id);
+  // Tarea de una rutina: el cambio es solo de este día, salvo que se aplique a todas
+  if (now?.routine_id && snapshotOf(now) !== before) {
+    showToast(`Cambiaste "${now.title}" solo este día.`, {
+      label: 'Aplicar a todas',
+      run: () => { applyTaskToRoutine(now.id); showToast(`Listo: las próximas "${now.title}" quedan igual.`); },
+    });
+  }
+  render();
+}
+
+/** Cambia el <h2> del modal por el título editable (✎) o por el campo de edición. */
+function decorateTitle(task) {
+  const title = document.getElementById('modal-title');
+  if (!title) return;
+  if (titleDraft === null) {
+    title.classList.add('modal-title-editable');
+    title.tabIndex = 0;
+    title.setAttribute('role', 'button');
+    title.title = 'Editar la tarea';
+    title.append(h('span', { class: 'modal-title-pencil', 'aria-hidden': 'true' }, '✎'));
+    title.addEventListener('click', () => startTitleEdit(task));
+    title.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        startTitleEdit(task);
+      }
+    });
+    return;
+  }
+  const input = h('input', {
+    class: 'modal-title-input', value: titleDraft, 'aria-label': 'Editar la tarea', dataset: { key: 'title-edit' },
+    enterkeyhint: 'done', autocomplete: 'off',
+  });
+  input.addEventListener('input', () => { titleDraft = input.value; });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      finishTitleEdit(true);
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); // que Escape cancele la edición y no cierre el detalle
+      e.stopPropagation();
+      finishTitleEdit(false);
+    }
+  });
+  // Al salir del campo se guarda (si el campo se quitó por un re-render, no)
+  input.addEventListener('blur', () => setTimeout(() => { if (input.isConnected && titleDraft !== null) finishTitleEdit(true); }, 0));
+  const hint = h('p', { class: 'modal-title-hint' },
+    'Título, duración (', h('code', {}, '45m'), '), ', h('code', {}, '?'), ' / ', h('code', {}, '!'),
+    ', bloque o día (', h('code', {}, 'tarde'), ', ', h('code', {}, 'mañana'), ') y ', h('code', {}, '#épica'), '. Enter guarda.');
+  title.replaceWith(h('div', { class: 'modal-title-edit', id: 'modal-title' }, input, hint));
+}
+
 function render() {
   const task = findTask(currentId);
   if (!task) {
@@ -445,6 +526,7 @@ function render() {
     comments.section(task),
     footerSection(task),
   ].filter(Boolean), onClose);
+  decorateTitle(task);
 
   const box = document.querySelector('#modal .modal-box');
   if (box) box.scrollTop = scroll;
@@ -459,6 +541,7 @@ function render() {
 
 function onClose() {
   currentId = null;
+  titleDraft = null;
   meetingForm = null;
   repeatOpen = false;
   deleteAsk = false;
@@ -467,15 +550,21 @@ function onClose() {
   tick = null;
 }
 
-export function showTaskModal(taskId) {
+/** Abre el detalle. opts.edit: abrirlo ya editando (✎ de la tarjeta). */
+export function showTaskModal(taskId, opts = {}) {
   if (currentId !== taskId) {
     comments.reset();
     meetingForm = null;
     repeatOpen = false;
+    titleDraft = null;
   }
   currentId = taskId;
   wasBlocked = false;
   render();
+  if (opts.edit) {
+    const task = findTask(taskId);
+    if (task) startTitleEdit(task);
+  }
   wasBlocked = blockersOf(findTask(taskId), new Map(state.tasks.map((t) => [t.id, t]))).length > 0;
   clearInterval(tick);
   // El reloj avanza cada segundo sin re-renderizar el modal (no interrumpe lo que escribes).
@@ -498,3 +587,14 @@ export function showTaskModal(taskId) {
 subscribe(() => {
   if (currentId && isModalOpen()) render();
 });
+
+// ✎ de las tarjetas (con mouse, al pasar por encima): abrir el detalle editando. Se atiende aquí, antes
+// que los clics de cada vista, para que no abran además el detalle normal.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('.task .edit-btn');
+  if (!btn) return;
+  e.stopPropagation();
+  e.preventDefault();
+  const id = btn.closest('.task')?.dataset.id;
+  if (id) showTaskModal(id, { edit: true });
+}, true);

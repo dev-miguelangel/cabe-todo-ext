@@ -34,6 +34,7 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 ## Funcionalidades
 
 - **Crear una tarea en menos de 3 segundos**: una caja de texto y Enter (`Informe 2h ? pm #web`).
+- **Editar con el mismo texto**: en el detalle de la tarea, toca el título (✎) y cambia título, duración, certeza, bloque, día o épica escribiendo; Enter guarda. Con mouse, también desde el ✎ de la tarjeta.
 - **Bloques personalizables**: hasta 5 por día, cada uno con título, ícono y horario, sin superponerse.
 - **Vistas**: *Hoy* (las tareas del día por bloque, con su campo para agregar, pronóstico y avance; ‹ › para otros días y 📅 para los próximos 7), *Épicas*, *Hechas* (completadas por día), *Rutinas* (todo lo que se repite: editar o eliminar), *Docs* (tareas con documentación) y *Ajustes*.
 - **Tema claro / oscuro** con el botón ☾ / ☀︎ de arriba a la derecha (también en la documentación).
