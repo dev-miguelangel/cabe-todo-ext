@@ -2,7 +2,7 @@
 
 Ver y editar la misma lista en todos mis equipos (extensión de Chrome y web en el celular) con un botón **Sincronizar**. Los datos se guardan en mi propio Google Drive, de forma privada.
 
-**Estado:** hecho. Extensión v1.0.8 y web v1.1.0. La sincronización es experimental mientras la app de Google siga en modo prueba.
+**Estado:** hecho. Extensión v1.0.8 y web v1.1.0. Desde el 13-11-2026 la app de Google está **en producción**: funciona con cualquier cuenta. La verificación de la marca (nombre y logo en la pantalla de permiso) queda pendiente; con solo `drive.file` no hace falta para funcionar.
 
 ## Decisiones
 
@@ -72,7 +72,7 @@ Las cuotas gratuitas de la API de Drive sobran para esto.
 **Si algún día se abre a otras personas:**
 - habría que publicar la app de OAuth;
 - `drive.file` solo pide verificar la marca, no la revisión de seguridad;
-- mientras tanto, el botón debería ocultarse o avisar que es experimental para quien instale la extensión desde la tienda.
+- ✅ Publicada en producción el 13-11-2026, sin verificación de la marca por ahora.
 
 ## Privacidad y tienda
 
