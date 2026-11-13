@@ -1,5 +1,6 @@
 // Modal "Pendientes → hoy": las tareas que quedaron de días anteriores y las del backlog (sin fecha);
-// cada una se planifica en un bloque de hoy con un clic.
+// cada una se planifica en un bloque de hoy con un clic. Tocar el título abre su detalle (para verla o
+// editarla) con "‹ Volver a pendientes". Compartido con la versión web.
 // Cada botón de bloque muestra cómo quedaría ese bloque (su pronóstico) si se agrega la tarea.
 
 import { state, backlogTasks, overdueTasks, planTask, subscribe, findEpic } from '../services/store.js';
@@ -8,6 +9,7 @@ import { blocksOf } from '../core/blocks.js';
 import { scheduleBlock } from '../core/pert.js';
 import { probTag } from './prob-tag.js';
 import { openMoveMenu } from './move-menu.js';
+import { showTaskModal } from './task-modal.js';
 import { formatMinutes } from '../core/parser.js';
 import { todayISO, nowMinutes, shortLabel } from '../utils/dates.js';
 import { titleCase } from '../utils/text.js';
@@ -56,10 +58,13 @@ function taskRow(task, blocks, today, nowMin) {
     h('button', {
       type: 'button', class: 'pick-move', title: 'Mover a otro bloque o día', 'aria-label': `Mover "${task.title}" a otro bloque o día`,
     }, '⇢'),
-    h('div', { class: 'pick-info' },
+    h('div', {
+      class: 'pick-info pick-open', role: 'button', tabindex: '0', title: 'Ver o editar la tarea',
+      'aria-label': `Ver o editar "${task.title}"`,
+    },
       h('span', { class: 'pick-title' },
         epic ? h('span', { class: 'dot', style: `background:${epic.color}`, title: epic.name }) : null,
-        titleCase(task.title)),
+        titleCase(task.title), h('span', { class: 'pick-chevron', 'aria-hidden': 'true' }, '›')),
       h('span', { class: 'pick-meta' },
         [from, formatMinutes(task.minutes), epic ? titleCase(epic.name) : null, task.certainty === 'unsure' ? 'poca certeza' : null]
           .filter(Boolean).join(' · '))),
@@ -123,12 +128,32 @@ export function showBacklogPicker(date = todayISO()) {
   isOpen = true;
   render();
   if (!listening) {
-    document.getElementById('modal')?.addEventListener('click', onPick);
+    const dialog = document.getElementById('modal');
+    dialog?.addEventListener('click', onPick);
+    dialog?.addEventListener('keydown', (e) => {
+      const info = e.target.closest?.('.pick-open');
+      if (info && isOpen && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        openTask(info.closest('.pick-row').dataset.task);
+      }
+    });
     listening = true;
   }
 }
 
+/** Abre el detalle de una tarea; "‹ Volver a pendientes" vuelve a esta lista. */
+function openTask(id) {
+  const date = targetDate;
+  isOpen = false; // el modal pasa a ser el detalle
+  showTaskModal(id, { returnTo: { label: 'pendientes', run: () => showBacklogPicker(date) } });
+}
+
 function onPick(e) {
+  const info = e.target.closest('.pick-open');
+  if (info && isOpen) {
+    openTask(info.closest('.pick-row').dataset.task);
+    return;
+  }
   const move = e.target.closest('.pick-move');
   if (move && isOpen) {
     openMoveMenu(move.closest('.pick-row').dataset.task, move);

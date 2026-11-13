@@ -28,6 +28,7 @@ let repeatOpen = false; // sección "Repetir" abierta en una tarea que aún no s
 let meetingForm = null; // formulario de reunión abierto: { date, start, end, mode, duration, blocking, error }
 let deleteAsk = false; // tarea de una rutina: preguntando "¿solo esta o todas?" antes de borrar
 let titleDraft = null;  // editando la tarea (texto como en "+ Nueva tarea"); null = sin editar
+let returnTo = null;    // abierto desde otra lista (Pendientes): { label, run } para volver a ella
 const comments = createComments({ rerender: () => render() });
 
 function whereText(task) {
@@ -517,6 +518,7 @@ function render() {
   const scroll = document.querySelector('#modal .modal-box')?.scrollTop ?? 0;
 
   openModal(`${blockers.length ? '⧖ ' : ''}${task.title}`, [
+    returnTo ? h('button', { type: 'button', class: 'link-btn modal-back', onclick: goBack }, `‹ Volver a ${returnTo.label}`) : null,
     metaSection(task),
     meetingSection(task),
     repeatSection(task),
@@ -539,8 +541,10 @@ function render() {
   }
 }
 
-function onClose() {
+/** Deja el detalle (sin cerrar el <dialog>): sus intervalos y estado se limpian. */
+function cleanup() {
   currentId = null;
+  returnTo = null;
   titleDraft = null;
   meetingForm = null;
   repeatOpen = false;
@@ -550,8 +554,23 @@ function onClose() {
   tick = null;
 }
 
-/** Abre el detalle. opts.edit: abrirlo ya editando (✎ de la tarjeta). */
+function onClose() {
+  cleanup();
+}
+
+/** "‹ Volver a pendientes": vuelve a la lista desde donde se abrió, en el mismo modal. */
+function goBack() {
+  const back = returnTo;
+  cleanup();
+  back?.run();
+}
+
+/**
+ * Abre el detalle. opts.edit: abrirlo ya editando (✎ de la tarjeta).
+ * opts.returnTo: { label, run } para mostrar "‹ Volver a …" (p. ej. a Pendientes).
+ */
 export function showTaskModal(taskId, opts = {}) {
+  if (currentId !== taskId || 'returnTo' in opts) returnTo = opts.returnTo || null;
   if (currentId !== taskId) {
     comments.reset();
     meetingForm = null;

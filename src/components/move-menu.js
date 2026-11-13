@@ -1,5 +1,6 @@
-// Menú "Mover" de una tarea (botón ⇢ en las acciones de la tarjeta): al siguiente bloque, a mañana,
-// a otro día y bloque (próximos 7 días) o al backlog. Las reuniones solo cambian de día (conservan la hora).
+// Menú "Mover" de una tarea (botón ⇢): una cuadrícula con los próximos 7 días (filas) y los bloques
+// (columnas): un toque y queda movida. Arriba, "Siguiente bloque"; abajo, "Al backlog".
+// Las reuniones solo cambian de día (conservan la hora). Compartido con la versión web.
 
 import { state, findTask, planTask, unplanTask, setMeeting } from '../services/store.js';
 import { h, showToast } from '../utils/ui.js';
@@ -9,7 +10,6 @@ import { titleCase } from '../utils/text.js';
 
 const DAYS = 7;
 let menu = null;
-let pickedDay = null;
 
 const dayName = (iso) => {
   const today = todayISO();
@@ -59,46 +59,64 @@ function move(task, date, block) {
   showToast(`"${task.title}" → ${slotText({ date, block }, null)}.`);
 }
 
+/** "Hoy" / "Mañana" / "Lun", y debajo la fecha ("14 nov"). */
+function dayCell(iso) {
+  const today = todayISO();
+  const [weekday, ...rest] = shortLabel(iso).split(' ');
+  const main = iso === today ? 'Hoy' : iso === shiftDate(today, 1) ? 'Mañana' : titleCase(weekday);
+  return h('span', { class: 'move-day' }, h('strong', {}, main), h('small', {}, rest.join(' ')));
+}
+
 function render(task) {
   const today = todayISO();
   const days = Array.from({ length: DAYS }, (_, i) => shiftDate(today, i));
+  const blocks = blocksOf(state.settings);
+  const compact = blocks.length > 2; // con 3 o más bloques, solo el ícono (el nombre va arriba)
+  const nowMin = nowMinutes();
+
   const quick = [];
   if (!task.meeting && task.date) {
     const next = nextSlot(task.date, task.block);
     quick.push(h('button', { type: 'button', class: 'move-quick', dataset: { date: next.date, block: next.block } },
-      h('span', { class: 'move-arrow', 'aria-hidden': 'true' }, '→'), `Siguiente: ${slotText(next, task.date)}`));
-  }
-  const tomorrow = shiftDate(today, 1);
-  if (task.date !== tomorrow) {
-    const first = firstBlock(state.settings);
-    quick.push(h('button', { type: 'button', class: 'move-quick', dataset: { date: tomorrow, block: task.meeting ? '' : first.id } },
-      h('span', { class: 'move-arrow', 'aria-hidden': 'true' }, '→'), task.meeting ? 'Mañana, a la misma hora' : `Mañana, ${label(first)}`));
+      h('span', { class: 'move-arrow', 'aria-hidden': 'true' }, '→'), `Siguiente bloque: ${slotText(next, task.date)}`));
   }
 
-  const dayChips = h('div', { class: 'move-days', role: 'group', 'aria-label': 'Día' }, ...days.map((d) => h('button', {
-    type: 'button',
-    class: `move-chip${d === pickedDay ? ' on' : ''}${d === task.date ? ' current' : ''}`,
-    dataset: { day: d },
-    'aria-pressed': String(d === pickedDay),
-    title: d === task.date ? 'Está en este día' : null,
-  }, dayName(d))));
-  const blockChips = task.meeting
-    ? h('p', { class: 'move-note' }, `Conserva su horario (${task.meeting.start}–${task.meeting.end}): toca el día.`)
-    : h('div', { class: 'move-blocks', role: 'group', 'aria-label': 'Bloque' }, ...blocksOf(state.settings).map((b) => h('button', {
+  const slot = (d, b) => {
+    const ended = d === today && toMinutes(b.end) <= nowMin;
+    const here = d === task.date && b.id === task.block;
+    const where = `${d === today ? 'hoy' : shortLabel(d)}, ${b.title}`;
+    return h('button', {
       type: 'button',
-      class: `move-chip${pickedDay === task.date && b.id === task.block ? ' current' : ''}`,
-      dataset: { block: b.id },
-      disabled: pickedDay === task.date && b.id === task.block,
-    }, label(b))));
+      class: `move-slot${here ? ' current' : ''}`,
+      dataset: { date: d, block: b.id },
+      disabled: ended || here,
+      title: here ? `Está aquí (${where})` : ended ? `${b.title} de hoy ya terminó` : `Mover a ${where}`,
+      'aria-label': here ? `Está en ${where}` : `Mover a ${where}`,
+    }, compact ? b.icon : label(b));
+  };
+  const meetingSlot = (d) => h('button', {
+    type: 'button',
+    class: `move-slot${d === task.date ? ' current' : ''}`,
+    dataset: { date: d },
+    disabled: d === task.date,
+    'aria-label': `Mover a ${d === today ? 'hoy' : shortLabel(d)}, ${task.meeting.start}–${task.meeting.end}`,
+  }, `${task.meeting.start}–${task.meeting.end}`);
 
-  menu.replaceChildren(
-    h('p', { class: 'move-title' }, `Mover "${titleCase(task.title)}"`),
+  const columns = task.meeting ? 1 : blocks.length;
+  const grid = h('div', { class: 'move-grid', style: `--cols:${columns}`, role: 'group', 'aria-label': 'Día y bloque' },
+    compact && !task.meeting
+      ? [h('span', {}), ...blocks.map((b) => h('span', { class: 'move-col', title: b.title }, b.icon, h('small', {}, b.title)))]
+      : null,
+    ...days.map((d) => [dayCell(d), ...(task.meeting ? [meetingSlot(d)] : blocks.map((b) => slot(d, b)))]));
+
+  menu.replaceChildren(...[
+    h('p', { class: 'move-title' }, 'Mover a…', h('small', {}, titleCase(task.title))),
     ...quick,
-    h('p', { class: 'move-section' }, task.meeting ? 'Otro día' : 'Otro día y bloque'),
-    dayChips,
-    blockChips,
+    grid,
+    task.meeting ? h('p', { class: 'move-note' }, 'La reunión conserva su horario.') : null,
     task.meeting || !task.date ? null : h('button', { type: 'button', class: 'move-quick move-backlog', dataset: { backlog: '1' } },
-      h('span', { class: 'move-arrow', 'aria-hidden': 'true' }, '⤓'), 'Al backlog'));
+      h('span', { class: 'move-arrow', 'aria-hidden': 'true' }, '⤓'), 'Al backlog (sin fecha)'),
+  ].filter(Boolean)); // replaceChildren escribiría "null" como texto
 }
 
 function place(anchor) {
@@ -115,19 +133,13 @@ function onClick(e) {
   const task = findTask(menu?.dataset.task);
   if (!task) { close(); return; }
   const btn = e.target.closest('button');
-  if (!btn) return;
+  if (!btn || btn.disabled) return;
   if (btn.dataset.backlog) {
     close();
     unplanTask(task.id);
     showToast(`"${task.title}" al backlog.`);
-  } else if (btn.dataset.day) {
-    pickedDay = btn.dataset.day;
-    if (task.meeting) { move(task, pickedDay, null); return; }
-    render(task);
-  } else if (btn.classList.contains('move-quick')) {
+  } else if (btn.dataset.date) {
     move(task, btn.dataset.date, btn.dataset.block || null);
-  } else if (btn.dataset.block) {
-    move(task, pickedDay, btn.dataset.block);
   }
 }
 
@@ -154,14 +166,13 @@ export function openMoveMenu(taskId, anchor) {
   if (same) return;
   const task = findTask(taskId);
   if (!task) return;
-  pickedDay = task.date && task.date >= todayISO() ? task.date : todayISO();
   menu = h('div', { class: 'move-menu', role: 'dialog', 'aria-label': `Mover "${task.title}"`, dataset: { task: taskId } });
   menu.addEventListener('click', onClick);
   // Dentro de un modal (<dialog>), el menú va en el mismo modal: si no, quedaría por debajo
   (anchor.closest('dialog') || document.body).append(menu);
   render(task);
   place(anchor);
-  menu.querySelector('button')?.focus();
+  menu.querySelector('button:not(:disabled)')?.focus();
   document.addEventListener('mousedown', onOutside, true);
   document.addEventListener('keydown', onKey, true);
 }
