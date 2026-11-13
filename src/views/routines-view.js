@@ -145,7 +145,7 @@ export function setupRoutines() {
       const pending = state.tasks.filter((t) => t.routine_id === r.id && !t.done).length;
       const detail = pending ? ` Se borran sus ${pending} tarea${pending === 1 ? '' : 's'} pendiente${pending === 1 ? '' : 's'};` : '';
       // eslint-disable-next-line no-alert
-      if (!window.confirm(`¿Eliminar la rutina "${r.title}"?${detail} las hechas se quedan en Hechas.`)) return;
+      if (!window.confirm(`¿Eliminar la rutina "${r.title}"?${detail} las hechas se quedan en Tareas → Hechas.`)) return;
       if (editingId === r.id) stopEditing();
       deleteRoutine(r.id);
       showToast(`Rutina "${r.title}" eliminada.`);

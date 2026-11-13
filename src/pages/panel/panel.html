@@ -53,13 +53,17 @@
     <ul class="done-list" id="minimal-list" aria-label="Tareas de hoy por bloque"></ul>
   </div>
 
-  <!-- ===== Hechas ===== -->
+  <!-- ===== Tareas: todas, con filtros (pestaña ✓) ===== -->
   <div id="view-done" hidden>
     <header class="done-top">
-      <h1>Hechas</h1>
+      <h1>Tareas</h1>
       <p class="docs-count" id="done-count"></p>
     </header>
-    <ul class="done-list" id="done-list" aria-label="Tareas completadas por día"></ul>
+    <div class="tasks-tools">
+      <div class="tasks-filters" id="tasks-filters" role="group" aria-label="Filtrar tareas"></div>
+      <input type="search" class="tasks-search" id="tasks-search" placeholder="Buscar tareas…" aria-label="Buscar tareas" autocomplete="off">
+    </div>
+    <ul class="done-list" id="done-list" aria-label="Todas las tareas"></ul>
   </div>
 
   <!-- ===== Rutinas: lo que se repite ===== -->
@@ -289,7 +293,7 @@
     </button>
     <button class="tab" role="tab" data-tab="done">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.2 12.3l2.6 2.6 5-5.4"/></svg>
-      <span>Hechas</span>
+      <span>Tareas</span>
     </button>
     <button class="tab" role="tab" data-tab="routines">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3M4.5 12A7.5 7.5 0 0 1 17.3 6.7"/><path d="M17.5 3v4h-4M6.5 21v-4h4"/></svg>

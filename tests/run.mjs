@@ -1078,3 +1078,20 @@ console.log('OK: parser + PERT + épicas');
   await assert.rejects(failWith(429, {}), /esperar un momento/);
   console.log('OK: Google Drive (secuencia y mensajes de error)');
 }
+
+// ---------- Vista Tareas: grupos y búsqueda ----------
+{
+  const { groupTasks, matchesQuery } = await import(root + '/src/core/history.js');
+  const T = (id, extra) => ({ id, title: id, done: false, date: null, block: 'am', order: 0, ...extra });
+  const g = groupTasks([
+    T('vieja', { date: '2026-11-10' }), T('ayer', { date: '2026-11-12' }), T('reu-pasada', { date: '2026-11-12', meeting: { start: '10:00', end: '11:00' } }),
+    T('hoy', { date: '2026-11-13' }), T('lunes', { date: '2026-11-16' }), T('sin-fecha'), T('hecha', { done: true, done_at: '2026-11-13T12:00:00Z', date: '2026-11-13' }),
+  ], '2026-11-13');
+  assert.deepEqual(g.overdue.map((t) => t.id), ['vieja', 'ayer'], 'atrasadas: la más antigua primero, sin reuniones pasadas');
+  assert.deepEqual([g.today.map((t) => t.id), g.upcoming.map((t) => t.id), g.backlog.map((t) => t.id)], [['hoy'], ['lunes'], ['sin-fecha']]);
+  assert.equal(g.done[0].tasks[0].id, 'hecha');
+  assert.ok(matchesQuery({ title: 'Revisar contrato' }, 'contra'));
+  assert.ok(matchesQuery({ title: 'Diseño' }, 'diseno web', 'Lanzar Web'), 'sin tildes y también por épica');
+  assert.ok(!matchesQuery({ title: 'Diseño' }, 'informe'));
+  console.log('OK: vista Tareas (grupos y búsqueda)');
+}

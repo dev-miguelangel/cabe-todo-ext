@@ -1,4 +1,4 @@
-// Tarjeta de tarea, compartida por las vistas Hoy, Hechas y Épicas.
+// Tarjeta de tarea, compartida por las vistas Hoy, Tareas y Épicas.
 
 import { formatMinutes, formatClock } from '../core/parser.js';
 import { blockersOf, timerBlockedBy } from '../core/pert.js';

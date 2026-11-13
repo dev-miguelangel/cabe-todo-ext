@@ -1315,3 +1315,48 @@ button.prob-tag { cursor: pointer; }
 /* ⟳ sin Drive conectado: amarillo, para invitar a conectarlo */
 .sync-btn.sync-off { background: #f6c344; color: #202124; }
 .sync-btn.sync-off:hover { background: #f9d36b; color: #202124; }
+
+/* Mover: cuadrícula de días (filas) × bloques (columnas) */
+.move-menu { width: min(320px, calc(100vw - 16px)); }
+.move-title { display: flex; flex-direction: column; gap: 1px; color: var(--text); }
+.move-title small { font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.move-grid { display: grid; grid-template-columns: auto repeat(var(--cols), 1fr); gap: 4px 6px; align-items: center; margin: 6px 2px 2px; }
+.move-col { display: flex; flex-direction: column; align-items: center; font-size: 13px; line-height: 1.1; color: var(--muted); }
+.move-col small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.move-day { display: flex; flex-direction: column; line-height: 1.15; padding-right: 4px; }
+.move-day strong { font-size: 13px; }
+.move-day small { font-size: 10.5px; color: var(--muted); }
+.move-slot {
+  min-height: 32px; padding: 4px 6px; border: 0; border-radius: 8px; background: var(--field); color: var(--text);
+  font: inherit; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.move-slot:hover:not(:disabled), .move-slot:focus-visible { background: var(--accent); color: var(--on-accent); outline: none; }
+.move-slot:disabled { opacity: 0.35; cursor: default; }
+.move-slot.current:disabled { opacity: 1; background: none; box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent-text); }
+
+/* Pendientes: el título de cada tarea abre su detalle */
+.pick-info.pick-open { cursor: pointer; border-radius: 6px; margin: -2px -4px; padding: 2px 30px 2px 4px; }
+.pick-info.pick-open:hover { background: var(--hover); }
+.pick-info.pick-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pick-info .pick-chevron { color: var(--muted); font-weight: 400; margin-left: 2px; }
+
+/* Detalle abierto desde Pendientes: volver a la lista */
+.modal-back { align-self: flex-start; margin: -4px 0 8px; padding: 2px 0; }
+
+/* Vista Tareas: filtros (Todas · Atrasadas · Backlog · Hechas) y búsqueda */
+.tasks-tools { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 0; }
+.tasks-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.tasks-filter {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 0; border-radius: 999px;
+  background: var(--field); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.tasks-filter:hover { background: var(--hover); }
+.tasks-filter.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.tasks-filter-count { font-size: 11px; font-weight: 700; opacity: 0.75; font-variant-numeric: tabular-nums; }
+.tasks-filter.warn:not(.on) .tasks-filter-count { color: #f6c344; opacity: 1; }
+.tasks-search {
+  width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--field); color: var(--text); font: inherit; font-size: 13px;
+}
+.tasks-search:focus { outline: none; border-color: var(--accent); }
+.tasks-more { list-style: none; margin: 10px 0 0; text-align: center; }

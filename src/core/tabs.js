@@ -1,7 +1,7 @@
 // Pestañas del menú inferior y su orden (Ajustes → Menú inferior). Funciones puras.
 
 export const TAB_IDS = ['minimal', 'epics', 'done', 'routines', 'docs', 'settings'];
-export const TAB_NAMES = { minimal: 'Hoy', epics: 'Épicas', done: 'Hechas', routines: 'Rutinas', docs: 'Docs', settings: 'Ajustes' };
+export const TAB_NAMES = { minimal: 'Hoy', epics: 'Épicas', done: 'Tareas', routines: 'Rutinas', docs: 'Docs', settings: 'Ajustes' };
 
 /** Orden guardado → orden válido: sin repetidas ni desconocidas, y con las que falten al final. */
 export function normalizeTabOrder(order) {

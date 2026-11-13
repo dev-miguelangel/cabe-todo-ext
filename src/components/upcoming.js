@@ -1,5 +1,5 @@
 // Modal "Próximos 7 días": las tareas de mañana en adelante, agrupadas por día con el mismo
-// separador de la vista Hechas: ───────── jue 12-11-2026. Clic en un día lo abre en Hoy.
+// separador de la vista Tareas: ───────── jue 12-11-2026. Clic en un día lo abre en Hoy.
 
 import { state, dayTasks, subscribe, updateTask, ensureRoutines } from '../services/store.js';
 import { h, openModal, closeModal, isModalOpen } from '../utils/ui.js';
