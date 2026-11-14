@@ -993,9 +993,9 @@ console.log('OK: parser + PERT + épicas');
   );
   assert.deepEqual([r.data.epics.length, r.data.tasks[0].epic_id, r.data.tasks[0].dependencies], [0, null, []]);
 
-  // Ajustes: el más reciente
-  r = M.mergeData({ ...base, tasks: [] }, { ...base, tasks: [], settings: { theme: 'trello', updated_at: '2026-11-12T00:00:00Z' } });
-  assert.equal(r.data.settings.theme, 'trello');
+  // Ajustes: los más recientes llegan, pero el tema queda en cada equipo
+  r = M.mergeData({ ...base, tasks: [] }, { ...base, tasks: [], settings: { theme: 'trello', default_minutes: 45, updated_at: '2026-11-12T00:00:00Z' } });
+  assert.deepEqual([r.data.settings.theme, r.data.settings.default_minutes], ['chrome', 45]);
 
   // Mezclar dos veces lo mismo no cambia nada
   const once = M.mergeData({ ...base, tasks: [T('a', '2026-11-12T08:00:00Z')] }, { ...base, tasks: [T('b', '2026-11-12T08:00:00Z')] }).data;
@@ -1094,4 +1094,134 @@ console.log('OK: parser + PERT + épicas');
   assert.ok(matchesQuery({ title: 'Diseño' }, 'diseno web', 'Lanzar Web'), 'sin tildes y también por épica');
   assert.ok(!matchesQuery({ title: 'Diseño' }, 'informe'));
   console.log('OK: vista Tareas (grupos y búsqueda)');
+}
+
+// ---------- Ajustes: se mezclan por partes y el tema no viaja ----------
+{
+  const M = await import(root + '/src/core/merge.js');
+  const base = { theme: 'chrome', blocks: [{ id: 'am', title: 'Mañana' }], templates: [{ id: 'x' }], default_template: 'x', tab_order: ['minimal'], default_minutes: 30, notify: true };
+  // Computador: cambia los bloques a las 10:00. Celular: cambia el tema y la duración a las 11:00.
+  const pc = M.stampSettings(base, { ...base, blocks: [{ id: 'am', title: 'Mañana larga' }] }, '2026-11-14T10:00:00Z');
+  const phone = M.stampSettings(base, { ...base, theme: 'trello', default_minutes: 45 }, '2026-11-14T11:00:00Z');
+  assert.deepEqual(Object.keys(pc.updated), ['blocks'], 'solo se marca la parte que cambió');
+  assert.equal(phone.updated.blocks, undefined, 'el tema no se marca: no viaja');
+
+  const onPc = M.mergeSettings(pc, phone);
+  assert.equal(onPc.settings.blocks[0].title, 'Mañana larga', 'los bloques del computador no se pierden');
+  assert.equal(onPc.settings.default_minutes, 45, 'llegan las preferencias del celular');
+  assert.equal(onPc.settings.theme, 'chrome', 'el tema queda como en este equipo');
+  assert.deepEqual(onPc.changed, ['preferencias']);
+
+  const onPhone = M.mergeSettings(phone, pc);
+  assert.equal(onPhone.settings.blocks[0].title, 'Mañana larga');
+  assert.equal(onPhone.settings.theme, 'trello');
+  assert.deepEqual(onPhone.changed, ['bloques del día']);
+  assert.equal(M.mergeSettings(onPc.settings, onPhone.settings).changed.length, 0, 'mezclar de nuevo no cambia nada');
+
+  // Ajustes de una versión anterior (solo updated_at): cuenta para todas las partes, menos el tema
+  const old = { ...base, theme: 'trello', blocks: [{ id: 'am', title: 'Vieja' }], updated_at: '2026-11-14T12:00:00Z' };
+  const fromOld = M.mergeSettings(pc, old).settings;
+  assert.deepEqual([fromOld.blocks[0].title, fromOld.theme], ['Vieja', 'chrome']);
+
+  // En la mezcla completa, el resumen dice qué ajustes llegaron
+  const r = M.mergeData({ tasks: [], epics: [], routines: [], settings: pc, deleted: {} }, { tasks: [], epics: [], routines: [], settings: phone, deleted: {} });
+  assert.equal(M.mergeSummaryText(r.summary), 'ajustes: preferencias');
+
+  // Desde el store: cambiar el tema no marca nada; cambiar los bloques sí
+  const S = await import(root + '/src/services/store.js');
+  const before = S.state.settings.updated_at;
+  S.saveSettings({ ...S.state.settings, theme: S.state.settings.theme === 'trello' ? 'chrome' : 'trello' });
+  assert.equal(S.state.settings.updated_at, before, 'el tema no cuenta como cambio para sincronizar');
+  S.saveSettings({ ...S.state.settings, default_minutes: S.state.settings.default_minutes === 30 ? 45 : 30 });
+  assert.ok(S.state.settings.updated.prefs, 'las preferencias quedan marcadas');
+  console.log('OK: ajustes por partes (bloques, plantillas, menú, preferencias) y tema por equipo');
+}
+
+// ---------- Punto celeste: cambios sin sincronizar ----------
+{
+  const { latestLocalChange } = await import(root + '/src/core/merge.js');
+  const created = '2026-11-14T08:00:00.000Z';
+  assert.equal(latestLocalChange({}), '', 'sin datos: nada que sincronizar');
+  assert.equal(latestLocalChange({ tasks: [{ id: 'r_2026-11-14', routine_id: 'r', created_at: created, updated_at: '2026-11-14T08:00:00.500Z' }] }), '',
+    'la tarea de rutina recién creada no cuenta');
+  assert.equal(latestLocalChange({ tasks: [{ id: 'r_2026-11-14', routine_id: 'r', created_at: created, updated_at: '2026-11-14T09:00:00Z' }] }), '2026-11-14T09:00:00Z',
+    'si se editó o se marcó hecha, sí');
+  assert.equal(latestLocalChange({
+    tasks: [{ id: 'a', updated_at: '2026-11-14T08:00:00Z' }], epics: [{ id: 'e', updated_at: '2026-11-14T10:00:00Z' }],
+    deleted: { x: '2026-11-14T11:00:00Z' }, settings: { updated_at: '2026-11-14T09:00:00Z' },
+  }), '2026-11-14T11:00:00Z', 'cuenta el cambio más reciente: tareas, épicas, borrados y ajustes');
+  console.log('OK: cambios sin sincronizar (punto celeste)');
+}
+
+// ---------- Drive: correo de la cuenta y aviso si cambia ----------
+{
+  const { runSync, SyncCancelled } = await import(root + '/src/services/drive-api.js');
+  const S = await import(root + '/src/services/store.js');
+  const makeDrive = (email, file = null) => {
+    const d = { email, file, version: 0, uploads: 0 };
+    return Object.assign(d, {
+      account: async () => d.email,
+      find: async () => (d.file ? { id: 'f' } : null),
+      download: async () => d.file,
+      modified: async () => `v${d.version}`,
+      create: async (text) => { d.file = text; d.version += 1; return { id: 'f' }; },
+      update: async (id, text) => { d.file = text; d.version += 1; d.uploads += 1; },
+    });
+  };
+  let asked = null;
+  let answer = true;
+  const local = {
+    exportText: () => S.exportBackup(), read: (t) => S.readBackup(t), merge: (x) => S.mergeBackup(x), saveUndo: async () => {},
+    confirmAccount: async (info) => { asked = info; return answer; },
+  };
+
+  // Primera vez con a@: se crea con el correo dentro del archivo, sin preguntar
+  const driveA = makeDrive('a@gmail.com');
+  let r = await runSync(driveA, local);
+  assert.equal(r.email, 'a@gmail.com');
+  assert.equal(JSON.parse(driveA.file).account.email, 'a@gmail.com', 'el archivo guarda con qué cuenta se sincronizó');
+  assert.equal(asked, null);
+
+  // Misma cuenta otra vez: no pregunta
+  await runSync(driveA, local, { fileId: 'f', previousAccount: 'a@gmail.com' });
+  assert.equal(asked, null);
+
+  // Este equipo sincronizaba con a@ y ahora entra b@ (que ya tiene su archivo): pregunta; cancelar no cambia nada
+  const driveB = makeDrive('b@gmail.com');
+  driveB.file = JSON.stringify({ ...JSON.parse(S.exportBackup()), tasks: [{ id: 'de-b', title: 'De la cuenta B', minutes: 10, date: null, block: null, done: false, order: 0, updated_at: new Date(Date.now() + 1000).toISOString() }], account: { email: 'b@gmail.com' } });
+  answer = false;
+  const before = S.state.tasks.length;
+  await assert.rejects(runSync(driveB, local, { fileId: 'f', previousAccount: 'a@gmail.com' }), (e) => e instanceof SyncCancelled);
+  assert.deepEqual(asked, { current: 'b@gmail.com', others: ['a@gmail.com'] });
+  assert.equal(S.state.tasks.length, before, 'cancelar: nada cambia aquí');
+  assert.equal(driveB.uploads, 0, 'ni en Drive');
+
+  // Aceptar: se mezcla y el archivo queda con el correo nuevo
+  answer = true;
+  r = await runSync(driveB, local, { fileId: 'f', previousAccount: 'a@gmail.com' });
+  assert.ok(S.findTask('de-b'));
+  assert.equal(JSON.parse(driveB.file).account.email, 'b@gmail.com');
+
+  // El archivo de Drive lo sincronizó otra cuenta (copiado a mano): también pregunta
+  asked = null;
+  const driveC = makeDrive('c@gmail.com', JSON.stringify({ ...JSON.parse(S.exportBackup()), account: { email: 'z@gmail.com' } }));
+  await runSync(driveC, local, { previousAccount: 'c@gmail.com' });
+  assert.deepEqual(asked, { current: 'c@gmail.com', others: ['z@gmail.com'] });
+  console.log('OK: Drive (correo de la cuenta y aviso si cambia)');
+}
+
+// ---------- Drive: si Google no entrega el correo, se sincroniza igual ----------
+{
+  const { runSync } = await import(root + '/src/services/drive-api.js');
+  const S = await import(root + '/src/services/store.js');
+  let file = null;
+  const drive = {
+    account: async () => { throw new Error('Google Drive respondió 403.'); },
+    find: async () => (file ? { id: 'f' } : null), download: async () => file, modified: async () => 'v',
+    create: async (t) => { file = t; return { id: 'f' }; }, update: async (id, t) => { file = t; },
+  };
+  const local = { exportText: () => S.exportBackup(), read: (t) => S.readBackup(t), merge: (x) => S.mergeBackup(x), saveUndo: async () => {}, confirmAccount: async () => false };
+  const r = await runSync(drive, local, { previousAccount: 'a@gmail.com' });
+  assert.deepEqual([r.created, r.email], [true, null], 'sin correo: sincroniza sin preguntar');
+  console.log('OK: Drive (sin correo, sincroniza igual)');
 }

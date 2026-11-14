@@ -21,29 +21,74 @@ export class DriveAuthError extends Error {}
 
 // ---------- La secuencia (probada con un drive de mentira) ----------
 
+/** El usuario canceló la sincronización (cuentas distintas): no se cambió nada. */
+export class SyncCancelled extends Error {
+  constructor() {
+    super('Sincronización cancelada: no se cambió nada.');
+  }
+}
+
+/** Agrega al archivo de sincronización con qué cuenta se sincronizó y cuándo. */
+function withAccount(text, email) {
+  if (!email) return text;
+  const data = JSON.parse(text);
+  data.account = { email, synced_at: new Date().toISOString() };
+  return JSON.stringify(data, null, 2);
+}
+
+/** Cuenta que sincronizó por última vez el archivo de Drive (o null). */
+function fileAccount(text) {
+  try {
+    return JSON.parse(text).account?.email || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * drive: { find() → { id } | null, download(id) → texto, modified(id) → modifiedTime,
- *          create(texto) → { id }, update(id, texto) }
- * local: { exportText() → texto, read(texto) → respaldo leído (lanza si no sirve),
- *          merge(datos) → resumen, saveUndo() }
- * Devuelve { summary, created, fileId }.
+ * drive: { account() → correo de la cuenta de Drive, find() → { id } | null, download(id) → texto,
+ *          modified(id) → modifiedTime, create(texto) → { id }, update(id, texto) }
+ * local: { exportText() → texto, read(texto) → respaldo leído (lanza si no sirve), merge(datos) → resumen,
+ *          saveUndo(), confirmAccount({ current, others }) → true para seguir (cuentas distintas) }
+ * opts: { fileId, previousAccount }: el archivo y la cuenta con que este equipo sincronizó la última vez.
+ * Si la cuenta de ahora no es la de este equipo, o no es la que sincronizó el archivo, se pregunta antes de
+ * mezclar (si se cancela: SyncCancelled y nada cambia).
+ * Devuelve { summary, created, fileId, email }.
  */
-export async function runSync(drive, local, { fileId = null } = {}) {
-  let file = fileId ? { id: fileId } : null;
+export async function runSync(drive, local, { fileId = null, previousAccount = null } = {}) {
+  // El correo es un extra: si Google no lo entrega, se sincroniza igual (sin mostrarlo ni comparar cuentas)
+  let email = null;
+  try {
+    email = drive.account ? await drive.account() : null;
+  } catch (err) {
+    if (err instanceof DriveAuthError) throw err; // permiso vencido: eso sí hay que resolverlo
+  }
+  const switched = Boolean(email && previousAccount && previousAccount !== email);
+  const ask = async (fileOwner) => {
+    const others = [...new Set([switched ? previousAccount : null, fileOwner && fileOwner !== email ? fileOwner : null].filter(Boolean))];
+    if (others.length && !(await local.confirmAccount({ current: email, others }))) throw new SyncCancelled();
+  };
+
+  let file = fileId && !switched ? { id: fileId } : null; // con otra cuenta, el archivo recordado no sirve
   if (!file) file = await drive.find();
   if (!file) {
-    const created = await drive.create(local.exportText());
-    return { summary: null, created: true, fileId: created.id };
+    await ask(null);
+    const created = await drive.create(withAccount(local.exportText(), email));
+    return { summary: null, created: true, fileId: created.id, email };
   }
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const before = await drive.modified(file.id);
-    const remote = local.read(await drive.download(file.id)); // lanza si el archivo está dañado: no se toca nada
-    if (attempt === 1) await local.saveUndo();
+    const text = await drive.download(file.id);
+    const remote = local.read(text); // lanza si el archivo está dañado: no se toca nada
+    if (attempt === 1) {
+      await ask(fileAccount(text));
+      await local.saveUndo();
+    }
     const summary = local.merge(remote.data);
     // ¿Otro equipo subió algo mientras mezclábamos? Volver a traerlo y mezclar de nuevo.
     if ((await drive.modified(file.id)) !== before) continue;
-    await drive.update(file.id, local.exportText());
-    return { summary, created: false, fileId: file.id };
+    await drive.update(file.id, withAccount(local.exportText(), email));
+    return { summary, created: false, fileId: file.id, email };
   }
   throw new Error('Otro equipo está sincronizando al mismo tiempo. Prueba de nuevo en un momento.');
 }
@@ -94,6 +139,11 @@ export function googleDrive(token, fetchImpl = fetch) {
   }
 
   return {
+    /** Correo de la cuenta dueña del Drive (con el mismo permiso drive.file, sin pedir más). */
+    async account() {
+      const about = await json(`${API}/about?fields=user(emailAddress)`);
+      return about.user?.emailAddress || null;
+    },
     async find() {
       const found = await json(q(`name='${FILE_NAME}' and trashed=false`));
       return found.files[0] || null;
@@ -130,6 +180,7 @@ const KEYS = {
   connected: 'cabetodo:driveConnected',
   fileId: 'cabetodo:driveFileId',
   last: 'cabetodo:driveLastSync', // { at, summary }
+  account: 'cabetodo:driveAccount', // correo con el que este equipo sincronizó la última vez
 };
 const ls = {
   get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
@@ -140,6 +191,8 @@ const ls = {
 export const isConnected = () => Boolean(ls.get(KEYS.connected));
 export const lastSync = () => ls.get(KEYS.last); // { at, summary } | null
 export const markConnected = () => ls.set(KEYS.connected, true);
+/** Correo de la cuenta de Google con que este equipo sincronizó (o null). */
+export const syncedAccount = () => ls.get(KEYS.account);
 
 /** Olvida la conexión en este equipo (los datos y el archivo en Drive quedan). */
 export function forgetDrive() {
@@ -152,8 +205,9 @@ export function forgetDrive() {
  */
 export async function syncWithToken(token, local, { onAuthError = () => {} } = {}) {
   try {
-    const result = await runSync(googleDrive(token), local, { fileId: ls.get(KEYS.fileId) });
+    const result = await runSync(googleDrive(token), local, { fileId: ls.get(KEYS.fileId), previousAccount: ls.get(KEYS.account) });
     ls.set(KEYS.fileId, result.fileId);
+    if (result.email) ls.set(KEYS.account, result.email);
     ls.set(KEYS.last, { at: new Date().toISOString(), summary: result.summary });
     markConnected();
     return result;

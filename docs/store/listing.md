@@ -96,12 +96,12 @@ TU INFORMACIÓN ES TUYA
 **Uso de datos**:
 - **Sin sincronización:** el desarrollador no recibe nada; todo queda en `chrome.storage.local`.
 - **Con "Sincronizar con Google Drive" (opcional, a pedido del usuario):** las tareas y la documentación viajan directo del navegador al Google Drive **del propio usuario**. No pasan por servidores del desarrollador.
-- **Qué marcar en el formulario:** el desarrollador no recibe datos, así que en principio no corresponde marcar categorías. Ninguna describe bien "texto propio del usuario guardado en su propio Drive". Si el formulario o el revisor exigen declarar la sincronización, revisar las definiciones vigentes de la tienda antes de elegir y explicarlo en la justificación. En cualquier caso no se piden nombre, correo, contactos ni historial.
+- **Qué marcar en el formulario:** el desarrollador no recibe datos, así que en principio no corresponde marcar categorías. Ninguna describe bien "texto propio del usuario guardado en su propio Drive". Si el formulario o el revisor exigen declarar la sincronización, revisar las definiciones vigentes de la tienda antes de elegir y explicarlo en la justificación. No se piden nombre, contactos ni historial. El correo de la cuenta de Google se lee desde Drive solo para mostrarlo en Ajustes y avisar si se cambia de cuenta; queda en el equipo y en el archivo de sincronización del propio usuario, y el desarrollador no lo recibe.
 
 **Google OAuth:**
 - La app de Google está **en producción** desde el 13-11-2026: la sincronización funciona con cualquier cuenta.
 - **Verificación de la marca (nombre y logo en la pantalla de permiso):** pendiente y opcional. Si se pide, Google exige la página principal y la política de privacidad en un dominio verificado propio. `github.io` no lo acepta; lo seguro es un dominio propio.
-- **Al publicar en la tienda:** agregar en el cliente OAuth la URI `https://<id de la tienda>.chromiumapp.org/`. Ajustes de la extensión publicada la muestra.
+- **Al publicar en la tienda:** agregar en el cliente OAuth la URI `https://<id de la tienda>.chromiumapp.org/` (el id aparece junto al nombre en el panel de desarrollador). Ya agregada para `gchljogjncgelbljjkhmicdfbiplighj`.
 
 Marcar las tres certificaciones:
 

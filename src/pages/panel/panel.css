@@ -1294,7 +1294,6 @@ button.prob-tag { cursor: pointer; }
 @keyframes drive-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .sync-btn.is-busy svg { animation: none; } }
 .drive-section .ss-body p { margin: 0 0 8px; }
-.drive-setup-note { margin-top: 10px !important; overflow-wrap: anywhere; }
 
 /* Editar la tarea: título del detalle tocable (✎) y su campo de edición */
 .modal-title-editable { cursor: text; border-radius: 6px; }
@@ -1360,3 +1359,9 @@ button.prob-tag { cursor: pointer; }
 }
 .tasks-search:focus { outline: none; border-color: var(--accent); }
 .tasks-more { list-style: none; margin: 10px 0 0; text-align: center; }
+
+/* ⟳ con cambios de este equipo sin sincronizar: punto celeste arriba a la derecha */
+.sync-btn.has-pending::after {
+  content: ''; position: absolute; top: 0; right: 0; width: 9px; height: 9px; border-radius: 50%;
+  background: #4fc3f7; box-shadow: 0 0 0 2px var(--bg); pointer-events: none;
+}

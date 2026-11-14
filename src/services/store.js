@@ -15,7 +15,7 @@ import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../
 import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
 import {
-  snapshotOf, stampChanges, addTombstones, pruneTombstones, mergeData,
+  snapshotOf, stampChanges, addTombstones, pruneTombstones, mergeData, stampSettings, stampAllSettings,
 } from '../core/merge.js';
 
 export { PALETTE } from './storage.js';
@@ -597,7 +597,8 @@ export function saveSettings(next) {
   const remap = new Map(removed.map((b) => [b.id, neighborBlock(old, b.id, blocks)]));
   const sorted = blocksOf({ blocks });
 
-  state.settings = { ...state.settings, ...next, blocks: sorted, updated_at: new Date().toISOString() };
+  // Cada parte que cambió (bloques, plantillas, menú, preferencias) lleva su fecha, para mezclar entre equipos
+  state.settings = stampSettings(state.settings, { ...state.settings, ...next, blocks: sorted });
   if (remap.size) {
     for (const t of state.tasks) if (remap.has(t.block)) t.block = remap.get(t.block);
     for (const r of state.routines) if (remap.has(r.block)) r.block = remap.get(r.block);
@@ -637,7 +638,7 @@ export function restoreBackup(data) {
   state.tasks = data.tasks;
   state.epics = data.epics;
   state.routines = data.routines;
-  state.settings = { ...data.settings, updated_at: new Date().toISOString() };
+  state.settings = stampAllSettings(data.settings);
   state.deleted = { ...state.deleted, ...(data.deleted || {}) };
   saveSettingsRaw(state.settings);
   commit(); // lo que se reemplazó cuenta como cambio de ahora (y lo que no venía, como borrado)

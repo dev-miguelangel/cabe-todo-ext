@@ -46,7 +46,7 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 - **Rutinas**: tareas que se repiten (`cada día`, `hábiles`, `cada lun,jue`). Al editar o borrar una, eliges si es *solo esta* o *todas*.
 - **Documentación por tarea** en Markdown, en una pestaña a pantalla completa, con buscador en la vista *Docs*.
 - **Cierre del día**: resumen de lo hecho frente a lo estimado, y mover lo pendiente con un clic.
-- **Sincronizar con Google Drive**: la misma lista en la extensión y en el celular. Un archivo privado en tu Drive; **Sincronizar** lo trae, lo mezcla y lo sube.
+- **Sincronizar con Google Drive**: la misma lista en la extensión y en el celular. Un archivo privado en tu Drive; **Sincronizar** lo trae, lo mezcla y lo sube. Los ajustes se mezclan por partes (bloques, plantillas, menú y preferencias) y el tema queda en cada equipo.
 - **Respaldo**: exportar e importar todos tus datos en JSON. Al importar eliges **Mezclar** (suma lo del respaldo; en cada tarea queda la versión más reciente y lo borrado en un lado se borra en el otro) o **Reemplazar todo**.
 - **Temas**: oscuro (Chrome) y claro estilo Trello.
 

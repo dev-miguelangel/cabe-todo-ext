@@ -42,7 +42,7 @@ Va en el código compartido (`src/core/merge.js` de la extensión, copiado a la 
 
 - **Tareas, épicas y rutinas:** por id. Si existe en un solo lado, se agrega, salvo que esté en la lista de borrados con fecha posterior. Si existe en los dos, gana el `updated_at` más reciente, completo.
 - **Comentarios de una tarea:** se unen por id, aunque gane la otra versión de la tarea. Así no se pierde un comentario escrito en el celular.
-- **Ajustes:** gana el más reciente, completo. Son pocos y se cambian poco.
+- **Ajustes:** por partes, cada una con su fecha (`settings.updated`): **bloques del día**, **plantillas**, **menú inferior** y **preferencias**. De cada parte gana la más reciente, así que cambiar el tema o las plantillas en un equipo no pisa los bloques cambiados en otro. **El tema es de cada equipo** y no se sincroniza. Los ajustes de versiones anteriores, que solo tienen `updated_at`, cuentan con esa fecha para todas las partes.
 - **Temporizador corriendo en dos equipos:** gana la versión más reciente de la tarea. Es aceptable para uso personal.
 - **Relojes desfasados** entre equipos: unos minutos de diferencia no importan en la práctica.
 
@@ -102,6 +102,20 @@ Las cuotas gratuitas de la API de Drive sobran para esto.
    - Pruebas: más reciente gana, borrados, comentarios, rutinas, referencias y mezclar dos veces lo mismo.
 2. ✅ **Drive en la web:** iniciar sesión, buscar o crear el archivo, sincronizar, resumen y "Última sincronización: …". Probado en el celular.
 3. ✅ **Drive en la extensión:** `chrome.identity`, el mismo flujo, y probar con la web en paralelo.
+   **Cómo quedó (etapas 2 y 3):**
+   - **Compartido:** `services/drive-api.js` (API de Drive, `runSync`, mensajes de error), `services/undo-point.js` (Deshacer) y `views/drive-ui.js` (sección de Ajustes y botón ⟳ de Hoy: amarillo sin conexión).
+   - **Propio de cada app:** `services/drive-session.js`, el permiso de Google:
+     - web: Google Identity Services;
+     - extensión: `chrome.identity.launchWebAuthFlow` con el **mismo cliente web**.
+   - **Configuración del cliente OAuth web:**
+     - **Orígenes de JavaScript autorizados:** `https://cabe-todo-web.vercel.app` y `http://localhost:4173`.
+     - **URI de redireccionamiento autorizados:** `https://<id de la extensión>.chromiumapp.org/`, una por cada id. Ya agregadas: la carpeta de pruebas y la tienda (`gchljogjncgelbljjkhmicdfbiplighj`).
+     - Si falta una URI, al conectar aparece un mensaje con la dirección exacta (`redirect_uri_mismatch`).
+   - **Cuenta:**
+     - `about.get` (con `drive.file`) da el correo de la cuenta; Ajustes muestra "Conectado como …".
+     - El archivo de sincronización guarda `account: { email, synced_at }`.
+     - Si el correo de ahora no coincide con el último de este equipo, o con el que sincronizó el archivo, se pregunta antes de mezclar (**Continuar y mezclar** o **Cancelar**; cancelar no cambia nada).
+
 4. ✅ **Textos y tienda:** política de privacidad, ficha de la Chrome Web Store, README y nueva versión de las dos apps.
 
 ## Riesgos

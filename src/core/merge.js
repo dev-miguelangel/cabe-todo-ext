@@ -8,9 +8,68 @@
 // - Comentarios: se unen por id (también se borran con `deleted`); si un comentario se editó en los dos
 //   lados, gana la edición más reciente.
 // - Rutinas: `generated` (días ya creados) se une siempre y no cuenta como edición.
-// - Ajustes: gana el `updated_at` más reciente.
+// - Ajustes: por partes (SETTINGS_GROUPS), cada una con su fecha en `settings.updated`: cambiar las
+//   plantillas en un equipo no pisa los bloques cambiados en otro. El tema es de cada equipo: no viaja.
 
 export const TOMBSTONE_DAYS = 60;
+
+/** Partes de los ajustes que se sincronizan por separado (el tema no: cada equipo tiene el suyo). */
+export const SETTINGS_GROUPS = {
+  blocks: { label: 'bloques del día', keys: ['blocks'] },
+  templates: { label: 'plantillas', keys: ['templates', 'default_template'] },
+  tabs: { label: 'menú inferior', keys: ['tab_order'] },
+  prefs: { label: 'preferencias', keys: ['default_minutes', 'notify', 'timer_sound', 'float_timer', 'calibrate', 'meeting_lead'] },
+};
+const LOCAL_ONLY = ['theme'];
+
+const groupValue = (settings, group) => JSON.stringify(SETTINGS_GROUPS[group].keys.map((k) => settings?.[k] ?? null));
+
+/**
+ * Ajustes nuevos con la fecha de las partes que cambiaron respecto de `old` (en settings.updated) y
+ * updated_at = la más reciente (para versiones anteriores, que comparan los ajustes completos).
+ */
+export function stampSettings(old, next, now = new Date().toISOString()) {
+  const updated = { ...(old?.updated || {}), ...(next.updated || {}) };
+  for (const group of Object.keys(SETTINGS_GROUPS)) {
+    if (groupValue(old, group) !== groupValue(next, group)) updated[group] = now;
+  }
+  const latest = Object.values(updated).sort().pop() || old?.updated_at || null;
+  return { ...next, updated, updated_at: latest };
+}
+
+/** Todas las partes con la misma fecha (al reemplazar todo con un respaldo). */
+export function stampAllSettings(settings, now = new Date().toISOString()) {
+  const updated = Object.fromEntries(Object.keys(SETTINGS_GROUPS).map((g) => [g, now]));
+  return { ...settings, updated, updated_at: now };
+}
+
+/**
+ * Fecha de una parte. Los ajustes de versiones anteriores no tienen `updated` y su updated_at vale
+ * para todas las partes; con `updated`, una parte sin fecha nunca cambió (cuenta como la más antigua).
+ */
+const groupStamp = (settings, group) => (settings?.updated
+  ? settings.updated[group] || ''
+  : settings?.updated_at || '');
+
+/**
+ * Mezcla ajustes por partes: de cada una gana la más reciente. El tema (y lo que no está en ninguna
+ * parte) se queda como en este equipo. Devuelve { settings, changed: [etiquetas de lo que llegó] }.
+ */
+export function mergeSettings(local, remote) {
+  if (!remote) return { settings: local, changed: [] };
+  if (!local) return { settings: remote, changed: [] };
+  const out = { ...local, updated: { ...(local.updated || {}) } };
+  const changed = [];
+  for (const [group, { label, keys }] of Object.entries(SETTINGS_GROUPS)) {
+    if (groupStamp(remote, group) <= groupStamp(local, group)) continue;
+    for (const key of keys) if (key in remote) out[key] = remote[key];
+    out.updated[group] = groupStamp(remote, group);
+    if (groupValue(local, group) !== groupValue(out, group)) changed.push(label);
+  }
+  for (const key of LOCAL_ONLY) if (key in local) out[key] = local[key];
+  out.updated_at = Object.values(out.updated).sort().pop() || local.updated_at || null;
+  return { settings: changed.length || out.updated_at !== local.updated_at ? out : local, changed };
+}
 
 /** Campos que no cuentan como edición al detectar cambios. */
 const IGNORED = {
@@ -160,7 +219,7 @@ export function mergeData(local, remote, now = new Date()) {
   });
 
 
-  const settings = stamp(remote.settings) > stamp(local.settings) ? remote.settings : local.settings;
+  const { settings, changed: settingsChanged } = mergeSettings(local.settings, remote.settings);
 
   // Resumen respecto de lo local: totales y por tipo
   const summary = { added: 0, updated: 0, removed: 0 };
@@ -177,6 +236,7 @@ export function mergeData(local, remote, now = new Date()) {
     for (const k of ['added', 'updated', 'removed']) summary[k] += counts[k];
   }
 
+  summary.settings = settingsChanged;
   return { data: { tasks, epics, routines, settings, deleted }, summary };
 }
 
@@ -192,5 +252,25 @@ export function mergeSummaryText(summary) {
       if (n) parts.push(`${n} ${NOUNS[kind]}${n === 1 ? '' : 's'} ${ADJS[op]}${n === 1 ? '' : 's'}`);
     }
   }
+  if (summary.settings?.length) parts.push(`ajustes: ${summary.settings.join(', ')}`);
   return parts.length ? parts.join(', ') : 'ya estaba al día';
+}
+
+/**
+ * Fecha (ISO) del último cambio de este equipo que vale la pena sincronizar, o ''.
+ * No cuentan las tareas de rutina recién creadas y sin tocar (todos los equipos las crean iguales,
+ * con el mismo id) ni el tema (no se sincroniza).
+ */
+export function latestLocalChange({ tasks = [], epics = [], routines = [], settings = null, deleted = {} } = {}) {
+  let latest = '';
+  const consider = (at) => { if (typeof at === 'string' && at > latest) latest = at; };
+  for (const t of tasks) {
+    const untouchedRoutine = t.routine_id && t.created_at && t.updated_at
+      && Math.abs(Date.parse(t.updated_at) - Date.parse(t.created_at)) < 10000;
+    if (!untouchedRoutine) consider(t.updated_at);
+  }
+  for (const item of [...epics, ...routines]) consider(item.updated_at);
+  for (const at of Object.values(deleted || {})) consider(at);
+  consider(settings?.updated_at);
+  return latest;
 }

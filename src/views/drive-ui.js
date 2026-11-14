@@ -9,12 +9,44 @@ import {
 } from '../services/store.js';
 import { saveUndoPoint, undoImport } from '../services/undo-point.js';
 import {
-  syncNow, isConnected, lastSync, disconnect, prepare, isAvailable, redirectUrl,
+  syncNow, isConnected, lastSync, disconnect, prepare, isAvailable,
 } from '../services/drive-session.js';
-import { mergeSummaryText } from '../core/merge.js';
-import { showToast } from '../utils/ui.js';
+import { mergeSummaryText, latestLocalChange } from '../core/merge.js';
+import { syncedAccount, SyncCancelled } from '../services/drive-api.js';
+import {
+  showToast, h, openModal, closeModal,
+} from '../utils/ui.js';
 
 let busy = false;
+
+/**
+ * Cuentas de Google distintas: avisar antes de mezclar. Promesa con true (continuar) o false (cancelar).
+ * current: la cuenta conectada ahora; others: con las que se sincronizó antes este equipo o el archivo.
+ */
+export function confirmAccount({ current, others }) {
+  return new Promise((resolve) => {
+    let accepted = false;
+    const pick = (value) => () => {
+      accepted = value;
+      closeModal();
+    };
+    const list = others.flatMap((email, i) => [i ? ', ' : '', h('strong', {}, email)]);
+    openModal('Otra cuenta de Google', [
+      h('p', { class: 'modal-text' }, 'Ahora estás conectado como ', h('strong', {}, current),
+        ', pero estos datos se sincronizaron antes con ', ...list, '.'),
+      h('p', { class: 'modal-text' },
+        `Si continúas, se mezclará la información de ambos correos (en este equipo y en el Drive de ${current}). `
+        + 'Puede dejar tareas repetidas o mezcladas que después no se pueden separar.'),
+      h('div', { class: 'import-choices' },
+        h('button', { type: 'button', class: 'import-choice', onclick: pick(true) },
+          h('strong', {}, 'Continuar y mezclar'),
+          h('span', {}, 'Une los datos de las dos cuentas. Después puedes usar Deshacer en este equipo.')),
+        h('button', { type: 'button', class: 'import-choice primary-choice', onclick: pick(false) },
+          h('strong', {}, 'Cancelar'),
+          h('span', {}, 'No se cambia nada, ni aquí ni en Drive. Puedes desconectar y entrar con la otra cuenta.'))),
+    ], () => resolve(accepted));
+  });
+}
 
 /** Lo que la sincronización necesita del equipo. */
 const local = {
@@ -22,6 +54,7 @@ const local = {
   read: (text) => readBackup(text),
   merge: (data) => mergeBackup(data),
   saveUndo: () => saveUndoPoint(),
+  confirmAccount,
 };
 
 function whenText(iso) {
@@ -41,20 +74,26 @@ export function renderDrive() {
     return;
   }
   const on = isConnected();
+  const last = lastSync();
+  // Punto celeste: hay cambios en este equipo después de la última sincronización
+  const pending = on && latestLocalChange(state) > (last?.at || '');
   const btn = document.getElementById('drive-sync-btn');
   btn.hidden = false;
   btn.classList.toggle('sync-off', !on);
-  btn.title = on ? 'Sincronizar con Google Drive' : 'Google Drive no está conectado: toca para conectarlo';
+  btn.classList.toggle('has-pending', pending);
+  btn.title = !on
+    ? 'Google Drive no está conectado: toca para conectarlo'
+    : pending ? 'Hay cambios sin sincronizar: toca para sincronizar con Google Drive' : 'Sincronizar con Google Drive';
   btn.setAttribute('aria-label', btn.title);
-  const setup = document.getElementById('drive-setup');
-  if (setup) setup.textContent = redirectUrl();
   document.getElementById('drive-off').hidden = on;
   document.getElementById('drive-on').hidden = !on;
-  const last = lastSync();
-  const status = last ? `Última sincronización: ${whenText(last.at)}.` : 'Conectado. Todavía no sincronizas desde este equipo.';
+  const account = syncedAccount();
+  const who = account ? `Conectado como ${account}. ` : 'Conectado. ';
+  const status = who + (last ? `Última sincronización: ${whenText(last.at)}.` : 'Todavía no sincronizas desde este equipo.')
+    + (pending && last ? ' Hay cambios sin sincronizar.' : '');
   document.getElementById('drive-status').textContent = status;
   document.getElementById('drive-desc').textContent = on
-    ? (last ? `Conectado · ${whenText(last.at)}` : 'Conectado')
+    ? [account || 'Conectado', last ? whenText(last.at) : null].filter(Boolean).join(' · ')
     : 'La misma lista en el celular y en la extensión.';
   for (const id of ['drive-sync', 'drive-connect', 'drive-sync-btn']) {
     const el = document.getElementById(id);
@@ -63,12 +102,8 @@ export function renderDrive() {
   }
 }
 
-/** Sincronizar (también conecta la primera vez). Debe llamarse directo desde el toque. */
-const TAB_KEY = 'cabetodo:tab';
-
 /** Ir a Ajustes → Sincronizar con Google Drive (abierta y a la vista). */
 export function openDriveSettings() {
-  try { localStorage.setItem(TAB_KEY, 'settings'); } catch { /* sin almacenamiento */ }
   setView({ tab: 'settings' });
   const section = document.getElementById('drive-section');
   section.open = true;
@@ -78,6 +113,7 @@ export function openDriveSettings() {
   });
 }
 
+/** Sincronizar (también conecta la primera vez). Debe llamarse directo desde el toque. */
 function startSync() {
   if (busy) return;
   busy = true;
@@ -92,6 +128,10 @@ function startSync() {
       });
     }
   }).catch((err) => {
+    if (err instanceof SyncCancelled) {
+      showToast(err.message);
+      return;
+    }
     showToast(err.message || 'No se pudo sincronizar.');
   }).finally(done);
 }

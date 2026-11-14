@@ -56,7 +56,7 @@
   </header>
 
   <h1>Política de privacidad</h1>
-  <p class="updated">Última actualización: 12 de noviembre de 2026</p>
+  <p class="updated">Última actualización: 14 de noviembre de 2026</p>
 
   <p>Cabe Todo planifica las tareas del día. Existe como extensión de Chrome y como app web instalable (<a href="https://cabe-todo-web.vercel.app">cabe-todo-web.vercel.app</a>). Esta política explica qué datos maneja y qué hace con ellos.</p>
 
@@ -91,8 +91,9 @@
     <li><strong>Archivo que se usa:</strong> Cabe Todo crea una carpeta <code>Cabe Todo</code> con un archivo <code>cabe-todo-sync.json</code>, que contiene los mismos datos del respaldo.</li>
     <li><strong>Sincronizar:</strong> al tocar <strong>Sincronizar</strong>, Cabe Todo descarga ese archivo, lo mezcla con lo de tu equipo y lo vuelve a subir. La comunicación es directa entre tu navegador y Google; no pasa por ningún servidor del desarrollador.</li>
     <li><strong>Permiso de acceso (token):</strong> Google entrega un permiso temporal de alrededor de una hora. Se guarda solo mientras el navegador está abierto (<code>chrome.storage.session</code> en la extensión, <code>sessionStorage</code> en la web) y nunca se envía a otro lugar que no sea Google.</li>
-    <li><strong>No se pide</strong> tu nombre, tu correo ni tus contactos.</li>
-    <li><strong>Para dejar de usarla:</strong> <strong>Desconectar</strong> revoca el permiso y olvida la conexión en ese equipo. También puedes quitar el acceso en <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>. El archivo en tu Drive no se borra solo: puedes eliminarlo cuando quieras.</li>
+    <li><strong>Correo de la cuenta:</strong> para mostrarte con qué cuenta estás conectado y avisarte si sincronizas con otra, Cabe Todo consulta a Google Drive el correo de la cuenta, con el mismo permiso <code>drive.file</code> y sin pedir otros. Ese correo se guarda en tu equipo y dentro de tu archivo de sincronización en tu Drive. No se envía a ningún otro lugar.</li>
+    <li><strong>No se pide</strong> tu nombre ni tus contactos.</li>
+    <li><strong>Para dejar de usarla:</strong> <strong>Desconectar</strong> revoca el permiso y olvida la conexión en ese equipo, incluido el correo guardado. También puedes quitar el acceso en <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>. El archivo en tu Drive no se borra solo: puedes eliminarlo cuando quieras.</li>
   </ul>
   <p>El uso y la transferencia que hace Cabe Todo de la información recibida de las API de Google se ajustan a la <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de datos de usuario de los servicios de las API de Google</a>, incluidos los requisitos de uso limitado. Los datos de tu Drive se usan solo para sincronizar tu lista: no se usan para publicidad, no se venden ni se comparten con nadie.</p>
 

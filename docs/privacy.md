@@ -1,6 +1,6 @@
 # Política de privacidad de Cabe Todo
 
-_Última actualización: 12 de noviembre de 2026_
+_Última actualización: 14 de noviembre de 2026_
 
 Cabe Todo planifica las tareas del día. Existe como extensión de Chrome y como app web instalable (https://cabe-todo-web.vercel.app). Esta política explica qué datos maneja y qué hace con ellos.
 
@@ -40,9 +40,10 @@ Si activas **Ajustes → Sincronizar con Google Drive**:
 - **Archivo que se usa:** Cabe Todo crea una carpeta `Cabe Todo` con un archivo `cabe-todo-sync.json`, que contiene los mismos datos del respaldo.
 - **Sincronizar:** al tocar **Sincronizar**, Cabe Todo descarga ese archivo, lo mezcla con lo de tu equipo y lo vuelve a subir. La comunicación es directa entre tu navegador y Google; no pasa por ningún servidor del desarrollador.
 - **Permiso de acceso (token):** Google entrega un permiso temporal de alrededor de una hora. Se guarda solo mientras el navegador está abierto (`chrome.storage.session` en la extensión, `sessionStorage` en la web) y nunca se envía a otro lugar que no sea Google.
-- **No se pide** tu nombre, tu correo ni tus contactos.
+- **Correo de la cuenta:** para mostrarte con qué cuenta estás conectado y avisarte si sincronizas con otra, Cabe Todo consulta a Google Drive el correo de la cuenta, con el mismo permiso `drive.file` y sin pedir otros. Ese correo se guarda en tu equipo y dentro de tu archivo de sincronización en tu Drive. No se envía a ningún otro lugar.
+- **No se pide** tu nombre ni tus contactos.
 - **Para dejar de usarla:**
-  - **Desconectar** revoca el permiso y olvida la conexión en ese equipo.
+  - **Desconectar** revoca el permiso y olvida la conexión en ese equipo, incluido el correo guardado.
   - También puedes quitar el acceso en https://myaccount.google.com/permissions.
   - El archivo en tu Drive no se borra solo: puedes eliminarlo cuando quieras.
 
