@@ -80,7 +80,7 @@ export function attachEpicAutocomplete(input, getEpics) {
       box = h('div', { class: 'autocomplete', role: 'listbox' });
       document.body.append(box);
     }
-    box.replaceChildren(...items.map((it, i) => h('div', {
+    box.replaceChildren(h('div', { class: 'ac-note', 'aria-hidden': 'true' }, 'La #épica va al final del texto'), ...items.map((it, i) => h('div', {
       class: `ac-item${i === index ? ' active' : ''}`,
       role: 'option',
       onmousedown: (e) => { e.preventDefault(); pick(i); },

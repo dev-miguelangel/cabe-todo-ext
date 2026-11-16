@@ -1,7 +1,8 @@
 // Quick-add: convierte "Informe mensual 2h ? pm #web" en
 // { title, minutes, block, certainty, epicTag, repeat, date, meeting }.
 // "Standup 15m am cada día" / "hábiles" / "cada lun,jue" → repeat: días de la semana (0 = domingo).
-// Bloque: su título al final ("… gym", "… foco profundo"), "@gym" o am / pm / tarde.
+// Bloque: su título al final ("… gym", "… foco profundo"), "@gym" (en cualquier lugar) o am / pm / tarde.
+// "#épica" también vale en cualquier lugar: "#web Diseñar logo 2h".
 // "bl" = al backlog (block: 'backlog').
 // Día: "hoy", "mañana" (siempre el día siguiente), "pasado mañana", "miércoles", "el viernes", "vie" → date ISO.
 // Duración: "45m", "1h30", "1.5h" y también "45 min", "2 horas", "una hora", "media hora", "1 hora y media".
@@ -90,7 +91,9 @@ function parseDuration(word) {
  */
 export function parseQuickAdd(text, blockWords = DEFAULT_BLOCK_WORDS, { today = todayISO(), meetings = true } = {}) {
   let clean = text.trim();
-  const isMeetingText = meetings && MEETING_WORDS.has(fold(clean.split(/\s+/)[0] || ''));
+  // La primera palabra que no es #épica ni @bloque decide si es reunión ("#web Reunión equipo 3pm")
+  const firstWord = clean.split(/\s+/).find((w) => !/^[#@]\p{L}/u.test(w)) || '';
+  const isMeetingText = meetings && MEETING_WORDS.has(fold(firstWord));
   // "1 pm" → "1pm" (solo en reuniones: en una tarea normal "2 am" puede ser parte del título)
   if (isMeetingText) clean = clean.replace(/\b(\d{1,2}(?::\d{2})?)\s+(am|pm)\b/gi, '$1$2');
   const words = clean.split(/\s+/).filter(Boolean);
@@ -101,6 +104,22 @@ export function parseQuickAdd(text, blockWords = DEFAULT_BLOCK_WORDS, { today = 
   let repeat = null;
   let date = null;
   const times = []; // horas de la reunión encontradas, del final al principio: { min, until }
+
+  // #épica y @bloque valen en cualquier lugar ("#web Diseñar logo 2h"): un # o @ seguido de letras no es
+  // parte normal de un título. El resto de las palabras clave va al final.
+  const tagAt = words.findIndex((w) => EPIC_TAG.test(w));
+  if (tagAt !== -1 && words.length > 1) {
+    epicTag = words[tagAt].match(EPIC_TAG)[1];
+    words.splice(tagAt, 1);
+  }
+  const blockAt = words.findIndex((w) => {
+    const m = w.match(BLOCK_TAG);
+    return m && blockWords.tags[fold(m[1])];
+  });
+  if (blockAt !== -1 && words.length > 1) {
+    block = blockWords.tags[fold(words[blockAt].match(BLOCK_TAG)[1])];
+    words.splice(blockAt, 1);
+  }
 
   while (words.length > 1) {
     const original = words[words.length - 1];

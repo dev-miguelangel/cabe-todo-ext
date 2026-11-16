@@ -33,7 +33,7 @@ function examples() {
     ['Reunión proyecto 1 miércoles desde la 1pm 1h', 'Reunión "proyecto 1": el miércoles de 13:00 a 14:00'],
     ['Reunión con Juan mañana a las 15 hasta las 16:30', 'Reunión "Juan": mañana de 15:00 a 16:30'],
     ['Reunión semanal lunes 10am 1h cada lunes', 'Una reunión que se repite todos los lunes'],
-    ['Diseño home 2h ? #web cada lun,jue', 'Todo junto, en cualquier orden'],
+    ['Diseño home 2h ? cada lun,jue #web', 'Todo junto; la #épica, al final'],
   ];
   return h('ul', { class: 'help-examples' }, ...list.map(([text, result]) =>
     h('li', {},
@@ -47,9 +47,9 @@ function keywords() {
     [[code('15m'), code('1h'), code('1h30'), code('1,5h'), code('45 min'), code('2 horas'), code('media hora')], 'Duración', 'Hasta 12 h. Sin duración, se usa la de Ajustes.'],
     [[code('?')], 'No estoy seguro', 'Más margen en el pronóstico. Puede ir pegado: 1h?'],
     [[code('!')], 'Muy seguro', 'Menos margen en el pronóstico.'],
-    [[code('#épica'), code('#proyectoViaje')], 'Épica', 'Agrupa la tarea. Si el nombre tiene espacios, va junto: "proyecto viaje" → #proyectoViaje. El autocompletado sugiere las que tienes.'],
+    [[code('#épica'), code('#proyectoViaje')], 'Épica', 'Agrupa la tarea. Va al final, como última palabra. Si el nombre tiene espacios, va junto: "proyecto viaje" → #proyectoViaje. El autocompletado sugiere las que tienes.'],
     [[code('am'), code('pm'), ...blocks.filter((b) => fold(b.title) !== 'manana').map((b) => code(b.title.toLowerCase()))],
-      'Bloque', 'El horario: am / pm o el nombre del bloque al final. También @nombre.'],
+      'Bloque', 'El horario: am / pm o el nombre del bloque al final. También @nombre, en cualquier lugar.'],
     [[code('hoy'), code('mañana'), code('pasado mañana'), code('lunes…domingo'), code('vie')],
       'Día', '"mañana" es siempre el día siguiente. Un día de la semana es el próximo (hoy si coincide). Abreviados: lun, mié, jue, vie, sáb; mar y dom con "este" delante.'],
     [[code('reunión'), code('1pm'), code('13:00'), code('a las 15'), code('hasta las 2pm')],
@@ -68,7 +68,7 @@ function keywords() {
 export function showSyntaxHelp() {
   openModal('Cómo escribir tareas', [
     h('div', { class: 'syntax-help' },
-      h('p', { class: 'help-lead' }, 'Escribe el título y, al final, lo que necesites. Todo es opcional, se puede combinar y da igual si usas mayúsculas o tildes.'),
+      h('p', { class: 'help-lead' }, 'Escribe el título y, al final, lo que necesites. La #épica va siempre al final, como última palabra. Todo es opcional, se puede combinar y da igual si usas mayúsculas o tildes.'),
       h('h3', {}, 'Ejemplos'),
       examples(),
       h('h3', {}, 'Textos Llave'),

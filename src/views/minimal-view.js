@@ -23,6 +23,7 @@ import { showUpcoming } from '../components/upcoming.js';
 import { probTag } from '../components/prob-tag.js';
 import { openMoveMenu, nextSlot, slotText } from '../components/move-menu.js';
 import { titleCase } from '../utils/text.js';
+import { quickAddExamples, rotatePlaceholder } from '../components/quick-add-hints.js';
 
 /**
  * Pronóstico corto del bloque: { text: "85%", cls, head, detail } (con su color),
@@ -208,9 +209,7 @@ export function renderMinimal() {
 
   // A dónde va una tarea si no se nombra un bloque (en el placeholder, sin texto extra)
   const target = blockById(state.settings, isToday ? currentBlock(state.settings) : firstBlock(state.settings).id);
-  document.querySelector('#minimal-add input').placeholder = isToday
-    ? `+ Nueva tarea en ${target.title}`
-    : `+ Nueva tarea para el ${shortLabel(today)}`;
+  setPlaceholderBase(isToday ? `+ Nueva tarea en ${target.title}` : `+ Nueva tarea para el ${shortLabel(today)}`);
 
   // Cuántas tareas esperan en el backlog o quedaron de días anteriores (en el botón que las trae a hoy)
   const inBacklog = backlogTasks().filter((t) => !t.done).length + overdueTasks(todayISO()).length;
@@ -335,9 +334,13 @@ function setupDragAndDrop(list) {
   });
 }
 
+// Texto del campo: el de siempre, alternado con ejemplos de cómo escribir (lo inicia setupMinimal)
+let setPlaceholderBase = (base) => { document.querySelector('#minimal-add input').placeholder = base; };
+
 export function setupMinimal() {
   const form = document.getElementById('minimal-add');
   const input = form.querySelector('input');
+  setPlaceholderBase = rotatePlaceholder(input, () => quickAddExamples(state.settings, state.epics));
   attachEpicAutocomplete(input, activeEpics);
   form.addEventListener('submit', (e) => {
     e.preventDefault();

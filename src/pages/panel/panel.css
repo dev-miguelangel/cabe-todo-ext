@@ -1365,3 +1365,6 @@ button.prob-tag { cursor: pointer; }
   content: ''; position: absolute; top: 0; right: 0; width: 9px; height: 9px; border-radius: 50%;
   background: #4fc3f7; box-shadow: 0 0 0 2px var(--bg); pointer-events: none;
 }
+
+/* Autocompletado de #épica: recordatorio de dónde va */
+.ac-note { padding: 4px 10px 2px; font-size: 11px; color: var(--muted); }

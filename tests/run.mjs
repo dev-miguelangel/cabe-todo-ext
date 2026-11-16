@@ -1306,3 +1306,28 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(t2.epic_id, epic.id, 'la misma épica, escrita con otra mayúscula');
   console.log('OK: épicas con espacios (#proyectoViaje)');
 }
+
+// ---------- #épica y @bloque en cualquier lugar; ejemplos del campo ----------
+{
+  const P = await import(root + '/src/core/parser.js');
+  const o = { today: '2026-11-16' };
+  const q = (t) => P.parseQuickAdd(t, undefined, o);
+  assert.deepEqual([q('#web Diseñar logo 2h').title, q('#web Diseñar logo 2h').epicTag, q('#web Diseñar logo 2h').minutes], ['Diseñar logo', 'web', 120]);
+  assert.deepEqual([q('Diseñar #web logo mañana tarde').title, q('Diseñar #web logo mañana tarde').block], ['Diseñar logo', 'pm']);
+  assert.deepEqual([q('@tarde Llamar a Juan 15m').title, q('@tarde Llamar a Juan 15m').block], ['Llamar a Juan', 'pm']);
+  assert.equal(q('#web Reunión equipo 3pm 1h').meeting.start, '15:00', 'la reunión se reconoce aunque empiece con #épica');
+  assert.equal(q('Arreglar issue #42').title, 'Arreglar issue #42', '#42 no es épica');
+  assert.equal(q('#web').title, '#web', 'sola, queda como título');
+  assert.equal(q('Tarea @inexistente').title, 'Tarea @inexistente', 'un @ que no es bloque queda en el título');
+
+  const { quickAddExamples } = await import(root + '/src/components/quick-add-hints.js');
+  const ex = quickAddExamples({ blocks: [{ id: 'am', title: 'Mañana', icon: '☀︎', start: '08:00', end: '13:00' }, { id: 'g', title: 'Gym', icon: '★', start: '18:00', end: '19:00' }] }, [{ name: 'proyecto viaje' }, { name: 'casa' }]);
+  assert.equal(ex[0], 'Informe 2h gym #casa', 'usa un bloque y una épica propios, si tienen nombre corto');
+  assert.ok(ex.every((e) => e.length <= 24), 'cortos: caben en el campo de un celular');
+  assert.ok(ex.filter((e) => e.includes('#')).every((e) => /#\S+$/.test(e)), 'en los ejemplos la #épica va al final');
+  for (const text of ex) {
+    const p = P.parseQuickAdd(text.replace('gym', 'tarde'), undefined, o);
+    assert.ok(p && p.title && !/[#@]/.test(p.title), `el ejemplo "${text}" se entiende: ${p?.title}`);
+  }
+  console.log('OK: #épica y @bloque en cualquier lugar; ejemplos del campo');
+}

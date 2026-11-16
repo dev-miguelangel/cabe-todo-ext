@@ -85,7 +85,7 @@ Requiere Chrome 116 o superior (Side Panel API y documentos *offscreen*).
 | `Enviar factura vie` | Días abreviados: `lun`, `mié`, `jue`, `vie`, `sáb`; `mar` y `dom` con "este" delante (`este mar`) |
 | `Revisar informe mañana mañana` | Mañana, en el bloque llamado *Mañana* |
 
-Mayúsculas y tildes dan igual: `MAÑANA`, `manana`, `Miércoles` y `HABILES` funcionan igual.
+Las palabras clave van al final, y la `#épica` siempre como última palabra (`Diseñar logo 2h mañana #web`). Si la escribes en otro lugar igual se reconoce, pero la regla para enseñar es una sola. Mayúsculas y tildes dan igual: `MAÑANA`, `manana`, `Miércoles` y `HABILES` funcionan igual. El campo alterna su texto con ejemplos ("Ej: Informe 2h pm #web").
 
 Atajos dentro del panel: <kbd>N</kbd> crea una tarea nueva en el bloque actual.
 
