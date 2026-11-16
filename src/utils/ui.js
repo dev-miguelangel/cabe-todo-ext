@@ -1,6 +1,6 @@
 // Piezas de UI compartidas: helper para crear elementos, aviso temporal y autocompletado de #épicas.
 
-import { slugify, tagKey } from '../core/parser.js';
+import { tagKey, epicHandle, epicNameFromTag } from '../core/parser.js';
 import { titleCase } from './text.js';
 
 /** h('div', { class: 'x', dataset: { id: 1 }, onclick }, ...hijos) */
@@ -98,9 +98,10 @@ export function attachEpicAutocomplete(input, getEpics) {
     if (!tok) return close();
     const key = tagKey(tok.typed);
     const epics = getEpics().filter((e) => !key || tagKey(e.name).includes(key));
-    items = epics.map((e) => ({ label: e.name, color: e.color, insert: slugify(e.name) }));
+    // Inserta la #etiqueta junta: "proyecto viaje" → #proyectoViaje
+    items = epics.map((e) => ({ label: e.name, color: e.color, insert: epicHandle(e.name) }));
     if (key && /^\p{L}/u.test(tok.typed) && !epics.some((e) => tagKey(e.name) === key)) {
-      items.push({ label: `Crear épica "${tok.typed.replace(/[-_]+/g, ' ')}"`, create: true, insert: tok.typed });
+      items.push({ label: `Crear épica "${epicNameFromTag(tok.typed)}"`, create: true, insert: tok.typed });
     }
     if (!items.length) return close();
     index = Math.min(index, items.length - 1);

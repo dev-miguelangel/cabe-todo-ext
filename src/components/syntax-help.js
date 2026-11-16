@@ -26,6 +26,7 @@ function examples() {
     ['Logo nuevo 3h #web', 'En la épica "web" (si no existe, se crea)'],
     ['Standup 15m cada día', 'Se repite todos los días'],
     ['Ideas para la charla bl', 'Al backlog, sin fecha ni bloque'],
+    ['Correr 45 min todos los lunes', 'Una rutina de 45 minutos cada lunes'],
     ['Revisar informe mañana am', 'Mañana (el día siguiente), en el bloque de la mañana'],
     ['Llamar a Juan mañana tarde', 'Mañana, en el bloque de la tarde (igual con pm)'],
     ['Enviar factura el viernes', 'El próximo viernes (si hoy es viernes, hoy)'],
@@ -43,18 +44,18 @@ function examples() {
 function keywords() {
   const blocks = blocksOf(state.settings);
   const rows = [
-    [[code('15m'), code('1h'), code('1h30'), code('1,5h')], 'Duración', 'Hasta 12 h. Sin duración, se usa la de Ajustes.'],
+    [[code('15m'), code('1h'), code('1h30'), code('1,5h'), code('45 min'), code('2 horas'), code('media hora')], 'Duración', 'Hasta 12 h. Sin duración, se usa la de Ajustes.'],
     [[code('?')], 'No estoy seguro', 'Más margen en el pronóstico. Puede ir pegado: 1h?'],
     [[code('!')], 'Muy seguro', 'Menos margen en el pronóstico.'],
-    [[code('#épica')], 'Épica', 'Agrupa la tarea. El autocompletado sugiere las que tienes.'],
+    [[code('#épica'), code('#proyectoViaje')], 'Épica', 'Agrupa la tarea. Si el nombre tiene espacios, va junto: "proyecto viaje" → #proyectoViaje. El autocompletado sugiere las que tienes.'],
     [[code('am'), code('pm'), ...blocks.filter((b) => fold(b.title) !== 'manana').map((b) => code(b.title.toLowerCase()))],
       'Bloque', 'El horario: am / pm o el nombre del bloque al final. También @nombre.'],
-    [[code('hoy'), code('mañana'), code('pasado mañana'), code('lunes…domingo')],
-      'Día', '"mañana" es siempre el día siguiente. Un día de la semana es el próximo (hoy si coincide).'],
+    [[code('hoy'), code('mañana'), code('pasado mañana'), code('lunes…domingo'), code('vie')],
+      'Día', '"mañana" es siempre el día siguiente. Un día de la semana es el próximo (hoy si coincide). Abreviados: lun, mié, jue, vie, sáb; mar y dom con "este" delante.'],
     [[code('reunión'), code('1pm'), code('13:00'), code('a las 15'), code('hasta las 2pm')],
       'Reunión', 'Empieza con "reunión" (o reu, junta) y lleva la hora de inicio. Termina con hasta… o con la duración.'],
     [[code('bl')], 'Backlog', 'La deja sin fecha ni bloque, para después.'],
-    [[code('cada día'), code('hábiles'), code('cada lun,jue')], 'Se repite', 'Crea una rutina con esos días.'],
+    [[code('cada día'), code('todos los días'), code('hábiles'), code('todos los lunes'), code('cada lun,jue')], 'Se repite', 'Crea una rutina con esos días.'],
   ];
   return h('table', { class: 'help-table' },
     h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Texto'), h('th', { scope: 'col' }, 'Qué hace'))),
@@ -67,7 +68,7 @@ function keywords() {
 export function showSyntaxHelp() {
   openModal('Cómo escribir tareas', [
     h('div', { class: 'syntax-help' },
-      h('p', { class: 'help-lead' }, 'Escribe el título y, al final, lo que necesites. Todo es opcional y se puede combinar.'),
+      h('p', { class: 'help-lead' }, 'Escribe el título y, al final, lo que necesites. Todo es opcional, se puede combinar y da igual si usas mayúsculas o tildes.'),
       h('h3', {}, 'Ejemplos'),
       examples(),
       h('h3', {}, 'Textos Llave'),

@@ -17,14 +17,16 @@ const DAY_WORDS = {
   jueves: 4, jue: 4, viernes: 5, vie: 5, 'sábado': 6, sabado: 6, 'sábados': 6, sabados: 6, sab: 6, 'sáb': 6,
   domingo: 0, domingos: 0, dom: 0,
 };
-const KEEP_GENERATED_DAYS = 21; // cuánto historial de "ya creada" guardar
+const KEEP_GENERATED_DAYS = 21;
+/** Sin tildes ni mayúsculas: "Miércoles" → "miercoles". */
+const fold = (w) => String(w || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); // cuánto historial de "ya creada" guardar
 
 export const weekdayOf = (iso) => parseISO(iso).getDay();
 const sortDays = (days) => ALL_DAYS.filter((d) => days.includes(d));
 
 /** "lun,jue" / "lunes" → [1, 4]; null si alguna parte no es un día. */
 function parseDayList(word) {
-  const parts = word.toLowerCase().split(/[,/]/).filter(Boolean);
+  const parts = fold(word).split(/[,/]/).filter(Boolean);
   if (!parts.length) return null;
   const days = parts.map((p) => DAY_WORDS[p]);
   return days.every((d) => d !== undefined) ? sortDays([...new Set(days)]) : null;
@@ -32,23 +34,33 @@ function parseDayList(word) {
 
 /**
  * Lee la repetición al final de las palabras del quick-add (las consume del arreglo).
- * Acepta: "cada día", "hábiles", "días hábiles", "cada lunes", "cada lun,jue".
+ * Acepta: "cada día", "todos los días", "hábiles", "(todos los) días hábiles", "cada lunes",
+ * "todos los lunes", "cada lun,jue". Sin importar mayúsculas ni tildes.
  * ("diario" no: es común en títulos como "Informe diario").
  * Devuelve los días [0..6] o null.
  */
 export function takeRepeat(words) {
   if (words.length < 2) return null;
-  const last = words[words.length - 1].toLowerCase();
-  const prev = words.length > 2 ? words[words.length - 2].toLowerCase() : null;
+  const at = (i) => (words.length >= i ? fold(words[words.length - i]) : null);
+  const last = at(1);
+  const prev = words.length > 2 ? at(2) : null;
+  const everyLos = at(2) === 'los' && at(3) === 'todos' && words.length > 3; // "todos los …"
 
-  if ((last === 'día' || last === 'dia') && prev === 'cada') { words.splice(-2); return [...ALL_DAYS]; }
-  if (last === 'hábiles' || last === 'habiles') {
-    words.splice(prev === 'días' || prev === 'dias' ? -2 : -1);
+  if (last === 'dia' && prev === 'cada') { words.splice(-2); return [...ALL_DAYS]; }
+  if (last === 'dias' && everyLos) { words.splice(-3); return [...ALL_DAYS]; } // "todos los días"
+  if (last === 'habiles') {
+    words.splice(prev === 'dias' ? -2 : -1);
+    // "todos los días hábiles"
+    if (words.length > 2 && fold(words[words.length - 1]) === 'los' && fold(words[words.length - 2]) === 'todos') words.splice(-2);
     return [...WEEKDAYS];
   }
   if (prev === 'cada') {
     const days = parseDayList(last);
     if (days) { words.splice(-2); return days; }
+  }
+  if (everyLos) {
+    const days = parseDayList(last); // "todos los lunes", "todos los lun,jue"
+    if (days) { words.splice(-3); return days; }
   }
   return null;
 }

@@ -79,7 +79,13 @@ Requiere Chrome 116 o superior (Side Panel API y documentos *offscreen*).
 | `Enviar factura el viernes` | El próximo viernes (hoy si coincide) |
 | `Reunión proyecto 1 miércoles desde la 1pm 1h` | Reunión "proyecto 1" el miércoles de 13:00 a 14:00 (`a las 15`, `hasta las 16:30`, `13:00` también sirven) |
 | `Diseño home 3h #web` | Asignada a la épica *web* |
+| `Reservar hotel #proyectoViaje` | Épica con espacios en el nombre ("proyecto viaje"): la etiqueta va junta. Si no existe, se crea con el nombre separado |
 | `Standup 15m am cada día` | Rutina diaria |
+| `Correr 45 min todos los lunes` | Duración también con espacio (`2 horas`, `media hora`, `1 hora y media`) y repetición con "todos los" (`todos los días`, `todos los días hábiles`) |
+| `Enviar factura vie` | Días abreviados: `lun`, `mié`, `jue`, `vie`, `sáb`; `mar` y `dom` con "este" delante (`este mar`) |
+| `Revisar informe mañana mañana` | Mañana, en el bloque llamado *Mañana* |
+
+Mayúsculas y tildes dan igual: `MAÑANA`, `manana`, `Miércoles` y `HABILES` funcionan igual.
 
 Atajos dentro del panel: <kbd>N</kbd> crea una tarea nueva en el bloque actual.
 

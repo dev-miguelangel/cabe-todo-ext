@@ -3,7 +3,9 @@
 // "Standup 15m am cada día" / "hábiles" / "cada lun,jue" → repeat: días de la semana (0 = domingo).
 // Bloque: su título al final ("… gym", "… foco profundo"), "@gym" o am / pm / tarde.
 // "bl" = al backlog (block: 'backlog').
-// Día: "hoy", "mañana" (siempre el día siguiente), "pasado mañana", "miércoles", "el viernes" → date ISO.
+// Día: "hoy", "mañana" (siempre el día siguiente), "pasado mañana", "miércoles", "el viernes", "vie" → date ISO.
+// Duración: "45m", "1h30", "1.5h" y también "45 min", "2 horas", "una hora", "media hora", "1 hora y media".
+// Mayúsculas y tildes no importan ("MAÑANA", "manana", "Miércoles", "HABILES").
 // Reunión: "Reunión proyecto 1 miércoles desde la 1pm 1h" → meeting { start: '13:00', end: '14:00' }.
 // Los tokens se leen desde el final del texto; los que no se escribieron quedan en null.
 
@@ -24,6 +26,21 @@ const MAX_MINUTES = 12 * 60;
 
 // ---------- Días ----------
 const WEEKDAY = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6 };
+// Abreviados: "vie", "jue." se toman siempre; "mar" y "dom" (también son palabras: "Ver el mar") solo con
+// "este", "próximo" o "para el" delante.
+const WEEKDAY_ABBR = { lun: 1, mie: 3, jue: 4, vie: 5, sab: 6 };
+const WEEKDAY_ABBR_STRICT = { mar: 2, dom: 0 };
+
+// Duración con espacio: "45 min", "2 horas", "una hora"
+const UNIT_MINUTES = {
+  min: 1, mins: 1, minuto: 1, minutos: 1, h: 60, hr: 60, hrs: 60, hora: 60, horas: 60, // "3 m" no: es ambiguo
+};
+const NUMBER = /^\d+(?:[.,]\d+)?$/;
+const numberWord = (w) => {
+  const x = String(w || '').toLowerCase();
+  if (x === 'un' || x === 'una') return 1;
+  return NUMBER.test(x) ? parseFloat(x.replace(',', '.')) : null;
+};
 // Palabras que se van junto con el día: "para mañana", "de mañana", "el viernes", "este jueves"
 const DATE_CONNECTORS = new Set(['para', 'el', 'este', 'esta', 'proximo', 'del', 'de']);
 
@@ -118,6 +135,33 @@ export function parseQuickAdd(text, blockWords = DEFAULT_BLOCK_WORDS, { today = 
       }
     }
 
+    // Duración con espacio: "45 min", "2 horas", "una hora", "media hora", "1 hora y media" (opcional ? o !)
+    if (minutes === null) {
+      const mark = word.slice(-1);
+      const attached = certainty === null && CERTAINTY_MARKS[mark] ? CERTAINTY_MARKS[mark] : null;
+      const unit = fold(attached ? word.slice(0, -1) : word);
+      const at = (i) => fold(words[words.length - i] || '');
+      const raw = (i) => words[words.length - i] || ''; // el número sin fold (que quita la coma de "1,5")
+      let d = null;
+      let used = 0;
+      if (unit === 'media' && at(2) === 'y' && ['hora', 'horas'].includes(at(3)) && numberWord(raw(4)) && words.length > 4) {
+        d = numberWord(raw(4)) * 60 + 30; // "1 hora y media"
+        used = 4;
+      } else if (unit === 'hora' && at(2) === 'media' && words.length > 2) {
+        d = 30; // "media hora"
+        used = 2;
+      } else if (unit in UNIT_MINUTES && numberWord(raw(2)) && words.length > 2) {
+        d = Math.round(numberWord(raw(2)) * UNIT_MINUTES[unit]);
+        used = 2;
+      }
+      if (d !== null && d > 0 && d <= MAX_MINUTES) {
+        minutes = d;
+        if (attached) certainty = attached;
+        words.splice(-used);
+        continue;
+      }
+    }
+
     // "bl": dejarla en el backlog
     if (block === null && word === 'bl') {
       block = BACKLOG;
@@ -151,6 +195,14 @@ export function parseQuickAdd(text, blockWords = DEFAULT_BLOCK_WORDS, { today = 
       }
     }
 
+    // "mañana mañana": la última es el bloque llamado Mañana (la otra queda como el día)
+    if (block === null && fold(word) === 'manana' && fold(words[words.length - 2] || '') === 'manana'
+      && blockWords.tags.manana && words.length > 2) {
+      block = blockWords.tags.manana;
+      words.pop();
+      continue;
+    }
+
     if (block === null && blockWords.words[word]) {
       const isAbbrev = word === 'am' || word === 'pm';
       const prev = words[words.length - 2].toLowerCase();
@@ -181,6 +233,12 @@ export function parseQuickAdd(text, blockWords = DEFAULT_BLOCK_WORDS, { today = 
         used = 2;
       } else if (key === 'manana' && prev !== 'la') found = shiftDate(today, 1); // "por la mañana" no es mañana
       else if (key in WEEKDAY && prev !== 'cada') found = nextWeekday(today, WEEKDAY[key]);
+      else {
+        const abbr = key.replace(/\.$/, '');
+        const strong = prev === 'este' || prev === 'proximo' || (prev === 'el' && fold(words[words.length - 3] || '') === 'para');
+        if (abbr in WEEKDAY_ABBR && prev !== 'cada') found = nextWeekday(today, WEEKDAY_ABBR[abbr]);
+        else if (abbr in WEEKDAY_ABBR_STRICT && strong) found = nextWeekday(today, WEEKDAY_ABBR_STRICT[abbr]);
+      }
       if (found) {
         date = found;
         words.splice(-used);
@@ -245,7 +303,27 @@ export function slugify(text) {
     .replace(/^-+|-+$/g, '');
 }
 
-/** Clave para comparar etiquetas: #lanzar-web, #LanzarWeb y "Lanzar web" son la misma épica. */
+/**
+ * #etiqueta de una épica: el nombre junto, sin tildes, con cada palabra en mayúscula menos la primera.
+ * "proyecto viaje" → "proyectoViaje", "Diseño web" → "disenoWeb". El nombre de la épica no cambia.
+ */
+export function epicHandle(name) {
+  return slugify(name).split('-').filter(Boolean)
+    .map((w, i) => (i ? w[0].toUpperCase() + w.slice(1) : w))
+    .join('');
+}
+
+/** Nombre para una épica nueva escrita como #etiqueta: "#proyectoViaje" / "#proyecto-viaje" → "proyecto viaje". */
+export function epicNameFromTag(tag) {
+  const words = tag
+    .replace(/[-_]+/g, ' ')
+    .replace(/(\p{Ll}|\p{N})(\p{Lu})/gu, '$1 $2') // proyectoViaje → proyecto Viaje
+    .split(/\s+/).filter(Boolean);
+  // Las palabras que vienen de separar mayúsculas van en minúscula ("proyecto viaje"); las siglas quedan ("API")
+  return words.map((w, i) => (i && /^\p{Lu}\p{Ll}/u.test(w) ? w.toLowerCase() : w)).join(' ');
+}
+
+/** Clave para comparar etiquetas: #lanzar-web, #LanzarWeb, #lanzarWeb y "Lanzar web" son la misma épica. */
 export function tagKey(text) {
   return slugify(text).replace(/-/g, '');
 }
@@ -253,7 +331,7 @@ export function tagKey(text) {
 /** Texto para el input de edición: "Informe 2h ? #web" (lo inverso de parseQuickAdd). */
 export function toQuickAddText(task, epic = null) {
   const mark = task.certainty === 'unsure' ? ' ?' : task.certainty === 'sure' ? ' !' : '';
-  const tag = epic ? ` #${slugify(epic.name)}` : '';
+  const tag = epic ? ` #${epicHandle(epic.name)}` : '';
   return `${task.title} ${formatMinutes(task.minutes)}${mark}${tag}`;
 }
 

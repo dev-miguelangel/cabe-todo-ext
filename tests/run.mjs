@@ -64,7 +64,7 @@ assert.deepEqual(p('Arreglar issue #42'), T('Arreglar issue #42', null));
 assert.deepEqual(p('#web'), T('#web', null));
 assert.equal(slugify('Lanzar Web ¡ya!'), 'lanzar-web-ya'); assert.equal(slugify('Mudanza año'), 'mudanza-ano');
 assert.equal(tagKey('lanzar-web'), tagKey('Lanzar web')); assert.equal(tagKey('LanzarWeb'), 'lanzarweb');
-assert.deepEqual(p(toQuickAddText({ title: 'Logo', minutes: 60, certainty: 'normal' }, { name: 'Lanzar web' })), T('Logo', 60, null, null, 'lanzar-web'));
+assert.deepEqual(p(toQuickAddText({ title: 'Logo', minutes: 60, certainty: 'normal' }, { name: 'Lanzar web' })), T('Logo', 60, null, null, 'lanzarWeb'));
 // canDepend / prune / blockers
 const ep = (id, epic_id, date, extra = {}) => mk(id, 0, [], { epic_id, date, block: date ? 'am' : null, ...extra });
 const x1 = ep('x1', 'e1', '2026-11-10'), x2 = ep('x2', 'e1', '2026-11-12'), x3 = ep('x3', 'e2', '2026-11-12'), x4 = ep('x4', null, '2026-11-10'), x5 = ep('x5', 'e1', null);
@@ -1224,4 +1224,85 @@ console.log('OK: parser + PERT + épicas');
   const r = await runSync(drive, local, { previousAccount: 'a@gmail.com' });
   assert.deepEqual([r.created, r.email], [true, null], 'sin correo: sincroniza sin preguntar');
   console.log('OK: Drive (sin correo, sincroniza igual)');
+}
+
+// ---------- Comandos sin importar mayúsculas ni tildes ----------
+{
+  const P = await import(root + '/src/core/parser.js');
+  const B = await import(root + '/src/core/blocks.js');
+  const blocks = [...B.DEFAULT_BLOCKS, { id: 'n', title: 'Noche Única', icon: '★', start: '20:00', end: '22:00' }];
+  const w = B.blockWords({ blocks });
+  const o = { today: '2026-11-16' }; // lunes
+  const same = (variants, pick) => {
+    const results = variants.map((t) => JSON.stringify(pick(P.parseQuickAdd(t, w, o))));
+    assert.equal(new Set(results).size, 1, `${variants.join(' / ')} → ${results.join(' / ')}`);
+  };
+  const slot = (p) => [p.title, p.minutes, p.block, p.date, p.certainty];
+  same(['Tarea mañana am 1h', 'Tarea MAÑANA AM 1H', 'Tarea manana Am 1h', 'Tarea MANANA am 1H'], slot);
+  same(['Tarea pasado mañana tarde', 'Tarea PASADO MANANA TARDE', 'Tarea Pasado Mañana Tarde'], slot);
+  same(['Tarea para el miércoles', 'Tarea PARA EL MIERCOLES', 'Tarea para el miercoles'], slot);
+  same(['Tarea noche única', 'Tarea NOCHE UNICA', 'Tarea @noche-unica', 'Tarea @NOCHE-ÚNICA'], slot);
+  same(['Tarea bl', 'Tarea BL', 'Tarea Bl'], slot);
+  same(['Tarea 1h30m ?', 'Tarea 1H30M ?'], slot);
+  same(['Reunión equipo de 3pm a 4pm', 'REUNION EQUIPO DE 3PM A 4PM', 'reunion equipo De 3Pm A 4pm'], (p) => [p.meeting, p.title.toLowerCase()]);
+  same(['Standup 15m cada día', 'Standup 15m CADA DIA', 'Standup 15m hábiles', 'Standup 15m HABILES'].slice(0, 2), (p) => p.repeat);
+  same(['Standup 15m hábiles', 'Standup 15m HABILES', 'Standup 15m Habiles'], (p) => p.repeat);
+  same(['Standup cada miércoles', 'Standup CADA MIERCOLES', 'Standup cada Miércoles'], (p) => p.repeat);
+  assert.equal(P.tagKey('#VENTÁS'.slice(1)), P.tagKey('ventas'), 'épicas: #VENTÁS = #ventas');
+  console.log('OK: comandos sin importar mayúsculas ni tildes');
+}
+
+// ---------- Formatos nuevos: duración con espacio, días abreviados, "todos los …", "mañana mañana" ----------
+{
+  const P = await import(root + '/src/core/parser.js');
+  const B = await import(root + '/src/core/blocks.js');
+  const w = B.blockWords({ blocks: B.DEFAULT_BLOCKS });
+  const o = { today: '2026-11-16' }; // lunes
+  const q = (t) => P.parseQuickAdd(t, w, o);
+  const mins = (t) => [q(t).title, q(t).minutes];
+  assert.deepEqual(mins('Correr 45 min'), ['Correr', 45]);
+  assert.deepEqual(mins('Correr 45 MINUTOS'), ['Correr', 45]);
+  assert.deepEqual(mins('Informe 2 horas'), ['Informe', 120]);
+  assert.deepEqual(mins('Informe 1,5 horas'), ['Informe', 90]);
+  assert.deepEqual(mins('Informe una hora'), ['Informe', 60]);
+  assert.deepEqual(mins('Informe media hora'), ['Informe', 30]);
+  assert.deepEqual(mins('Informe 1 hora y media'), ['Informe', 90]);
+  assert.deepEqual([q('Informe 2 horas ?').minutes, q('Informe 2 horas ?').certainty], [120, 'unsure']);
+  assert.deepEqual(mins('Capítulo 3 m'), ['Capítulo 3 m', null], '"3 m" con espacio es ambiguo: queda en el título');
+  assert.equal(q('Enviar factura vie').date, '2026-11-20');
+  assert.equal(q('Enviar factura el JUE').date, '2026-11-19');
+  assert.equal(q('Enviar factura mié').date, '2026-11-18');
+  assert.equal(q('Ver el mar').date, null, '"mar" sin "este" delante no es martes');
+  assert.equal(q('Llamar este mar').date, '2026-11-17');
+  assert.equal(q('Llamar para el dom').date, '2026-11-22');
+  assert.deepEqual(q('Standup todos los días').repeat, [1, 2, 3, 4, 5, 6, 0]);
+  assert.deepEqual(q('Standup TODOS LOS DIAS HABILES').repeat, [1, 2, 3, 4, 5]);
+  assert.deepEqual(q('Correr todos los lunes').repeat, [1]);
+  assert.equal(q('Revisar todos los informes').repeat, null, '"todos los" + algo que no es día: queda en el título');
+  const mm = q('Revisar informe mañana mañana');
+  assert.deepEqual([mm.title, mm.date, mm.block], ['Revisar informe', '2026-11-17', 'am'], 'mañana (día) + Mañana (bloque)');
+  console.log('OK: formatos nuevos (duración con espacio, días abreviados, todos los…, mañana mañana)');
+}
+
+// ---------- Épicas con espacios: #proyectoViaje ----------
+{
+  const P = await import(root + '/src/core/parser.js');
+  assert.equal(P.epicHandle('proyecto viaje'), 'proyectoViaje');
+  assert.equal(P.epicHandle('Diseño Web'), 'disenoWeb', 'sin tildes ni espacios');
+  assert.equal(P.epicHandle('web'), 'web');
+  for (const tag of ['proyectoViaje', 'ProyectoViaje', 'proyecto-viaje', 'PROYECTOVIAJE']) {
+    assert.equal(P.tagKey(tag), P.tagKey('proyecto viaje'), `#${tag} encuentra "proyecto viaje"`);
+  }
+  assert.equal(P.epicNameFromTag('proyectoViaje'), 'proyecto viaje', 'épica nueva: el nombre va separado');
+  assert.equal(P.epicNameFromTag('proyecto-viaje'), 'proyecto viaje');
+  assert.equal(P.epicNameFromTag('APIRest'), 'APIRest', 'las siglas no se separan');
+  assert.equal(P.toQuickAddText({ title: 'Reservar hotel', minutes: 30, certainty: 'normal' }, { name: 'proyecto viaje' }), 'Reservar hotel 30m #proyectoViaje');
+
+  const S = await import(root + '/src/services/store.js');
+  const t1 = S.addFromText('Reservar hotel #proyectoViaje', { date: null, block: null });
+  const epic = S.findEpic(t1.epic_id);
+  assert.equal(epic.name, 'proyecto viaje', 'se crea con espacios');
+  const t2 = S.addFromText('Comprar pasajes #ProyectoViaje', { date: null, block: null });
+  assert.equal(t2.epic_id, epic.id, 'la misma épica, escrita con otra mayúscula');
+  console.log('OK: épicas con espacios (#proyectoViaje)');
 }

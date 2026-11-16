@@ -9,7 +9,7 @@ import {
   calibrationFrom, setCalibration,
   enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
 } from '../core/pert.js';
-import { parseQuickAdd, tagKey } from '../core/parser.js';
+import { parseQuickAdd, tagKey, epicNameFromTag } from '../core/parser.js';
 import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBlock, BACKLOG } from '../core/blocks.js';
 import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../core/routines.js';
 import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
@@ -202,7 +202,7 @@ function resolveEpicTag(tag) {
   if (!key) return null;
   const found = activeEpics().find((e) => tagKey(e.name) === key);
   if (found) return found;
-  const epic = createEpicRaw(tag.replace(/[-_]+/g, ' '));
+  const epic = createEpicRaw(epicNameFromTag(tag)); // "#proyectoViaje" → "proyecto viaje"
   notify(`Nueva épica: "${epic.name}".`);
   return epic;
 }
