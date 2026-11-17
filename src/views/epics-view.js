@@ -13,15 +13,15 @@ import {
   addFromText, updateTask, toggleTimer,
 } from '../services/store.js';
 import { blockIndex } from '../core/blocks.js';
-import { h, attachEpicAutocomplete } from '../utils/ui.js';
+import { h, attachEpicAutocomplete, showToast } from '../utils/ui.js';
 import { renderCard } from '../components/cards.js';
-import { showTaskModal } from '../components/task-modal.js';
+import { showTaskModal, openEpicDoc } from '../components/task-modal.js';
 import { openMoveMenu } from '../components/move-menu.js';
 import { probTag } from '../components/prob-tag.js';
 import { makeSortable } from '../utils/drag-sort.js';
 import { titleCase } from '../utils/text.js';
 import {
-  CURRENCIES, defaultCurrency, hasRate, epicCost, formatMoney,
+  CURRENCIES, CURRENCY_LABEL, defaultCurrency, hasRate, epicCost, formatMoney,
 } from '../core/cost.js';
 
 // Épicas abiertas en esta sesión (al abrir el panel, todas empiezan cerradas)
@@ -36,17 +36,24 @@ function forecastOf(fc, epic) {
 }
 
 /** "Objetivo: mié 24 dic (en 13 días)" · "Objetivo: hoy" · "Objetivo vencido: lun 10 nov" · "Sin fecha objetivo" */
+/** Valor hora para el campo: "25.000" en CLP, "25,50" en USD o EUR (sin el símbolo). */
+const rateText = (epic) => new Intl.NumberFormat('es-CL', {
+  minimumFractionDigits: 0, maximumFractionDigits: epic.currency === 'CLP' ? 0 : 2,
+}).format(epic.rate);
+
 /** Dinero en la moneda de la épica. */
 const money = (epic, amount) => formatMoney(amount, epic.currency);
 
-/** "Trabajado 9h30 · $237.500 · Pendiente 4h · $100.000 · Total $337.500" */
+/** "Total 6h · $150.000 · Trabajado 3h · $75.000 · Pendiente 2h30 · $62.500" */
 function costLine(epic) {
   const c = epicCost(epic, state.tasks);
-  const part = (label, min, amount) => [h('span', { class: 'cost-label' }, label), ` ${formatMinutes(Math.round(min))} · `, h('strong', {}, money(epic, amount))];
+  const sep = () => h('span', { class: 'epic-sep', 'aria-hidden': 'true' }, ' · ');
+  const part = (label, min, amount, title) => [
+    h('span', { class: 'cost-label', title }, label), ` ${formatMinutes(Math.round(min))} · `, h('strong', {}, money(epic, amount))];
   return h('p', { class: 'epic-cost-line' },
-    ...part('Trabajado', c.minutes.worked, c.amount.worked), h('span', { class: 'epic-sep', 'aria-hidden': 'true' }, ' · '),
-    ...part('Pendiente', c.minutes.pending, c.amount.pending), h('span', { class: 'epic-sep', 'aria-hidden': 'true' }, ' · '),
-    h('span', { class: 'cost-label' }, 'Total'), ' ', h('strong', {}, money(epic, c.amount.total)));
+    ...part('Total', c.minutes.estimated, c.amount.estimated, 'Todas las tareas por su estimado'), sep(),
+    ...part('Trabajado', c.minutes.worked, c.amount.worked, 'Tiempo del temporizador (en las hechas sin temporizador, su estimado)'), sep(),
+    ...part('Pendiente', c.minutes.pending, c.amount.pending, 'Lo que falta de las pendientes'));
 }
 
 function targetText(target) {
@@ -111,14 +118,18 @@ function epicBody(epic, ctx) {
     h('div', { class: 'epic-foot' },
       h('label', { class: 'epic-target' }, '🎯 Fecha objetivo ',
         h('input', { type: 'date', value: epic.target_date || '', dataset: { action: 'target' }, 'aria-label': `Fecha objetivo de ${epic.name}` })),
+      h('button', {
+        type: 'button', class: `epic-doc-btn${epic.doc ? '' : ' create'}`, dataset: { action: 'epic-doc' },
+        title: epic.doc ? 'Abrir la documentación de la épica' : 'Crear la documentación de la épica',
+      }, epic.doc ? '▤ Documentación' : '+ Documentación'),
       h('span', { class: 'epic-rate', role: 'group', 'aria-label': `Valor hora de ${epic.name}` }, '💲 Valor hora ',
         h('input', {
           type: 'text', inputmode: 'decimal', class: 'epic-rate-input', placeholder: 'sin costo',
-          value: epic.rate ? String(epic.rate).replace('.', ',') : '', dataset: { action: 'rate', focusKey: `rate-${epic.id}` },
+          value: epic.rate ? rateText(epic) : '', dataset: { action: 'rate', focusKey: `rate-${epic.id}` },
           'aria-label': 'Valor por hora', title: 'Para ver el costo de la épica. Vacío = sin costos.',
         }),
-        h('select', { dataset: { action: 'currency' }, 'aria-label': 'Moneda' },
-          ...[...new Set([...CURRENCIES, epic.currency || defaultCurrency()])].map((code) => h('option', { value: code, selected: code === (epic.currency || defaultCurrency()) }, code)))),
+        h('select', { dataset: { action: 'currency' }, 'aria-label': 'Moneda', title: 'Cambiar la moneda no convierte el valor: solo cambian el formato y el símbolo.' },
+          ...[...new Set([...CURRENCIES, epic.currency || defaultCurrency()])].map((code) => h('option', { value: code, selected: code === (epic.currency || defaultCurrency()) }, CURRENCY_LABEL[code] || code)))),
       actions));
 }
 
@@ -134,7 +145,8 @@ function renderEpic(epic, ctx) {
       h('span', { class: 'epic-row' },
         h('span', { class: 'epic-handle', title: 'Arrastra para ordenar', 'aria-hidden': 'true' }, '⠿'),
         h('span', { class: 'dot', style: `background:${epic.color}` }),
-        h('span', { class: 'epic-name' }, titleCase(epic.name)),
+        h('span', { class: 'epic-name' }, titleCase(epic.name),
+          epic.doc ? h('span', { class: 'epic-has-doc', title: 'Tiene documentación', 'aria-label': 'Tiene documentación' }, ' ▤') : null),
         h('span', { class: 'epic-count', title: `${fc.doneCount} hechas de ${fc.total}` }, `${fc.doneCount}/${fc.total} ✓`),
         h('span', { class: 'ss-chevron', 'aria-hidden': 'true' })),
       h('span', { class: 'epic-meta' },
@@ -146,8 +158,8 @@ function renderEpic(epic, ctx) {
           const c = epicCost(epic, state.tasks);
           return h('span', {
             class: 'epic-cost',
-            'data-tooltip': `Trabajado ${money(epic, c.amount.worked)} · Pendiente ${money(epic, c.amount.pending)}`,
-          }, money(epic, c.amount.total));
+            'data-tooltip': `Total de todas las tareas: ${money(epic, c.amount.estimated)} · Trabajado ${money(epic, c.amount.worked)} · Pendiente ${money(epic, c.amount.pending)}`,
+          }, money(epic, c.amount.estimated));
         })() : null),
       h('span', { class: 'epic-progress', 'aria-hidden': 'true' }, h('span', { style: `width:${pct}%` }))),
     open ? epicBody(epic, ctx) : null);
@@ -281,8 +293,13 @@ export function setupEpics() {
       setEpicTarget(e.target.closest('.epic-item').dataset.epicId, e.target.value);
     } else if (e.target.matches('[data-action="rate"], [data-action="currency"]')) {
       const group = e.target.closest('.epic-rate');
-      setEpicRate(e.target.closest('.epic-item').dataset.epicId,
-        group.querySelector('[data-action="rate"]').value, group.querySelector('[data-action="currency"]').value);
+      const epicId = e.target.closest('.epic-item').dataset.epicId;
+      const currency = group.querySelector('[data-action="currency"]').value;
+      setEpicRate(epicId, group.querySelector('[data-action="rate"]').value, currency);
+      // Cambiar la moneda no convierte el valor hora: solo cambia el formato y el símbolo
+      if (e.target.matches('[data-action="currency"]') && findEpic(epicId)?.rate) {
+        showToast(`Moneda: ${CURRENCY_LABEL[currency] || currency}. No se convierte el valor: solo cambian el formato y el símbolo.`);
+      }
     }
   });
 
@@ -294,6 +311,11 @@ export function setupEpics() {
   });
 
   root.addEventListener('click', (e) => {
+    const docBtn = e.target.closest('[data-action="epic-doc"]');
+    if (docBtn) {
+      openEpicDoc(docBtn.closest('.epic-item').dataset.epicId);
+      return;
+    }
     const li = e.target.closest('.task');
     if (li) {
       const id = li.dataset.id;

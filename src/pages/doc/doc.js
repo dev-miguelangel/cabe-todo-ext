@@ -1,8 +1,9 @@
-// Pestaña de documentación de una tarea: documento Markdown (Código / Lectura con barra de formato)
-// con guardado automático. Los comentarios viven solo en el modal de la tarea.
+// Documentación de una tarea (?task=…) o de una épica (?epic=…): documento Markdown (Código / Lectura con
+// barra de formato) con guardado automático. En Lectura, las casillas "- [ ]" se marcan con un clic.
+// Los comentarios viven solo en el modal de la tarea.
 
 import {
-  state, initStore, subscribe, setNotifier, findTask, findEpic, setDoc, refreshFromStorage,
+  state, initStore, subscribe, setNotifier, findTask, findEpic, setDoc, setEpicDoc, refreshFromStorage, epicTasks,
 } from '../../services/store.js';
 import { formatMinutes } from '../../core/parser.js';
 import { todayISO, shortLabel, formatDMY } from '../../utils/dates.js';
@@ -15,7 +16,14 @@ import { titleCase } from '../../utils/text.js';
 import { fillTemplate, firstPlaceholder, defaultTemplate } from '../../core/templates.js';
 
 const SAVE_DELAY = 700;
-const taskId = new URLSearchParams(location.search).get('task');
+const params = new URLSearchParams(location.search);
+const epicId = params.get('epic');
+const taskId = epicId ? null : params.get('task');
+const isEpic = Boolean(epicId);
+/** Lo que se documenta: la épica o la tarea. */
+const subject = () => (isEpic ? findEpic(epicId) : findTask(taskId));
+const subjectTitle = (s) => titleCase(isEpic ? s.name : s.title);
+const writeDoc = (value) => (isEpic ? setEpicDoc(epicId, value) : setDoc(taskId, value));
 // Esqueleto opcional para empezar una documentación vacía
 
 let text = '';          // contenido del editor (puede ir por delante de lo guardado)
@@ -43,7 +51,7 @@ function flush() {
   const value = text;
   saving = saving.then(async () => {
     await refreshFromStorage();
-    setDoc(taskId, value);
+    writeDoc(value);
     saved = value;
     savedAt = new Date();
     setStatus();
@@ -66,7 +74,33 @@ function whereText(task) {
   return `${day} · ${blockName(state.settings, task.block)}`;
 }
 
+/** Cabecera de una épica: color, tareas hechas/total y fecha objetivo. */
+function renderEpicHead(epic) {
+  const own = epicTasks(epic.id);
+  const done = own.filter((t) => t.done).length;
+  document.title = `${titleCase(epic.name)} · Documentación`;
+  document.getElementById('doc-head').replaceChildren(
+    h('p', { class: 'doc-kicker' }, 'Documentación de la épica'),
+    h('h1', { class: 'doc-title' }, titleCase(epic.name)),
+    h('p', { class: 'doc-meta' },
+      h('span', { class: 'doc-chip' }, h('span', { class: 'dot', style: `background:${epic.color}` }), 'Épica'),
+      h('span', { class: 'doc-chip' }, `${done}/${own.length} tareas hechas`),
+      epic.target_date ? h('span', { class: 'doc-chip' }, `🎯 ${shortLabel(epic.target_date)}`) : null,
+      h('span', { class: 'doc-status', id: 'doc-status' }),
+      h('button', {
+        type: 'button', class: 'doc-pdf-btn', id: 'doc-pdf',
+        title: 'Exportar la vista Lectura a PDF, tamaño carta (en el diálogo de impresión, elige "Guardar como PDF")',
+        onclick: () => exportPdf(subject()),
+      }, '⤓ PDF')),
+  );
+  setStatus();
+}
+
 function renderHead(task) {
+  if (isEpic) {
+    renderEpicHead(task);
+    return;
+  }
   const epic = findEpic(task.epic_id);
   const running = isRunning(task);
   document.title = `${titleCase(task.title)} · Documentación`;
@@ -83,7 +117,7 @@ function renderHead(task) {
       h('button', {
         type: 'button', class: 'doc-pdf-btn', id: 'doc-pdf',
         title: 'Exportar la vista Lectura a PDF, tamaño carta (en el diálogo de impresión, elige "Guardar como PDF")',
-        onclick: () => exportPdf(findTask(taskId)),
+        onclick: () => exportPdf(subject()),
       }, '⤓ PDF')),
   );
   setStatus();
@@ -107,9 +141,9 @@ async function exportPdf(task) {
       h('thead', {}, gap()),
       h('tfoot', {}, gap()),
       h('tbody', {}, h('tr', {}, h('td', { class: 'print-body' },
-        markdownView(text, { headingBase: 1, empty: 'Esta tarea todavía no tiene documentación.' }))))));
+        markdownView(text, { headingBase: 1, empty: `Esta ${isEpic ? 'épica' : 'tarea'} todavía no tiene documentación.` }))))));
   const title = document.title;
-  document.title = `${titleCase(task.title)} - Documentación`;
+  document.title = `${subjectTitle(task)} - Documentación`;
   const restore = () => {
     document.title = title;
     window.removeEventListener('afterprint', restore);
@@ -125,9 +159,11 @@ async function exportPdf(task) {
  * texto, la agrega donde está el cursor. Deja seleccionado el primer "[…]" para empezar a escribir ahí.
  */
 function useTemplate(area, template) {
-  const task = findTask(taskId);
+  const item = subject();
   const piece = fillTemplate(template.body, {
-    title: task?.title || '', date: formatDMY(todayISO()), epic: findEpic(task?.epic_id)?.name || '',
+    title: (isEpic ? item?.name : item?.title) || '',
+    date: formatDMY(todayISO()),
+    epic: (isEpic ? item?.name : findEpic(item?.epic_id)?.name) || '',
   });
   let from;
   if (!text.trim()) {
@@ -225,10 +261,11 @@ function renderEditor() {
 }
 
 function renderMissing() {
-  document.title = 'Tarea no encontrada · Cabe Todo';
+  const what = isEpic ? 'épica' : 'tarea';
+  document.title = `${what[0].toUpperCase()}${what.slice(1)} no encontrada · Cabe Todo`;
   document.querySelector('.doc-main').replaceChildren(
     h('div', { class: 'doc-card doc-missing' },
-      h('h1', {}, 'No se encontró la tarea'),
+      h('h1', {}, `No se encontró la ${what}`),
       h('p', {}, 'Puede que se haya borrado. Cierra esta pestaña y vuelve al panel de Cabe Todo.')),
   );
 }
@@ -240,7 +277,7 @@ async function init() {
   setNotifier(showToast);
   applyTheme(state.settings.theme);
   setupThemeToggle(document.getElementById('theme-toggle'));
-  const task = findTask(taskId);
+  const task = subject();
   if (!task) {
     renderMissing();
     return;
@@ -257,7 +294,7 @@ async function init() {
   subscribe(() => {
     applyTheme(state.settings.theme);
     renderThemeToggle();
-    const current = findTask(taskId);
+    const current = subject();
     if (!current) {
       renderMissing();
       return;
@@ -273,7 +310,7 @@ async function init() {
 
   // El reloj del temporizador en la cabecera
   setInterval(() => {
-    const current = findTask(taskId);
+    const current = isEpic ? null : findTask(taskId);
     if (current && isRunning(current)) {
       const chip = document.querySelector('.doc-chip.running');
       if (chip) chip.textContent = `● ${formatCountdown(remainingMs(current))}`;
@@ -285,7 +322,7 @@ async function init() {
   window.addEventListener('pagehide', () => {
     clearTimeout(saveTimer);
     if (text !== saved) {
-      setDoc(taskId, text);
+      writeDoc(text);
       saved = text;
     }
   });

@@ -1,15 +1,27 @@
 // Editor Markdown compartido (modal de tarea y pestaña de documentación):
 // pestañas Código / Lectura y, en Código, barra de botones rápidos.
 
-import { renderMarkdown } from '../utils/markdown.js';
+import { renderMarkdown, toggleCheckbox } from '../utils/markdown.js';
 import { applyFormat, TOOLBAR, SHORTCUTS } from '../utils/md-format.js';
 import { h } from '../utils/ui.js';
 
-/** Vista de lectura. renderMarkdown escapa todo el HTML, así que innerHTML es seguro. */
-export function markdownView(text, { headingBase, empty = 'Nada que mostrar todavía.' } = {}) {
+/**
+ * Vista de lectura. renderMarkdown escapa todo el HTML, así que innerHTML es seguro.
+ * onToggle(textoNuevo): las casillas "- [ ]" se pueden marcar y desmarcar; sin él, solo se muestran.
+ */
+export function markdownView(text, { headingBase, empty = 'Nada que mostrar todavía.', onToggle = null } = {}) {
   const box = h('div', { class: 'md' });
-  if (text.trim()) box.innerHTML = renderMarkdown(text, { headingBase });
+  if (text.trim()) box.innerHTML = renderMarkdown(text, { headingBase, checkboxes: Boolean(onToggle) });
   else box.append(h('p', { class: 'md-empty' }, empty));
+  if (onToggle) {
+    let current = text; // se va actualizando: marcar varias casillas seguidas sin re-renderizar
+    box.addEventListener('change', (e) => {
+      const line = e.target.dataset?.line;
+      if (line === undefined) return;
+      current = toggleCheckbox(current, Number(line));
+      onToggle(current);
+    });
+  }
   return box;
 }
 
@@ -83,5 +95,5 @@ export function markdownEditor(o) {
   return h('div', { class: `md-editor${o.className ? ` ${o.className}` : ''}` },
     h('div', { class: 'md-tabs', role: 'tablist' }, tabBtn('code', 'Código'), tabBtn('read', 'Lectura')),
     toolbar,
-    o.tab === 'code' ? area : markdownView(o.text, { headingBase: o.headingBase }));
+    o.tab === 'code' ? area : markdownView(o.text, { headingBase: o.headingBase, onToggle: o.onInput || null }));
 }

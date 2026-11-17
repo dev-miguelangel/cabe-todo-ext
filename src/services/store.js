@@ -14,7 +14,7 @@ import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBl
 import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../core/routines.js';
 import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
-import { parseAmount } from '../core/cost.js';
+import { parseAmount, decimalsOf } from '../core/cost.js';
 import {
   snapshotOf, stampChanges, addTombstones, pruneTombstones, mergeData, stampSettings, stampAllSettings,
 } from '../core/merge.js';
@@ -239,9 +239,10 @@ export function reorderEpics(ids) {
 export function setEpicRate(id, rate, currency) {
   const epic = findEpic(id);
   if (!epic) return;
-  const value = typeof rate === 'number' ? rate : parseAmount(rate); // "25.000" → 25000
-  epic.rate = value && value > 0 ? Math.round(value * 100) / 100 : null;
   if (currency) epic.currency = String(currency).trim().toUpperCase().slice(0, 3);
+  const value = typeof rate === 'number' ? rate : parseAmount(rate); // "25.000" → 25000
+  const factor = 10 ** decimalsOf(epic.currency); // en CLP, sin decimales
+  epic.rate = value && value > 0 ? Math.round(value * factor) / factor : null;
   commit();
 }
 
@@ -808,6 +809,15 @@ export function setDoc(taskId, text) {
   if (!task || task.doc === text) return;
   task.doc = text;
   task.doc_updated_at = new Date().toISOString();
+  commit();
+}
+
+/** Documentación de una épica (página de documentación con ?epic=…). */
+export function setEpicDoc(epicId, text) {
+  const epic = findEpic(epicId);
+  if (!epic || (epic.doc || '') === text) return;
+  epic.doc = text;
+  epic.doc_updated_at = new Date().toISOString();
   commit();
 }
 

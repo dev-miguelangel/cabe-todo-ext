@@ -3,7 +3,7 @@
 // los enlaces solo aceptan http(s) y mailto.
 //
 // Soporta: # títulos, **negrita**, *cursiva*, ~~tachado~~, `código`, bloques ```,
-// listas con - * + y numeradas, tareas - [ ] / - [x], > citas, ---, [enlaces](https://…)
+// listas con - * + y numeradas, tareas - [ ] / - [x] (marcables con opts.checkboxes), > citas, ---, [enlaces](https://…)
 // y URLs sueltas. Los saltos de línea dentro de un párrafo se respetan (como en GitHub).
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -120,14 +120,16 @@ export function renderMarkdown(src, opts = {}) {
       while (i < lines.length) {
         const m = lines[i].match(LIST_ITEM);
         if (!m || /\d/.test(m[1]) !== ordered) break;
-        items.push(m[2]);
+        items.push({ text: m[2], line: i }); // la línea del texto: para marcar la casilla desde Lectura
         i += 1;
       }
-      const lis = items.map((item) => {
+      const lis = items.map(({ text: item, line: at }) => {
         const task = item.match(/^\[([ xX])\]\s+(.*)$/);
         if (task) {
           const checked = task[1] !== ' ' ? ' checked' : '';
-          return `<li class="task-item"><input type="checkbox" disabled${checked}> ${inline(task[2])}</li>`;
+          // opts.checkboxes: casillas que se pueden marcar (Lectura); si no, solo se muestran (PDF, comentarios)
+          const box = opts.checkboxes ? `data-line="${at}"` : 'disabled';
+          return `<li class="task-item"><input type="checkbox" ${box}${checked}> ${inline(task[2])}</li>`;
         }
         return `<li>${inline(item)}</li>`;
       });
@@ -176,4 +178,13 @@ export function markdownHeadings(src) {
     if (text) out.push({ level: m[1].length, text });
   }
   return out;
+}
+
+/** Marca o desmarca la casilla de la línea `line` ("- [ ] algo" ↔ "- [x] algo"). Devuelve el texto nuevo. */
+export function toggleCheckbox(src, line) {
+  const lines = (src || '').replace(/\r\n?/g, '\n').split('\n');
+  const current = lines[line];
+  if (current === undefined) return src;
+  lines[line] = current.replace(/^(\s*(?:[-*+]|\d+[.)])\s+)\[([ xX])\]/, (_, lead, mark) => `${lead}[${mark === ' ' ? 'x' : ' '}]`);
+  return lines.join('\n');
 }

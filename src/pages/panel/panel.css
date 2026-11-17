@@ -1385,3 +1385,14 @@ button.prob-tag { cursor: pointer; }
 .epic-item:hover .epic-handle { opacity: 1; }
 .epic-item.sort-dragging { opacity: 0.5; outline: 2px dashed var(--accent); outline-offset: 2px; }
 #epics-list.is-sorting .epic-handle { cursor: grabbing; }
+
+/* Documentación de la épica */
+.epic-doc-btn { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 0; background: var(--field); color: var(--text); cursor: pointer; }
+.epic-doc-btn:hover { background: var(--accent); color: var(--on-accent); }
+.epic-doc-btn.create { background: none; box-shadow: inset 0 0 0 1px var(--border); color: var(--muted); }
+.epic-has-doc { font-size: 0.85em; color: var(--muted); font-weight: 400; }
+/* Lectura: las casillas se pueden marcar */
+.md .task-item input[type="checkbox"]:not(:disabled) { cursor: pointer; }
+
+/* Docs: documentación de épicas */
+.doc-card-kind { margin-left: auto; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; line-height: 17px; background: var(--field); color: var(--muted); }

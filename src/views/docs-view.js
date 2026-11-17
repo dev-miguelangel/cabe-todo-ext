@@ -1,11 +1,11 @@
-// Vista "Docs": las tareas con documentación, de la más nueva a la más antigua, con un buscador
-// que filtra por el título de la tarea y por los títulos/subtítulos de su documentación.
+// Vista "Docs": las épicas y tareas con documentación (las épicas primero; las tareas de la más nueva a la
+// más antigua), con un buscador que filtra por el título y por los títulos/subtítulos de su documentación.
 
 import { state, togglePin } from '../services/store.js';
 import { h, showToast } from '../utils/ui.js';
 import { markdownExcerpt, markdownHeadings } from '../utils/markdown.js';
 import { whenLabel } from '../components/cards.js';
-import { showTaskModal, openDocTab } from '../components/task-modal.js';
+import { showTaskModal, openDocTab, openEpicDoc } from '../components/task-modal.js';
 import { titleCase } from '../utils/text.js';
 
 let query = '';
@@ -110,6 +110,23 @@ function renderDocCard(task, terms, headings, epicsById) {
       }, 'Detalle')));
 }
 
+/** Tarjeta de la documentación de una épica (se abre en su página; no se ancla). */
+function renderEpicDocCard(epic, terms, headings) {
+  const shown = terms.length ? headings.filter((x) => hits(x.text, terms)) : [];
+  return h('li', { class: 'doc-card doc-card-epic', dataset: { epicId: epic.id } },
+    h('button', {
+      type: 'button', class: 'doc-card-open', title: 'Abrir la documentación de la épica',
+      onclick: () => openEpicDoc(epic.id),
+    },
+    h('span', { class: 'doc-card-title' },
+      h('span', { class: 'dot', style: `background:${epic.color}` }),
+      h('span', { class: 'doc-card-name' }, ...highlight(titleCase(epic.name), terms)),
+      h('span', { class: 'doc-card-kind' }, 'Épica')),
+    shown.length ? h('ul', { class: 'doc-card-headings' },
+      ...shown.map((x) => h('li', { style: `--lvl:${Math.min(x.level, 4) - 1}` }, ...highlight(x.text, terms)))) : null,
+    shown.length ? null : h('span', { class: 'doc-card-excerpt' }, markdownExcerpt(epic.doc, 140))));
+}
+
 export function renderDocs() {
   const root = document.getElementById('docs-list');
   const terms = searchTerms(query);
@@ -120,10 +137,17 @@ export function renderDocs() {
     .map((t) => ({ t, headings: markdownHeadings(t.doc) }))
     .filter(({ t, headings }) => matchTask(t, terms, headings));
 
-  const total = documented.length;
+  // Épicas con documentación (arriba de las tareas)
+  const epicDocs = state.epics.filter((e) => !e.archived && e.doc?.trim())
+    .map((e) => ({ e, headings: markdownHeadings(e.doc) }))
+    .filter(({ e, headings }) => matchTask({ title: e.name }, terms, headings));
+  const epicTotal = state.epics.filter((e) => !e.archived && e.doc?.trim()).length;
+
+  const total = documented.length + epicTotal;
+  const shownCount = rows.length + epicDocs.length;
   document.getElementById('docs-count').textContent = terms.length
-    ? `${rows.length} de ${total}`
-    : `${total} tarea${total === 1 ? '' : 's'} con documentación`;
+    ? `${shownCount} de ${total}`
+    : `${total} documento${total === 1 ? '' : 's'}`;
 
   // Ancladas arriba (la última anclada primero), en su sección plegable
   const pinned = rows.filter(({ t }) => t.pinned_at).sort((a, b) => b.t.pinned_at.localeCompare(a.t.pinned_at));
@@ -133,13 +157,15 @@ export function renderDocs() {
   document.getElementById('docs-pinned-count').textContent = `(${pinned.length})`;
   document.getElementById('docs-pinned-list').replaceChildren(...pinned.map(({ t, headings }) => renderDocCard(t, terms, headings, epicsById)));
 
-  if (!rows.length) {
+  if (!shownCount) {
     root.replaceChildren(h('li', { class: 'empty' },
       total ? `Nada coincide con "${query.trim()}"`
-        : 'Ninguna tarea tiene documentación todavía. Escríbela desde el detalle de una tarea, en la sección Documentación.'));
+        : 'Todavía no hay documentación. Escríbela desde el detalle de una tarea o desde una épica (botón Documentación).'));
     return;
   }
-  root.replaceChildren(...rest.map(({ t, headings }) => renderDocCard(t, terms, headings, epicsById)));
+  root.replaceChildren(
+    ...epicDocs.map(({ e, headings }) => renderEpicDocCard(e, terms, headings)),
+    ...rest.map(({ t, headings }) => renderDocCard(t, terms, headings, epicsById)));
 }
 
 export function setupDocs() {

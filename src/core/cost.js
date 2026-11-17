@@ -6,17 +6,31 @@
 
 import { trackedMs } from './timer.js';
 
-export const CURRENCIES = ['CLP', 'USD', 'EUR', 'MXN', 'ARS', 'COP', 'PEN', 'BRL', 'UYU', 'GBP'];
+/** Monedas disponibles (código ISO y cómo se muestran en el selector). */
+export const CURRENCIES = ['CLP', 'USD', 'EUR'];
+export const CURRENCY_LABEL = { CLP: 'CLP ($)', USD: 'USD (US$)', EUR: 'EUR (€)' };
+const EURO_REGIONS = ['ES', 'FR', 'DE', 'IT', 'PT', 'NL', 'IE', 'BE', 'AT', 'FI', 'GR', 'LU', 'SK', 'SI', 'EE', 'LV', 'LT', 'MT', 'CY', 'HR'];
 
-/** Moneda propuesta según el idioma y país del navegador ("es-CL" → CLP); si no se sabe, USD. */
-export function defaultCurrency(locale = (typeof navigator !== 'undefined' && navigator.language) || '') {
+const CHILE_ZONES = ['America/Santiago', 'America/Punta_Arenas', 'Pacific/Easter'];
+const EURO_ZONES = ['Madrid', 'Paris', 'Berlin', 'Rome', 'Lisbon', 'Amsterdam', 'Brussels', 'Vienna', 'Dublin', 'Helsinki',
+  'Athens', 'Luxembourg', 'Bratislava', 'Ljubljana', 'Tallinn', 'Riga', 'Vilnius', 'Malta', 'Nicosia', 'Zagreb'].map((c) => `Europe/${c}`);
+const localZone = () => {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; }
+};
+
+/**
+ * Moneda propuesta: Chile → CLP, zona euro → EUR, el resto → USD. Mira el país del idioma ("es-CL") y,
+ * como Chrome en español latino suele decir solo "es-419", también la zona horaria (America/Santiago).
+ */
+export function defaultCurrency(locale = (typeof navigator !== 'undefined' && navigator.language) || '', zone = localZone()) {
   const region = String(locale).split(/[-_]/)[1]?.toUpperCase();
-  const byRegion = {
-    CL: 'CLP', AR: 'ARS', MX: 'MXN', CO: 'COP', PE: 'PEN', BR: 'BRL', UY: 'UYU', GB: 'GBP', US: 'USD',
-    ES: 'EUR', FR: 'EUR', DE: 'EUR', IT: 'EUR', PT: 'EUR', NL: 'EUR', IE: 'EUR', BE: 'EUR', AT: 'EUR',
-  };
-  return byRegion[region] || 'USD';
+  if (region === 'CL' || CHILE_ZONES.includes(zone)) return 'CLP';
+  if (EURO_REGIONS.includes(region) || EURO_ZONES.includes(zone)) return 'EUR';
+  return 'USD';
 }
+
+/** Decimales de cada moneda: el peso chileno no usa. */
+export const decimalsOf = (currency) => (currency === 'CLP' ? 0 : 2);
 
 /** ¿La épica tiene valor hora? */
 export const hasRate = (epic) => Boolean(epic && Number(epic.rate) > 0 && epic.currency);
@@ -37,24 +51,35 @@ export function pendingMinutes(task, now = Date.now()) {
 /** Dinero de unos minutos a un valor hora. */
 export const amountOf = (minutes, rate) => (minutes / 60) * Number(rate || 0);
 
-/** Costo de una épica: { worked, pending, total } en minutos y en dinero. */
+/**
+ * Costo de una épica, en minutos y en dinero:
+ * - estimated: la suma de todas sus tareas (hechas y pendientes) por su estimado: lo que muestra el chip
+ *   de la épica y lo mismo que suman los detalles de cada tarea.
+ * - worked / pending: lo trabajado y lo que falta; total = worked + pending.
+ */
 export function epicCost(epic, tasks, now = Date.now()) {
   const own = tasks.filter((t) => t.epic_id === epic.id);
+  const estimated = own.reduce((n, t) => n + (t.minutes || 0), 0);
   const worked = own.reduce((n, t) => n + workedMinutes(t, now), 0);
   const pending = own.reduce((n, t) => n + pendingMinutes(t, now), 0);
   const rate = Number(epic.rate) || 0;
   return {
-    minutes: { worked, pending, total: worked + pending },
-    amount: { worked: amountOf(worked, rate), pending: amountOf(pending, rate), total: amountOf(worked + pending, rate) },
+    minutes: { estimated, worked, pending, total: worked + pending },
+    amount: {
+      estimated: amountOf(estimated, rate), worked: amountOf(worked, rate), pending: amountOf(pending, rate), total: amountOf(worked + pending, rate),
+    },
   };
 }
 
-/** "$285.000" (CLP) · "US$1,250.50" (USD) · con los decimales de cada moneda. */
+/** Formato de cada moneda, igual en cualquier navegador: CLP "$285.000" · USD "US$1.250,50" · EUR "1.250,50 €". */
+const MONEY_LOCALE = { CLP: 'es-CL', USD: 'es-CL', EUR: 'es-ES' };
+
 export function formatMoney(amount, currency, locale) {
-  const loc = locale || (typeof navigator !== 'undefined' && navigator.language) || 'es-CL';
+  const loc = locale || MONEY_LOCALE[currency] || 'es-CL';
+  const digits = decimalsOf(currency);
   try {
-    return new Intl.NumberFormat(loc, { style: 'currency', currency, maximumFractionDigits: currency === 'CLP' ? 0 : 2 })
-      .format(Math.round(amount * 100) / 100);
+    return new Intl.NumberFormat(loc, { style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: digits })
+      .format(amount);
   } catch {
     return `${Math.round(amount).toLocaleString(loc)} ${currency}`; // código de moneda desconocido
   }

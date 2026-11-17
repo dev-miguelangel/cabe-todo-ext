@@ -423,7 +423,15 @@ function docSection(task) {
 
 /** Abre (en una pestaña) la página de documentación de la tarea. */
 export function openDocTab(taskId) {
-  const query = `?task=${encodeURIComponent(taskId)}`;
+  openDocPage(`?task=${encodeURIComponent(taskId)}`);
+}
+
+/** Abre (en una pestaña) la documentación de una épica. */
+export function openEpicDoc(epicId) {
+  openDocPage(`?epic=${encodeURIComponent(epicId)}`);
+}
+
+function openDocPage(query) {
   if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
     chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/doc/doc.html' + query) });
   } else {

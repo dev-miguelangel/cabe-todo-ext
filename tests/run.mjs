@@ -1346,17 +1346,19 @@ console.log('OK: parser + PERT + épicas');
     { id: 'x', epic_id: 'otra', minutes: 600, done: true, time_entries: [] },
   ];
   const c = C.epicCost(epic, tasks, now);
-  assert.deepEqual(c.minutes, { worked: 180, pending: 150, total: 330 });
-  assert.deepEqual(c.amount, { worked: 60000, pending: 50000, total: 110000 });
+  assert.deepEqual(c.minutes, { estimated: 360, worked: 180, pending: 150, total: 330 });
+  assert.deepEqual(c.amount, { estimated: 120000, worked: 60000, pending: 50000, total: 110000 });
+  const perTask = tasks.filter((t) => t.epic_id === 'e1').reduce((n, t) => n + C.amountOf(t.minutes, epic.rate), 0);
+  assert.equal(c.amount.estimated, perTask, 'el total de la épica es la suma del costo de cada tarea');
   assert.equal(C.pendingMinutes({ minutes: 30, done: false, time_entries: entry(1) }, now), 0, 'pasada del estimado: no queda pendiente negativo');
   assert.equal(C.hasRate(epic), true);
   assert.equal(C.hasRate({ rate: null, currency: 'CLP' }), false);
   assert.equal(C.formatMoney(110000, 'CLP', 'es-CL'), '$110.000');
   assert.match(C.formatMoney(1250.5, 'USD', 'es-CL'), /1\.250,5/);
   assert.deepEqual(['25.000', '25,000', '1.250,50', '1,250.50', '1,5', '$ 30.000', '18000', ''].map(C.parseAmount), [25000, 25000, 1250.5, 1250.5, 1.5, 30000, 18000, null]);
-  assert.equal(C.defaultCurrency('es-CL'), 'CLP');
-  assert.equal(C.defaultCurrency('es-ES'), 'EUR');
-  assert.equal(C.defaultCurrency('xx'), 'USD');
+  assert.equal(C.defaultCurrency('es-CL', 'UTC'), 'CLP');
+  assert.equal(C.defaultCurrency('es-ES', 'UTC'), 'EUR');
+  assert.equal(C.defaultCurrency('xx', 'UTC'), 'USD');
 
   const S = await import(root + '/src/services/store.js');
   const e = S.createEpic('Cliente costos');
@@ -1364,6 +1366,20 @@ console.log('OK: parser + PERT + épicas');
   assert.deepEqual([S.findEpic(e.id).rate, S.findEpic(e.id).currency], [25000, 'CLP'], '"25.000" se lee como 25000');
   S.setEpicRate(e.id, '', 'CLP');
   assert.equal(S.findEpic(e.id).rate, null, 'vacío: sin costos');
+  assert.deepEqual(C.CURRENCIES, ['CLP', 'USD', 'EUR'], 'solo peso chileno, dólar y euro');
+  assert.equal(C.defaultCurrency('es-MX', 'America/Mexico_City'), 'USD', 'fuera de Chile y la zona euro: dólar');
+  assert.equal(C.defaultCurrency('es-419', 'America/Santiago'), 'CLP', 'Chrome en español latino (es-419) en Chile: CLP');
+  assert.equal(C.defaultCurrency('en-US', 'Europe/Madrid'), 'EUR');
+  assert.equal(C.formatMoney(37500, 'CLP'), '$37.500', 'el formato no depende del idioma del navegador');
+  assert.match(C.formatMoney(37500, 'USD'), /^US\$37\.500,00$/);
+  assert.match(C.formatMoney(37500, 'EUR'), /^37\.500,00\s€$/);
+  assert.equal(C.formatMoney(1234.56, 'CLP', 'es-CL'), '$1.235', 'CLP sin decimales');
+  assert.match(C.formatMoney(1234.5, 'USD', 'es-CL'), /1\.234,50/, 'USD con 2 decimales');
+  assert.match(C.formatMoney(1234.5, 'EUR', 'es-ES'), /1234,50|1\.234,50/, 'EUR con 2 decimales');
+  S.setEpicRate(e.id, '25.000,75', 'CLP');
+  assert.equal(S.findEpic(e.id).rate, 25001, 'en CLP el valor hora se guarda sin decimales');
+  S.setEpicRate(e.id, '30,5', 'USD');
+  assert.deepEqual([S.findEpic(e.id).rate, S.findEpic(e.id).currency], [30.5, 'USD'], 'en USD conserva decimales');
   console.log('OK: costo de una épica (trabajado, pendiente, moneda)');
 }
 
@@ -1382,4 +1398,31 @@ console.log('OK: parser + PERT + épicas');
   const d = S.createEpic('Orden D');
   assert.equal(S.activeEpics().at(-1).id, d.id, 'una nueva sigue yendo al final');
   console.log('OK: orden de las épicas');
+}
+
+// ---------- Lectura: casillas marcables; documentación de épicas ----------
+{
+  const { renderMarkdown, toggleCheckbox } = await import(root + '/src/utils/markdown.js');
+  const doc = '# Lista\n\n- [ ] Uno\n- [x] Dos\n\n```\n- [ ] en código\n```\n\n1. [ ] Numerada';
+  const html = renderMarkdown(doc, { checkboxes: true });
+  assert.deepEqual([...html.matchAll(/data-line="(\d+)"/g)].map((m) => Number(m[1])), [2, 3, 9], 'cada casilla sabe su línea (las del código no cuentan)');
+  assert.ok(!/disabled/.test(html), 'en Lectura se pueden marcar');
+  assert.ok(/disabled/.test(renderMarkdown(doc)), 'sin opción (PDF, comentarios), solo se muestran');
+  let t = toggleCheckbox(doc, 2);
+  assert.ok(t.includes('- [x] Uno') && t.includes('- [x] Dos'));
+  t = toggleCheckbox(t, 3);
+  assert.ok(t.includes('- [ ] Dos'));
+  t = toggleCheckbox(t, 9);
+  assert.ok(t.includes('1. [x] Numerada'));
+  assert.ok(t.includes('- [ ] en código'), 'lo demás no cambia');
+  assert.equal(toggleCheckbox(doc, 0), doc, 'una línea sin casilla no cambia');
+
+  const S = await import(root + '/src/services/store.js');
+  const e = S.createEpic('Documentada');
+  S.setEpicDoc(e.id, '# Alcance\n\n- [ ] Definir');
+  assert.equal(S.findEpic(e.id).doc, '# Alcance\n\n- [ ] Definir');
+  assert.ok(S.findEpic(e.id).doc_updated_at);
+  const backup = JSON.parse(S.exportBackup());
+  assert.equal(backup.epics.find((x) => x.id === e.id).doc, '# Alcance\n\n- [ ] Definir', 'viaja en el respaldo (y a Drive)');
+  console.log('OK: casillas marcables en Lectura; documentación de épicas');
 }
