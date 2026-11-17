@@ -14,8 +14,8 @@ export const MAX_TITLE = 24;
 export const BLOCK_ICONS = ['☀︎', '☾', '☕︎', '✦', '⚡︎', '◆', '●', '▲', '♥︎', '✎', '⌂', '♪', '⚑', '☘︎', '✈︎', '★'];
 
 export const DEFAULT_BLOCKS = [
-  { id: 'am', title: 'Mañana', icon: '☀︎', start: '08:00', end: '13:00' },
-  { id: 'pm', title: 'Tarde', icon: '☾', start: '14:00', end: '19:00' },
+  { id: 'am', title: 'AM', icon: '☀︎', start: '08:00', end: '13:00' },
+  { id: 'pm', title: 'PM', icon: '☾', start: '14:00', end: '19:00' },
 ];
 
 const byStart = (a, b) => toMinutes(a.start) - toMinutes(b.start);
@@ -168,6 +168,10 @@ export function blockWords(settings) {
   const ids = new Set(blocks.map((b) => b.id));
   if (ids.has('am')) words.am = 'am';
   if (ids.has('pm')) Object.assign(words, { pm: 'pm', tarde: 'pm' });
+  // @am, @pm y @tarde valen siempre para los bloques de siempre, se llamen como se llamen
+  for (const [alias, id] of Object.entries({ am: 'am', pm: 'pm', tarde: 'pm' })) {
+    if (ids.has(id) && !(alias in tags)) tags[alias] = id;
+  }
   return { tags, phrases, words };
 }
 

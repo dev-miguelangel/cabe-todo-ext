@@ -567,7 +567,7 @@ console.log('OK: parser + PERT + épicas');
 
   // migración del formato antiguo { am, pm }
   const old = B.migrateBlocks({ am: { start: '07:00', end: '12:00' }, pm: { start: '13:00', end: '17:00' }, notify: true });
-  assert.deepEqual(old.blocks.map((x) => [x.id, x.title, x.start, x.end]), [['am', 'Mañana', '07:00', '12:00'], ['pm', 'Tarde', '13:00', '17:00']]);
+  assert.deepEqual(old.blocks.map((x) => [x.id, x.title, x.start, x.end]), [['am', 'AM', '07:00', '12:00'], ['pm', 'PM', '13:00', '17:00']]);
   assert.ok(!('am' in old) && old.notify === true, 'sin claves viejas, conserva el resto');
   assert.equal(S.parseBackup(JSON.stringify({ app: 'pert-day', tasks: [], epics: [], settings: { am: { start: '09:00', end: '12:00' } } })).settings.blocks[0].start, '09:00');
 
@@ -704,7 +704,9 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(q('Informe martes').date, '2026-11-17', 'un día que ya pasó: la semana siguiente');
   assert.deepEqual([q('Standup 15m cada lunes').repeat, q('Standup 15m cada lunes').date], [[1], null], 'después de "cada" es repetición');
   assert.equal(q('Leer 2h viernes am #web ?').date, '2026-11-13');
-  assert.equal(B.blockWords({ blocks: B.DEFAULT_BLOCKS }).tags.manana, 'am', '@mañana sigue eligiendo el bloque');
+  assert.deepEqual(B.DEFAULT_BLOCKS.map((b) => b.title), ['AM', 'PM'], 'bloques por defecto: AM y PM');
+  assert.equal(B.blockWords({ blocks: B.DEFAULT_BLOCKS }).tags.am, 'am', '@am elige el bloque AM');
+  assert.equal(B.blockWords({ blocks: [{ id: 'am', title: 'Mañana', icon: '☀︎', start: '08:00', end: '13:00' }] }).tags.manana, 'am', 'un bloque llamado Mañana se sigue eligiendo con @mañana');
   console.log('OK: días (hoy, mañana, viernes) y reuniones en el quick-add');
 }
 
@@ -1279,8 +1281,9 @@ console.log('OK: parser + PERT + épicas');
   assert.deepEqual(q('Standup TODOS LOS DIAS HABILES').repeat, [1, 2, 3, 4, 5]);
   assert.deepEqual(q('Correr todos los lunes').repeat, [1]);
   assert.equal(q('Revisar todos los informes').repeat, null, '"todos los" + algo que no es día: queda en el título');
-  const mm = q('Revisar informe mañana mañana');
-  assert.deepEqual([mm.title, mm.date, mm.block], ['Revisar informe', '2026-11-17', 'am'], 'mañana (día) + Mañana (bloque)');
+  const withManana = B.blockWords({ blocks: [{ id: 'am', title: 'Mañana', icon: '☀︎', start: '08:00', end: '13:00' }, { id: 'pm', title: 'Tarde', icon: '☾', start: '14:00', end: '19:00' }] });
+  const mm = P.parseQuickAdd('Revisar informe mañana mañana', withManana, o);
+  assert.deepEqual([mm.title, mm.date, mm.block], ['Revisar informe', '2026-11-17', 'am'], 'mañana (día) + Mañana (bloque), si hay un bloque con ese nombre');
   console.log('OK: formatos nuevos (duración con espacio, días abreviados, todos los…, mañana mañana)');
 }
 
@@ -1425,4 +1428,51 @@ console.log('OK: parser + PERT + épicas');
   const backup = JSON.parse(S.exportBackup());
   assert.equal(backup.epics.find((x) => x.id === e.id).doc, '# Alcance\n\n- [ ] Definir', 'viaja en el respaldo (y a Drive)');
   console.log('OK: casillas marcables en Lectura; documentación de épicas');
+}
+
+// ---------- Sincronizar con una carpeta local ----------
+{
+  const F = await import(root + '/src/services/folder-sync.js');
+  const { runSync } = await import(root + '/src/services/drive-api.js');
+  // Carpeta de mentira con la forma de FileSystemDirectoryHandle
+  const files = new Map();
+  let clock = 1000;
+  const dir = {
+    name: 'Sync',
+    async getFileHandle(name, { create = false } = {}) {
+      if (!files.has(name)) {
+        if (!create) { const e = new Error('no'); e.name = 'NotFoundError'; throw e; }
+        files.set(name, { text: '', at: 0 });
+      }
+      return {
+        getFile: async () => ({ text: async () => files.get(name).text, lastModified: files.get(name).at }),
+        createWritable: async () => {
+          let buf = '';
+          return { write: async (t) => { buf += t; }, close: async () => { clock += 1; files.set(name, { text: buf, at: clock }); } };
+        },
+      };
+    },
+  };
+  const store = F.folderStore(dir);
+  let localData = { tasks: ['a'] };
+  const merged = [];
+  const local = {
+    exportText: () => JSON.stringify(localData),
+    read: (text) => ({ data: JSON.parse(text) }),
+    merge: (data) => { merged.push(data); localData = { tasks: [...new Set([...localData.tasks, ...data.tasks])] }; return { tasks: { added: 1 } }; },
+    saveUndo: () => {},
+    confirmAccount: async () => { throw new Error('no debe preguntar por cuentas'); },
+  };
+  assert.equal(await store.find(), null, 'sin archivo todavía');
+  const first = await runSync(store, local);
+  assert.ok(first.created && files.has(F.FILE_NAME), 'la primera vez crea cabe-todo-sync.json');
+  assert.equal(JSON.parse(files.get(F.FILE_NAME).text).account, undefined, 'sin cuenta de Google');
+  // La otra app (la extensión o la web) escribió una tarea nueva en el archivo
+  files.set(F.FILE_NAME, { text: JSON.stringify({ tasks: ['a', 'b'] }), at: (clock += 1) });
+  const second = await runSync(store, local);
+  assert.ok(!second.created && merged.length === 1);
+  assert.deepEqual(localData.tasks, ['a', 'b'], 'trae lo de la otra app');
+  assert.deepEqual(JSON.parse(files.get(F.FILE_NAME).text).tasks, ['a', 'b'], 'y deja el resultado en el archivo');
+  assert.equal(F.folderAvailable(), false, 'fuera del navegador (o en el celular) no se ofrece');
+  console.log('OK: sincronizar con una carpeta local');
 }

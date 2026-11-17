@@ -86,7 +86,7 @@ function parseDuration(word) {
 }
 
 /**
- * blockWords: { tags, phrases, words } de blockWords(ajustes); por defecto, los bloques Mañana y Tarde.
+ * blockWords: { tags, phrases, words } de blockWords(ajustes); por defecto, los bloques AM y PM.
  * opts.today: 'YYYY-MM-DD' desde el que se calculan "mañana", "miércoles"… (por defecto, hoy).
  */
 export function parseQuickAdd(text, blockWords = DEFAULT_BLOCK_WORDS, { today = todayISO(), meetings = true } = {}) {

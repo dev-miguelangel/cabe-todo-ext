@@ -1,12 +1,18 @@
-// Sincronizar con Google Drive: Ajustes → "Sincronizar con Google Drive" y el botón ⟳ de Hoy.
-// El ⟳ siempre está a la vista: amarillo mientras Drive no está conectado (al tocarlo lleva a Ajustes →
-// Sincronizar con Google Drive) y normal cuando lo está (al tocarlo sincroniza).
+// Sincronizar con Google Drive y con una carpeta local (solo computador): Ajustes y el botón ⟳ de Hoy.
+// El ⟳ siempre está a la vista: amarillo mientras no hay nada conectado (al tocarlo lleva a Ajustes →
+// Sincronizar con Google Drive) y normal cuando sí (al tocarlo sincroniza con todo lo conectado).
+// La carpeta, mientras Chrome dé el permiso, se sincroniza sola: al abrir, al volver a la ventana y
+// unos segundos después de cada cambio.
 // Compartido con la versión web (scripts/sync-core.mjs). El permiso de Google lo maneja drive-session.js,
 // propio de cada app.
 
 import {
-  state, exportBackup, readBackup, mergeBackup, setView,
+  state, exportBackup, readBackup, mergeBackup, setView, subscribe,
 } from '../services/store.js';
+import {
+  folderAvailable, loadFolder, folderConnected, folderName, folderLastSync, folderGranted,
+  chooseFolder, forgetFolder, syncFolder,
+} from '../services/folder-sync.js';
 import { saveUndoPoint, undoImport } from '../services/undo-point.js';
 import {
   syncNow, isConnected, lastSync, disconnect, prepare, isAvailable,
@@ -67,35 +73,77 @@ function whenText(iso) {
   return d === 1 ? 'ayer' : `hace ${d} días`;
 }
 
+const driveOn = () => isAvailable() && isConnected();
+
+/** La sincronización más antigua entre lo conectado (para el punto celeste). */
+function oldestSync() {
+  const times = [];
+  if (driveOn()) times.push(lastSync()?.at || '');
+  if (folderConnected()) times.push(folderLastSync()?.at || '');
+  return times.length ? times.sort()[0] : null;
+}
+
+function renderFolder() {
+  const section = document.getElementById('folder-section');
+  if (!section) return;
+  section.hidden = !folderAvailable();
+  if (section.hidden) return;
+  const on = folderConnected();
+  const last = folderLastSync();
+  document.getElementById('folder-off').hidden = on;
+  document.getElementById('folder-on').hidden = !on;
+  document.getElementById('folder-status').textContent = on
+    ? `Carpeta: ${folderName()}. ${last ? `Última sincronización: ${whenText(last.at)}.` : 'Todavía no sincronizas con ella.'}`
+    : '';
+  document.getElementById('folder-desc').textContent = on
+    ? [`Carpeta ${folderName()}`, last ? whenText(last.at) : null].filter(Boolean).join(' · ')
+    : 'La app web y la extensión de este computador, con los mismos datos.';
+  for (const id of ['folder-choose', 'folder-sync', 'folder-change']) {
+    const el = document.getElementById(id);
+    el.disabled = busy;
+    el.classList.toggle('is-busy', busy);
+  }
+}
+
 export function renderDrive() {
-  if (!isAvailable()) {
-    document.getElementById('drive-section').hidden = true;
-    document.getElementById('drive-sync-btn').hidden = true;
+  renderFolder();
+  const btn = document.getElementById('drive-sync-btn');
+  const driveSection = document.getElementById('drive-section');
+  driveSection.hidden = !isAvailable();
+  if (!isAvailable() && !folderAvailable()) {
+    btn.hidden = true;
     return;
   }
-  const on = isConnected();
-  const last = lastSync();
+  const on = driveOn() || folderConnected();
+  const oldest = oldestSync();
   // Punto celeste: hay cambios en este equipo después de la última sincronización
-  const pending = on && latestLocalChange(state) > (last?.at || '');
-  const btn = document.getElementById('drive-sync-btn');
+  const pending = on && latestLocalChange(state) > (oldest || '');
+  const where = [driveOn() ? 'Google Drive' : null, folderConnected() ? 'la carpeta' : null].filter(Boolean).join(' y ');
   btn.hidden = false;
   btn.classList.toggle('sync-off', !on);
   btn.classList.toggle('has-pending', pending);
   btn.title = !on
-    ? 'Google Drive no está conectado: toca para conectarlo'
-    : pending ? 'Hay cambios sin sincronizar: toca para sincronizar con Google Drive' : 'Sincronizar con Google Drive';
+    ? 'La sincronización no está conectada: toca para conectarla'
+    : pending ? `Hay cambios sin sincronizar: toca para sincronizar con ${where}` : `Sincronizar con ${where}`;
   btn.setAttribute('aria-label', btn.title);
-  document.getElementById('drive-off').hidden = on;
-  document.getElementById('drive-on').hidden = !on;
+  btn.disabled = busy;
+  btn.classList.toggle('is-busy', busy);
+  if (!isAvailable()) return;
+
+  const driveConnected = isConnected();
+  const last = lastSync();
+  const drivePending = driveConnected && latestLocalChange(state) > (last?.at || '');
+  document.getElementById('drive-off').hidden = driveConnected;
+  document.getElementById('drive-on').hidden = !driveConnected;
   const account = syncedAccount();
   const who = account ? `Conectado como ${account}. ` : 'Conectado. ';
   const status = who + (last ? `Última sincronización: ${whenText(last.at)}.` : 'Todavía no sincronizas desde este equipo.')
-    + (pending && last ? ' Hay cambios sin sincronizar.' : '');
+    + (drivePending && last ? ' Hay cambios sin sincronizar.' : '');
   document.getElementById('drive-status').textContent = status;
-  document.getElementById('drive-desc').textContent = on
+  document.getElementById('drive-desc').textContent = driveConnected
     ? [account || 'Conectado', last ? whenText(last.at) : null].filter(Boolean).join(' · ')
     : 'La misma lista en el celular y en la extensión.';
-  for (const id of ['drive-sync', 'drive-connect', 'drive-sync-btn']) {
+  for (const id of ['drive-sync', 'drive-connect']) {
     const el = document.getElementById(id);
     el.disabled = busy;
     el.classList.toggle('is-busy', busy);
@@ -113,27 +161,92 @@ export function openDriveSettings() {
   });
 }
 
-/** Sincronizar (también conecta la primera vez). Debe llamarse directo desde el toque. */
-function startSync() {
+const undoAction = {
+  label: 'Deshacer',
+  run: async () => { await undoImport(); showToast('Volviste a lo de antes de sincronizar.'); },
+};
+
+function reportError(err) {
+  showToast(err instanceof SyncCancelled ? err.message : (err.message || 'No se pudo sincronizar.'));
+}
+
+/**
+ * Sincronizar. targets: 'all' (lo conectado: carpeta y Drive), 'drive' o 'folder'.
+ * Debe llamarse directo desde el toque (Drive y la carpeta piden permiso en ese momento).
+ */
+async function startSync(targets = 'all') {
   if (busy) return;
   busy = true;
   renderDrive();
-  const done = () => { busy = false; renderDrive(); };
-  syncNow(local).then(({ summary, created }) => {
-    if (created) showToast(`Listo: tus datos quedaron en Google Drive (${state.tasks.length} tareas). Sincroniza desde tus otros equipos.`);
-    else {
-      showToast(`Sincronizado: ${mergeSummaryText(summary)}.`, {
-        label: 'Deshacer',
-        run: async () => { await undoImport(); showToast('Volviste a lo de antes de sincronizar.'); },
-      });
+  const steps = [];
+  if ((targets === 'all' || targets === 'folder') && folderConnected()) steps.push(['la carpeta', syncFolder]);
+  if (targets === 'drive' || (targets === 'all' && driveOn())) steps.push(['Google Drive', syncNow]);
+  const results = [];
+  let undoSaved = false;
+  try {
+    for (const [name, run] of steps) {
+      // Un solo punto de Deshacer: el de antes de la primera mezcla
+      const ctx = undoSaved ? { ...local, saveUndo: () => {} } : local;
+      try {
+        const r = await run(ctx);
+        if (!r.created) undoSaved = true;
+        results.push([name, r]);
+      } catch (err) {
+        reportError(steps.length > 1 && !(err instanceof SyncCancelled) ? new Error(`${name}: ${err.message}`) : err);
+        return;
+      }
     }
-  }).catch((err) => {
-    if (err instanceof SyncCancelled) {
-      showToast(err.message);
-      return;
-    }
-    showToast(err.message || 'No se pudo sincronizar.');
-  }).finally(done);
+  } finally {
+    busy = false;
+    renderDrive();
+  }
+  if (!results.length) return;
+  const text = results.map(([name, r]) => (r.created
+    ? `tus datos quedaron en ${name}`
+    : mergeSummaryText(r.summary))).join(' · ');
+  const created = results.every(([, r]) => r.created);
+  showToast(created ? `Listo: ${text} (${state.tasks.length} tareas).` : `Sincronizado: ${text}.`, created ? undefined : undoAction);
+}
+
+// ---------- Carpeta: sincronizar sola mientras haya permiso ----------
+
+let autoTimer = null;
+const AUTO_DELAY = 4000;
+
+/** Sincroniza con la carpeta sin preguntar nada (solo si ya hay permiso). Avisa solo si trajo cambios. */
+async function autoFolderSync() {
+  if (busy || !folderConnected() || !(await folderGranted())) return;
+  busy = true;
+  try {
+    const r = await syncFolder({ ...local, confirmAccount: async () => false });
+    const text = r.summary ? mergeSummaryText(r.summary) : '';
+    if (text && text !== 'ya estaba al día') showToast(`Desde la carpeta: ${text}.`, undoAction);
+  } catch {
+    // en silencio: el ⟳ y Ajustes muestran el error cuando se sincroniza a mano
+  } finally {
+    busy = false;
+    renderDrive();
+  }
+}
+
+function scheduleAutoSync() {
+  if (!folderConnected()) return;
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => {
+    if (latestLocalChange(state) > (folderLastSync()?.at || '')) autoFolderSync();
+  }, AUTO_DELAY);
+}
+
+async function pickFolder() {
+  try {
+    const name = await chooseFolder();
+    if (!name) return;
+    renderDrive();
+    showToast(`Carpeta elegida: ${name}.`);
+    await startSync('folder');
+  } catch (err) {
+    showToast(err.message);
+  }
 }
 
 export function setupDrive() {
@@ -142,13 +255,32 @@ export function setupDrive() {
   document.getElementById('drive-section').addEventListener('toggle', (e) => {
     if (e.target.open) prepare().catch((err) => showToast(err.message));
   });
-  document.getElementById('drive-connect').addEventListener('click', startSync);
-  document.getElementById('drive-sync').addEventListener('click', startSync);
-  // ⟳ de Hoy: sin conexión lleva a Ajustes; conectado, sincroniza
+  document.getElementById('drive-connect').addEventListener('click', () => startSync('drive'));
+  document.getElementById('drive-sync').addEventListener('click', () => startSync('drive'));
+  // ⟳ de Hoy: sin conexión lleva a Ajustes; conectado, sincroniza con todo lo conectado
   document.getElementById('drive-sync-btn').addEventListener('click', () => {
-    if (isConnected()) startSync();
+    if (driveOn() || folderConnected()) startSync('all');
     else openDriveSettings();
   });
+
+  // Carpeta local (solo computador)
+  if (folderAvailable()) {
+    document.getElementById('folder-choose').addEventListener('click', pickFolder);
+    document.getElementById('folder-change').addEventListener('click', pickFolder);
+    document.getElementById('folder-sync').addEventListener('click', () => startSync('folder'));
+    document.getElementById('folder-forget').addEventListener('click', async () => {
+      // eslint-disable-next-line no-alert
+      if (!window.confirm('¿Dejar de sincronizar con esta carpeta en este equipo? Tus datos se quedan aquí y el archivo no se borra.')) return;
+      await forgetFolder();
+      showToast('Ya no se sincroniza con la carpeta en este equipo.');
+      renderDrive();
+    });
+    loadFolder().then(() => { renderDrive(); autoFolderSync(); });
+    // Al volver a la ventana, traer lo que cambió la otra app; después de cada cambio, guardarlo
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoFolderSync(); });
+    window.addEventListener('focus', () => autoFolderSync());
+    subscribe(scheduleAutoSync);
+  }
   document.getElementById('drive-disconnect').addEventListener('click', async () => {
     // eslint-disable-next-line no-alert
     if (!window.confirm('¿Desconectar Google Drive en este equipo? Tus datos se quedan aquí y el archivo en tu Drive no se borra.')) return;

@@ -115,6 +115,28 @@
       </div>
     </details>
 
+    <details class="settings settings-section folder-section" data-section="folder" id="folder-section" hidden>
+      <summary>
+        <span class="ss-head"><span class="ss-title">Sincronizar con una carpeta local</span><span class="ss-chevron" aria-hidden="true"></span></span>
+        <span class="ss-desc" id="folder-desc">La app web y la extensión de este computador, con los mismos datos.</span>
+      </summary>
+      <div class="ss-body">
+        <div id="folder-off">
+          <p>Elige una carpeta de este computador: ahí se guarda <code>cabe-todo-sync.json</code>. Elige la <strong>misma carpeta</strong> en la app web instalada y en la extensión, y quedan sincronizadas.</p>
+          <p class="settings-note">Mientras Chrome tenga el permiso, se sincroniza sola al abrir la app y al hacer cambios. Funciona también con Google Drive conectado.</p>
+          <button type="button" class="primary small" id="folder-choose">Elegir carpeta</button>
+        </div>
+        <div id="folder-on" hidden>
+          <p id="folder-status"></p>
+          <div class="backup-actions">
+            <button type="button" class="primary small" id="folder-sync">Sincronizar ahora</button>
+            <button type="button" class="link-btn" id="folder-change">Cambiar carpeta</button>
+            <button type="button" class="link-btn" id="folder-forget">Dejar de usar</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
     <details class="settings settings-section" data-section="blocks">
       <summary>
         <span class="ss-head"><span class="ss-title">Bloques del Día</span><span class="ss-chevron" aria-hidden="true"></span></span>

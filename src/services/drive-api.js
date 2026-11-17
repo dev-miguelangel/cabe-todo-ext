@@ -65,6 +65,7 @@ export async function runSync(drive, local, { fileId = null, previousAccount = n
   }
   const switched = Boolean(email && previousAccount && previousAccount !== email);
   const ask = async (fileOwner) => {
+    if (!email) return; // sin correo (o carpeta local): nada que comparar
     const others = [...new Set([switched ? previousAccount : null, fileOwner && fileOwner !== email ? fileOwner : null].filter(Boolean))];
     if (others.length && !(await local.confirmAccount({ current: email, others }))) throw new SyncCancelled();
   };

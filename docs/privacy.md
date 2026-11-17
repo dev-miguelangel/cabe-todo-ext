@@ -1,6 +1,6 @@
 # Política de privacidad de Cabe Todo
 
-_Última actualización: 14 de noviembre de 2026_
+_Última actualización: 17 de noviembre de 2026_
 
 Cabe Todo planifica las tareas del día. Existe como extensión de Chrome y como app web instalable (https://cabe-todo-web.vercel.app). Esta política explica qué datos maneja y qué hace con ellos.
 
@@ -48,6 +48,14 @@ Si activas **Ajustes → Sincronizar con Google Drive**:
   - El archivo en tu Drive no se borra solo: puedes eliminarlo cuando quieras.
 
 El uso y la transferencia que hace Cabe Todo de la información recibida de las API de Google se ajustan a la [Política de datos de usuario de los servicios de las API de Google](https://developers.google.com/terms/api-services-user-data-policy), incluidos los requisitos de uso limitado. Los datos de tu Drive se usan solo para sincronizar tu lista: no se usan para publicidad, no se venden ni se comparten con nadie.
+
+## Sincronización con una carpeta local (opcional, solo en computador)
+
+Si eliges **Ajustes → Sincronizar con una carpeta local**, Cabe Todo guarda el archivo `cabe-todo-sync.json` en la carpeta de tu computador que tú elijas. Así la app web y la extensión del mismo computador comparten tus datos.
+
+- Solo puede leer y escribir en esa carpeta, con el permiso que Chrome te pide.
+- El archivo no sale de tu computador: Cabe Todo no lo sube a ningún lugar.
+- **Dejar de usar** olvida la carpeta en ese equipo. El archivo no se borra.
 
 ## Permisos de la extensión
 
