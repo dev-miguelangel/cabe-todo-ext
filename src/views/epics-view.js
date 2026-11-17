@@ -1,5 +1,6 @@
 // Vista "Épicas" (estilo de la vista Hoy): cada épica es una fila plegable.
-// Cerrada: nombre, hechas/total, fecha objetivo y "Quedan ~41m de trabajo".
+// Cerrada: nombre, hechas/total, fecha objetivo, "Quedan ~41m de trabajo" y, si tiene valor hora, su costo.
+// Abierta: el detalle del costo (trabajado, pendiente y total) y el valor hora junto a la fecha objetivo.
 // Abierta: campo para agregar tareas (misma sintaxis de Hoy) y sus tareas separadas por líneas
 // (──── Sin fecha · Planificadas · Hechas), más la fecha objetivo y renombrar / archivar / borrar.
 
@@ -8,7 +9,7 @@ import { epicForecast, criticalIds } from '../core/pert.js';
 import { todayISO, shortLabel, parseISO } from '../utils/dates.js';
 import {
   state, findEpic, activeEpics, archivedEpics, epicTasks,
-  createEpic, renameEpic, setEpicTarget, archiveEpic, restoreEpic, deleteEpic,
+  createEpic, renameEpic, setEpicTarget, setEpicRate, reorderEpics, archiveEpic, restoreEpic, deleteEpic,
   addFromText, updateTask, toggleTimer,
 } from '../services/store.js';
 import { blockIndex } from '../core/blocks.js';
@@ -17,7 +18,11 @@ import { renderCard } from '../components/cards.js';
 import { showTaskModal } from '../components/task-modal.js';
 import { openMoveMenu } from '../components/move-menu.js';
 import { probTag } from '../components/prob-tag.js';
+import { makeSortable } from '../utils/drag-sort.js';
 import { titleCase } from '../utils/text.js';
+import {
+  CURRENCIES, defaultCurrency, hasRate, epicCost, formatMoney,
+} from '../core/cost.js';
 
 // Épicas abiertas en esta sesión (al abrir el panel, todas empiezan cerradas)
 const openEpics = new Set();
@@ -31,6 +36,19 @@ function forecastOf(fc, epic) {
 }
 
 /** "Objetivo: mié 24 dic (en 13 días)" · "Objetivo: hoy" · "Objetivo vencido: lun 10 nov" · "Sin fecha objetivo" */
+/** Dinero en la moneda de la épica. */
+const money = (epic, amount) => formatMoney(amount, epic.currency);
+
+/** "Trabajado 9h30 · $237.500 · Pendiente 4h · $100.000 · Total $337.500" */
+function costLine(epic) {
+  const c = epicCost(epic, state.tasks);
+  const part = (label, min, amount) => [h('span', { class: 'cost-label' }, label), ` ${formatMinutes(Math.round(min))} · `, h('strong', {}, money(epic, amount))];
+  return h('p', { class: 'epic-cost-line' },
+    ...part('Trabajado', c.minutes.worked, c.amount.worked), h('span', { class: 'epic-sep', 'aria-hidden': 'true' }, ' · '),
+    ...part('Pendiente', c.minutes.pending, c.amount.pending), h('span', { class: 'epic-sep', 'aria-hidden': 'true' }, ' · '),
+    h('span', { class: 'cost-label' }, 'Total'), ' ', h('strong', {}, money(epic, c.amount.total)));
+}
+
 function targetText(target) {
   if (!target) return 'Sin fecha objetivo';
   const today = todayISO();
@@ -86,12 +104,21 @@ function epicBody(epic, ctx) {
         'aria-label': `Nueva tarea para ${epic.name}`,
         dataset: { focusKey: `add-${epic.id}` },
       })),
+    hasRate(epic) ? costLine(epic) : null,
     items.length
       ? h('ul', { class: 'done-list epic-tasks', 'aria-label': `Tareas de ${epic.name}` }, ...items)
       : h('p', { class: 'minimal-empty epic-empty' }, 'Escribe arriba la primera tarea de esta épica.'),
     h('div', { class: 'epic-foot' },
       h('label', { class: 'epic-target' }, '🎯 Fecha objetivo ',
         h('input', { type: 'date', value: epic.target_date || '', dataset: { action: 'target' }, 'aria-label': `Fecha objetivo de ${epic.name}` })),
+      h('span', { class: 'epic-rate', role: 'group', 'aria-label': `Valor hora de ${epic.name}` }, '💲 Valor hora ',
+        h('input', {
+          type: 'text', inputmode: 'decimal', class: 'epic-rate-input', placeholder: 'sin costo',
+          value: epic.rate ? String(epic.rate).replace('.', ',') : '', dataset: { action: 'rate', focusKey: `rate-${epic.id}` },
+          'aria-label': 'Valor por hora', title: 'Para ver el costo de la épica. Vacío = sin costos.',
+        }),
+        h('select', { dataset: { action: 'currency' }, 'aria-label': 'Moneda' },
+          ...[...new Set([...CURRENCIES, epic.currency || defaultCurrency()])].map((code) => h('option', { value: code, selected: code === (epic.currency || defaultCurrency()) }, code)))),
       actions));
 }
 
@@ -105,6 +132,7 @@ function renderEpic(epic, ctx) {
   return h('details', { class: 'epic-item', open, dataset: { epicId: epic.id }, style: `--epic:${epic.color}` },
     h('summary', {},
       h('span', { class: 'epic-row' },
+        h('span', { class: 'epic-handle', title: 'Arrastra para ordenar', 'aria-hidden': 'true' }, '⠿'),
         h('span', { class: 'dot', style: `background:${epic.color}` }),
         h('span', { class: 'epic-name' }, titleCase(epic.name)),
         h('span', { class: 'epic-count', title: `${fc.doneCount} hechas de ${fc.total}` }, `${fc.doneCount}/${fc.total} ✓`),
@@ -113,7 +141,14 @@ function renderEpic(epic, ctx) {
         h('span', { class: 'epic-target-text', title: epic.target_date ? 'Fecha objetivo (se cambia al abrir la épica)' : null }, when),
         forecast !== null ? probTag(forecast) : null,
         h('span', { class: 'epic-sep', 'aria-hidden': 'true' }, '·'),
-        h('span', {}, remainingText(fc))),
+        h('span', {}, remainingText(fc)),
+        hasRate(epic) ? (() => {
+          const c = epicCost(epic, state.tasks);
+          return h('span', {
+            class: 'epic-cost',
+            'data-tooltip': `Trabajado ${money(epic, c.amount.worked)} · Pendiente ${money(epic, c.amount.pending)}`,
+          }, money(epic, c.amount.total));
+        })() : null),
       h('span', { class: 'epic-progress', 'aria-hidden': 'true' }, h('span', { style: `width:${pct}%` }))),
     open ? epicBody(epic, ctx) : null);
 }
@@ -178,8 +213,10 @@ export function renderEpics() {
   });
 }
 
+let sortable = null; // ordenar arrastrando la manija ⠿ (setupEpics)
+
 export function isEpicsBusy() {
-  return Boolean(renaming || document.querySelector('#view-epics .edit-input'));
+  return Boolean(renaming || document.querySelector('#view-epics .edit-input') || sortable?.busy());
 }
 
 // ---------- Eventos ----------
@@ -198,6 +235,17 @@ export function setupEpics() {
   });
 
   const root = document.getElementById('epics-list');
+  // Ordenar las épicas arrastrando la manija ⠿ (la de Archivadas no se mueve)
+  sortable = makeSortable(root, {
+    item: '.epic-item:not(.archived)',
+    handle: '.epic-handle',
+    idOf: (el) => el.dataset.epicId,
+    onSort: (ids) => reorderEpics(ids),
+  });
+  // Tocar la manija no abre ni cierra la épica
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('.epic-handle')) e.preventDefault();
+  }, true);
 
   // Abrir / cerrar una épica: su contenido se arma solo al abrirla
   root.addEventListener('toggle', (e) => {
@@ -231,6 +279,10 @@ export function setupEpics() {
       updateTask(e.target.closest('.task').dataset.id, { done: e.target.checked });
     } else if (e.target.matches('[data-action="target"]')) {
       setEpicTarget(e.target.closest('.epic-item').dataset.epicId, e.target.value);
+    } else if (e.target.matches('[data-action="rate"], [data-action="currency"]')) {
+      const group = e.target.closest('.epic-rate');
+      setEpicRate(e.target.closest('.epic-item').dataset.epicId,
+        group.querySelector('[data-action="rate"]').value, group.querySelector('[data-action="currency"]').value);
     }
   });
 

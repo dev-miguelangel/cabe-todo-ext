@@ -1331,3 +1331,55 @@ console.log('OK: parser + PERT + épicas');
   }
   console.log('OK: #épica y @bloque en cualquier lugar; ejemplos del campo');
 }
+
+// ---------- Costo de una épica (valor hora) ----------
+{
+  const C = await import(root + '/src/core/cost.js');
+  const now = Date.parse('2026-11-17T12:00:00Z');
+  const entry = (h) => [{ start: new Date(now - h * 3600000).toISOString(), end: new Date(now).toISOString() }];
+  const epic = { id: 'e1', rate: 20000, currency: 'CLP' };
+  const tasks = [
+    { id: 'a', epic_id: 'e1', minutes: 120, done: true, time_entries: entry(1.5) },   // hecha con 1h30 real
+    { id: 'b', epic_id: 'e1', minutes: 60, done: true, time_entries: [] },           // hecha sin temporizador: 1h
+    { id: 'c', epic_id: 'e1', minutes: 120, done: false, time_entries: entry(0.5) }, // en curso: 30m trabajados, 1h30 pendiente
+    { id: 'd', epic_id: 'e1', minutes: 60, done: false, time_entries: [] },          // pendiente: 1h
+    { id: 'x', epic_id: 'otra', minutes: 600, done: true, time_entries: [] },
+  ];
+  const c = C.epicCost(epic, tasks, now);
+  assert.deepEqual(c.minutes, { worked: 180, pending: 150, total: 330 });
+  assert.deepEqual(c.amount, { worked: 60000, pending: 50000, total: 110000 });
+  assert.equal(C.pendingMinutes({ minutes: 30, done: false, time_entries: entry(1) }, now), 0, 'pasada del estimado: no queda pendiente negativo');
+  assert.equal(C.hasRate(epic), true);
+  assert.equal(C.hasRate({ rate: null, currency: 'CLP' }), false);
+  assert.equal(C.formatMoney(110000, 'CLP', 'es-CL'), '$110.000');
+  assert.match(C.formatMoney(1250.5, 'USD', 'es-CL'), /1\.250,5/);
+  assert.deepEqual(['25.000', '25,000', '1.250,50', '1,250.50', '1,5', '$ 30.000', '18000', ''].map(C.parseAmount), [25000, 25000, 1250.5, 1250.5, 1.5, 30000, 18000, null]);
+  assert.equal(C.defaultCurrency('es-CL'), 'CLP');
+  assert.equal(C.defaultCurrency('es-ES'), 'EUR');
+  assert.equal(C.defaultCurrency('xx'), 'USD');
+
+  const S = await import(root + '/src/services/store.js');
+  const e = S.createEpic('Cliente costos');
+  S.setEpicRate(e.id, '25.000', 'clp');
+  assert.deepEqual([S.findEpic(e.id).rate, S.findEpic(e.id).currency], [25000, 'CLP'], '"25.000" se lee como 25000');
+  S.setEpicRate(e.id, '', 'CLP');
+  assert.equal(S.findEpic(e.id).rate, null, 'vacío: sin costos');
+  console.log('OK: costo de una épica (trabajado, pendiente, moneda)');
+}
+
+// ---------- Orden de las épicas (arrastrando) ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const [a, b, c] = ['Orden A', 'Orden B', 'Orden C'].map((n) => S.createEpic(n));
+  const names = () => S.activeEpics().map((e) => e.name).filter((n) => n.startsWith('Orden'));
+  assert.deepEqual(names(), ['Orden A', 'Orden B', 'Orden C'], 'las nuevas van al final');
+  const others = S.activeEpics().filter((e) => !e.name.startsWith('Orden')).map((e) => e.id);
+  const stampA = S.findEpic(a.id).updated_at;
+  await new Promise((r) => setTimeout(r, 5));
+  S.reorderEpics([...others, c.id, a.id, b.id]);
+  assert.deepEqual(names(), ['Orden C', 'Orden A', 'Orden B']);
+  assert.ok(S.findEpic(c.id).updated_at > stampA, 'la que se movió queda marcada para sincronizar');
+  const d = S.createEpic('Orden D');
+  assert.equal(S.activeEpics().at(-1).id, d.id, 'una nueva sigue yendo al final');
+  console.log('OK: orden de las épicas');
+}

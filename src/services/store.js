@@ -14,6 +14,7 @@ import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBl
 import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../core/routines.js';
 import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
+import { parseAmount } from '../core/cost.js';
 import {
   snapshotOf, stampChanges, addTombstones, pruneTombstones, mergeData, stampSettings, stampAllSettings,
 } from '../core/merge.js';
@@ -149,7 +150,9 @@ function newId(prefix) {
 
 export const findTask = (id) => state.tasks.find((t) => t.id === id);
 export const findEpic = (id) => state.epics.find((e) => e.id === id);
-export const activeEpics = () => state.epics.filter((e) => !e.archived);
+/** Orden de las épicas: el que se eligió arrastrando (`order`); las nuevas, al final. */
+const byEpicOrder = (a, b) => (a.order ?? Infinity) - (b.order ?? Infinity) || (a.created_at || '').localeCompare(b.created_at || '');
+export const activeEpics = () => state.epics.filter((e) => !e.archived).sort(byEpicOrder);
 export const archivedEpics = () => state.epics.filter((e) => e.archived);
 export const dayTasks = (date = todayISO()) => state.tasks.filter((t) => t.date === date);
 export const blockTasks = (block, date = todayISO()) => dayTasks(date).filter((t) => t.block === block);
@@ -177,6 +180,7 @@ function createEpicRaw(name) {
     color: pickColor(),
     target_date: null,
     archived: false,
+    order: Math.max(-1, ...state.epics.map((e) => e.order ?? -1)) + 1, // al final de la lista
     created_at: new Date().toISOString(),
   };
   state.epics.push(epic);
@@ -219,6 +223,25 @@ export function setEpicTarget(id, date) {
   const epic = findEpic(id);
   if (!epic) return;
   epic.target_date = date || null;
+  commit();
+}
+
+/** Orden de las épicas activas (arrastrando en la vista Épicas): ids en el orden nuevo. */
+export function reorderEpics(ids) {
+  ids.forEach((id, i) => {
+    const epic = findEpic(id);
+    if (epic && epic.order !== i) epic.order = i;
+  });
+  commit(); // solo las que cambiaron de lugar quedan marcadas (y viajan así al sincronizar)
+}
+
+/** Valor hora de una épica (para ver su costo). Vacío o 0 = sin costos. */
+export function setEpicRate(id, rate, currency) {
+  const epic = findEpic(id);
+  if (!epic) return;
+  const value = typeof rate === 'number' ? rate : parseAmount(rate); // "25.000" → 25000
+  epic.rate = value && value > 0 ? Math.round(value * 100) / 100 : null;
+  if (currency) epic.currency = String(currency).trim().toUpperCase().slice(0, 3);
   commit();
 }
 

@@ -17,6 +17,7 @@ import { blockName, blockRange, firstBlock } from '../core/blocks.js';
 import { createComments } from './comments.js';
 import { h, openModal, closeModal, isModalOpen, showToast } from '../utils/ui.js';
 import { titleCase } from '../utils/text.js';
+import { hasRate, amountOf, workedMinutes, formatMoney } from '../core/cost.js';
 
 
 // Estado del modal (sobrevive a los re-render que provoca cada cambio guardado)
@@ -44,8 +45,19 @@ function metaSection(task) {
   const what = task.meeting
     ? `◷ Reunión · ${task.date === todayISO() ? 'hoy' : shortLabel(task.date)} · ${task.meeting.start}–${task.meeting.end}`
     : `${formatMinutes(task.minutes)} estimadas · ${whereText(task)}`;
+  // Costo, si la épica tiene valor hora: el estimado y, si ya se trabajó, lo trabajado
+  let cost = null;
+  if (hasRate(epic)) {
+    const worked = workedMinutes(task);
+    const estimate = formatMoney(amountOf(task.minutes || 0, epic.rate), epic.currency);
+    cost = h('span', {
+      class: 'task-meta-cost',
+      title: `Valor hora de ${titleCase(epic.name)}: ${formatMoney(epic.rate, epic.currency)}`,
+    }, ` · ${estimate}`, worked > 0 ? ` · trabajado ${formatMinutes(Math.round(worked))} (${formatMoney(amountOf(worked, epic.rate), epic.currency)})` : '');
+  }
   return h('p', { class: 'task-meta' },
     what,
+    cost,
     epic ? h('span', { class: 'task-meta-epic' }, ' · ', h('span', { class: 'dot', style: `background:${epic.color}` }), ` ${titleCase(epic.name)}`) : null,
     task.done ? ' · ✓ hecha' : '',
     // Convertir en reunión: un enlace discreto en la misma línea (no una sección aparte)

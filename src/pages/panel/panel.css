@@ -1368,3 +1368,20 @@ button.prob-tag { cursor: pointer; }
 
 /* Autocompletado de #épica: recordatorio de dónde va */
 .ac-note { padding: 4px 10px 2px; font-size: 11px; color: var(--muted); }
+
+/* Costo (valor hora de la épica) */
+.epic-cost { margin-left: 2px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 18px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.epic-cost-line { margin: 0 0 10px; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 4px; align-items: baseline; }
+.epic-cost-line strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.epic-cost-line .cost-label { font-weight: 600; }
+.epic-rate { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.epic-rate-input { width: 90px; font: inherit; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--field); color: var(--text); }
+.epic-rate select { font: inherit; padding: 3px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--field); color: var(--text); }
+.task-meta-cost { font-variant-numeric: tabular-nums; }
+
+/* Épicas: manija para ordenar arrastrando */
+.epic-handle { flex: none; margin: 0 -2px 0 -6px; padding: 2px 3px; color: var(--muted); font-size: 14px; line-height: 1; cursor: grab; opacity: 0.55; user-select: none; touch-action: none; }
+.epic-item:hover .epic-handle { opacity: 1; }
+.epic-item.sort-dragging { opacity: 0.5; outline: 2px dashed var(--accent); outline-offset: 2px; }
+#epics-list.is-sorting .epic-handle { cursor: grabbing; }
