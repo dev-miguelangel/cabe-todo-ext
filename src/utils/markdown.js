@@ -3,8 +3,8 @@
 // los enlaces solo aceptan http(s) y mailto.
 //
 // Soporta: # títulos, **negrita**, *cursiva*, ~~tachado~~, `código`, bloques ```,
-// listas con - * + y numeradas, tareas - [ ] / - [x] (marcables con opts.checkboxes), > citas, ---, [enlaces](https://…)
-// y URLs sueltas. Los saltos de línea dentro de un párrafo se respetan (como en GitHub).
+// listas con - * + y numeradas, tareas - [ ] / - [x] (marcables con opts.checkboxes), > citas, ---, [enlaces](https://…),
+// imágenes ![texto](img:id) (las de la tarea o épica, en opts.images) o ![texto](https://…), y URLs sueltas. Los saltos de línea dentro de un párrafo se respetan (como en GitHub).
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ESC[c]);
@@ -14,12 +14,31 @@ function safeUrl(url) {
   return /^(https?:\/\/|mailto:)/i.test(u) ? u : null;
 }
 
+// Imágenes de la tarea o épica que se está mostrando (id → data:image/…); solo durante renderMarkdown
+let images = {};
+const DATA_IMAGE = /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i;
+
+/** Origen de una imagen: img:id (de opts.images, como data:image/… en base64) o https. null si no sirve. */
+export function imageSource(ref, list = images) {
+  const id = ref.match(/^img:([\w-]+)$/)?.[1];
+  if (id) {
+    const data = list?.[id]?.data;
+    return typeof data === 'string' && DATA_IMAGE.test(data) ? data : null;
+  }
+  return /^https:\/\//i.test(ref) ? ref : null;
+}
+
 function inline(text) {
   const slots = [];
   const keep = (html) => `\u0000${slots.push(html) - 1}\u0000`;
   let s = escapeHtml(text);
 
   s = s.replace(/`([^`]+)`/g, (_, code) => keep(`<code>${code}</code>`));
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m, alt, ref) => {
+    const src = imageSource(ref.replace(/&amp;/g, '&'));
+    if (!src) return keep(`<span class="md-img-missing" title="${escapeHtml(ref)}">🖼 ${alt || 'Imagen'} (no disponible)</span>`);
+    return keep(`<img class="md-img" src="${escapeHtml(src)}" alt="${alt}" loading="lazy">`);
+  });
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, url) => {
     // url ya está escapada: se des-escapa &amp; para validar y se vuelve a escapar al emitir
     const safe = safeUrl(url.replace(/&amp;/g, '&'));
@@ -55,6 +74,21 @@ function isTableStart(lines, i) {
  * 1 = documento a página completa (# → h1).
  */
 export function renderMarkdown(src, opts = {}) {
+  const outer = images;
+  if (opts.images) images = opts.images;
+  try {
+    return renderBlocks(src, opts);
+  } finally {
+    images = outer;
+  }
+}
+
+/** Ids de imagen (img:id) que usa el texto. */
+export function imageRefs(src) {
+  return new Set([...(src || '').matchAll(/!\[[^\]]*\]\(img:([\w-]+)\)/g)].map((m) => m[1]));
+}
+
+function renderBlocks(src, opts) {
   const base = opts.headingBase ?? 3;
   const lines = (src || '').replace(/\r\n?/g, '\n').split('\n');
   const out = [];

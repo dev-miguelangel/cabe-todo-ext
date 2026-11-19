@@ -4,6 +4,7 @@
 
 import {
   state, initStore, subscribe, setNotifier, findTask, findEpic, setDoc, setEpicDoc, refreshFromStorage, epicTasks,
+  pruneDocImages,
 } from '../../services/store.js';
 import { formatMinutes } from '../../core/parser.js';
 import { todayISO, shortLabel, formatDMY } from '../../utils/dates.js';
@@ -24,6 +25,8 @@ const isEpic = Boolean(epicId);
 const subject = () => (isEpic ? findEpic(epicId) : findTask(taskId));
 const subjectTitle = (s) => titleCase(isEpic ? s.name : s.title);
 const writeDoc = (value) => (isEpic ? setEpicDoc(epicId, value) : setDoc(taskId, value));
+/** Imágenes de la documentación (se agregan desde la app web; aquí se muestran). */
+const docImages = () => subject()?.images || null;
 // Esqueleto opcional para empezar una documentación vacía
 
 let text = '';          // contenido del editor (puede ir por delante de lo guardado)
@@ -141,7 +144,7 @@ async function exportPdf(task) {
       h('thead', {}, gap()),
       h('tfoot', {}, gap()),
       h('tbody', {}, h('tr', {}, h('td', { class: 'print-body' },
-        markdownView(text, { headingBase: 1, empty: `Esta ${isEpic ? 'épica' : 'tarea'} todavía no tiene documentación.` }))))));
+        markdownView(text, { headingBase: 1, images: docImages(), empty: `Esta ${isEpic ? 'épica' : 'tarea'} todavía no tiene documentación.` }))))));
   const title = document.title;
   document.title = `${subjectTitle(task)} - Documentación`;
   const restore = () => {
@@ -227,6 +230,7 @@ function renderEditor() {
     tab,
     rows: 18,
     headingBase: 1,
+    images: docImages(),
     className: 'doc-editor',
     label: 'Documentación en Markdown',
     placeholder: '# Objetivo\n\nDescribe la tarea, decisiones, enlaces y pasos…\n\nUsa la barra de arriba para títulos, enlaces y bloques de código.',
@@ -282,6 +286,7 @@ async function init() {
     renderMissing();
     return;
   }
+  pruneDocImages(isEpic ? 'epic' : 'task', isEpic ? epicId : taskId); // las que ya no se usan
   text = task.doc || '';
   saved = text;
   savedAt = task.doc_updated_at ? new Date(task.doc_updated_at) : null;

@@ -1476,3 +1476,43 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(F.folderAvailable(), false, 'fuera del navegador (o en el celular) no se ofrece');
   console.log('OK: sincronizar con una carpeta local');
 }
+
+// ---------- Imágenes en la documentación; enlace desde la pestaña activa ----------
+{
+  const M = await import(root + '/src/utils/markdown.js');
+  const png = 'data:image/png;base64,iVBORw0KGgo=';
+  const images = { i1: { data: png, at: '2026-11-19T10:00:00Z' }, bad: { data: 'javascript:alert(1)' } };
+  const html = M.renderMarkdown('# Foto\n\n![Pizarrón](img:i1)\n\n![x](img:bad) ![y](img:nada) ![w](https://ej.com/a.png) ![z](javascript:alert(1))', { images });
+  assert.ok(html.includes(`<img class="md-img" src="${png}" alt="Pizarrón"`), 'img:id → la imagen guardada');
+  assert.ok(html.includes('src="https://ej.com/a.png"'), 'https también');
+  assert.equal((html.match(/md-img-missing/g) || []).length, 3, 'lo que no es una imagen válida queda como aviso');
+  assert.ok(!/javascript:alert\(1\)"/.test(html.replace(/title="[^"]*"/g, '')), 'nunca como src');
+  assert.ok(!M.renderMarkdown('![a](img:i1)').includes('<img'), 'sin las imágenes de la tarea, no se muestra');
+  assert.deepEqual([...M.imageRefs('![a](img:i1) texto ![b](img:i2) [c](img:i3)')], ['i1', 'i2']);
+  assert.equal(M.markdownExcerpt('Antes ![Pizarrón](img:i1) después'), 'Antes Pizarrón después');
+
+  const S = await import(root + '/src/services/store.js');
+  const e = S.createEpic('Con fotos');
+  S.addDocImage('epic', e.id, 'i1', png, '![Pizarrón](img:i1)');
+  assert.equal(S.findEpic(e.id).images.i1.data, png);
+  assert.equal(S.findEpic(e.id).doc, '![Pizarrón](img:i1)', 'texto e imagen en un solo cambio');
+  assert.ok(JSON.parse(S.exportBackup()).epics.find((x) => x.id === e.id).images.i1, 'viajan en el respaldo (y en Drive y la carpeta)');
+  assert.equal(S.pruneDocImages('epic', e.id), 0, 'las usadas se quedan');
+  S.setEpicDoc(e.id, 'Sin foto');
+  assert.equal(S.pruneDocImages('epic', e.id), 1, 'las que ya no se usan se borran al abrir');
+  assert.equal(S.findEpic(e.id).images, undefined);
+
+  // Pestaña activa (extensión): con permiso, URL y título; páginas internas no sirven
+  const C = await import(root + '/src/components/comments.js');
+  const tabs = [{ url: 'https://github.com/dev/x', title: 'Repo x' }];
+  globalThis.chrome.tabs = { query: async () => tabs };
+  globalThis.chrome.permissions.request = async () => true;
+  assert.deepEqual(await C.activeTabLink(), { url: 'https://github.com/dev/x', title: 'Repo x' });
+  tabs[0] = { url: 'chrome://extensions/', title: 'Extensiones' };
+  assert.equal(await C.activeTabLink(), null, 'chrome:// no es un enlace');
+  tabs[0] = { title: 'Sin permiso' }; // sin "tabs" Chrome no entrega la URL
+  assert.equal(await C.activeTabLink(), null);
+  delete globalThis.chrome.tabs;
+  assert.equal(await C.activeTabLink(), null, 'en la web no hace nada');
+  console.log('OK: imágenes en la documentación; enlace desde la pestaña activa');
+}

@@ -1,6 +1,6 @@
 # Política de privacidad de Cabe Todo
 
-_Última actualización: 17 de noviembre de 2026_
+_Última actualización: 19 de noviembre de 2026_
 
 Cabe Todo planifica las tareas del día. Existe como extensión de Chrome y como app web instalable (https://cabe-todo-web.vercel.app). Esta política explica qué datos maneja y qué hace con ellos.
 
@@ -15,7 +15,7 @@ Cabe Todo planifica las tareas del día. Existe como extensión de Chrome y como
 Cabe Todo guarda en tu equipo:
 
 - tus tareas, reuniones, rutinas y épicas (títulos, duraciones, fechas, bloques y estado);
-- la documentación y los comentarios que escribes en cada tarea;
+- la documentación y los comentarios que escribes en cada tarea y épica, con las imágenes que agregues a la documentación (desde la app web);
 - los tiempos que registras con el temporizador;
 - tus ajustes (bloques del día, plantillas, tema, avisos, orden del menú);
 - la fecha de cada cambio y los borrados recientes (60 días), para poder mezclar los datos de tus equipos.
@@ -68,6 +68,8 @@ Si eliges **Ajustes → Sincronizar con una carpeta local**, Cabe Todo guarda el
 | `offscreen` | Reproducir el sonido de la alarma del temporizador. |
 | `scripting` | Mostrar el temporizador flotante en las páginas, solo si lo activas. |
 | `identity` | Abrir la ventana de Google para dar el permiso de Drive, solo si activas la sincronización. |
+| `unlimitedStorage` | Guardar en tu equipo las imágenes de la documentación sin el límite de 10 MB de Chrome. |
+| `tabs` (opcional) | Se pide solo si tocas **Usar la pestaña activa** al insertar un enlace en un comentario. Sirve únicamente para leer la URL y el título de la pestaña que estás viendo **en ese momento** y completar el enlace. **No se guarda ni se envía tu historial**: solo queda en el comentario el enlace que tú insertes. Puedes revocarlo desde `chrome://extensions`. |
 | Acceso a sitios web (opcional) | Se pide solo si activas el temporizador flotante en **Ajustes → Preferencias**. Sirve únicamente para dibujar el botón flotante del temporizador sobre las páginas. **La extensión no lee, guarda ni modifica el contenido de las páginas.** Puedes revocarlo cuando quieras desde `chrome://extensions`. |
 
 ## Código remoto

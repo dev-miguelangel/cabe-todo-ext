@@ -9,9 +9,11 @@ import { h } from '../utils/ui.js';
  * Vista de lectura. renderMarkdown escapa todo el HTML, así que innerHTML es seguro.
  * onToggle(textoNuevo): las casillas "- [ ]" se pueden marcar y desmarcar; sin él, solo se muestran.
  */
-export function markdownView(text, { headingBase, empty = 'Nada que mostrar todavía.', onToggle = null } = {}) {
+export function markdownView(text, {
+  headingBase, empty = 'Nada que mostrar todavía.', onToggle = null, images = null,
+} = {}) {
   const box = h('div', { class: 'md' });
-  if (text.trim()) box.innerHTML = renderMarkdown(text, { headingBase, checkboxes: Boolean(onToggle) });
+  if (text.trim()) box.innerHTML = renderMarkdown(text, { headingBase, checkboxes: Boolean(onToggle), images });
   else box.append(h('p', { class: 'md-empty' }, empty));
   if (onToggle) {
     let current = text; // se va actualizando: marcar varias casillas seguidas sin re-renderizar
@@ -36,7 +38,8 @@ function format(area, kind, onInput) {
 
 /**
  * o: { key, text, tab: 'code'|'read', onInput(v), onTab(t), placeholder, rows,
- *      headingBase, className, toolbarStart(area) → [botones], onKeydown(e) }
+ *      headingBase, className, toolbarStart(area) → [botones], onKeydown(e), images (id → { data }),
+ *      onArea(area): el textarea recién creado (p. ej. para pegar imágenes) }
  */
 export function markdownEditor(o) {
   const area = h('textarea', {
@@ -49,6 +52,7 @@ export function markdownEditor(o) {
   });
   area.value = o.text;
   area.addEventListener('input', () => o.onInput(area.value));
+  o.onArea?.(area);
   area.addEventListener('keydown', (e) => {
     const mod = e.metaKey || e.ctrlKey;
     if (mod && SHORTCUTS[e.key.toLowerCase()]) {
@@ -95,5 +99,5 @@ export function markdownEditor(o) {
   return h('div', { class: `md-editor${o.className ? ` ${o.className}` : ''}` },
     h('div', { class: 'md-tabs', role: 'tablist' }, tabBtn('code', 'Código'), tabBtn('read', 'Lectura')),
     toolbar,
-    o.tab === 'code' ? area : markdownView(o.text, { headingBase: o.headingBase, onToggle: o.onInput || null }));
+    o.tab === 'code' ? area : markdownView(o.text, { headingBase: o.headingBase, onToggle: o.onInput || null, images: o.images }));
 }

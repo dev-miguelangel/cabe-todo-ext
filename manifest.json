@@ -11,7 +11,11 @@
     "notifications",
     "offscreen",
     "scripting",
-    "identity"
+    "identity",
+    "unlimitedStorage"
+  ],
+  "optional_permissions": [
+    "tabs"
   ],
   "optional_host_permissions": [
     "http://*/*",

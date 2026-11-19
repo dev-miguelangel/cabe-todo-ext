@@ -47,6 +47,8 @@ El usuario nunca escribe estimaciones optimistas/pesimistas ni ve fórmulas: sol
 - **Documentación por tarea** en Markdown, en una pestaña a pantalla completa, con buscador en la vista *Docs*.
 - **Cierre del día**: resumen de lo hecho frente a lo estimado, y mover lo pendiente con un clic.
 - **Carpeta local (computador)**: Ajustes → **Sincronizar con una carpeta local**. Elige la misma carpeta en la extensión y en la app web instalada: comparten `cabe-todo-sync.json` y se sincronizan solas mientras Chrome dé el permiso (al abrir, al volver a la ventana y tras cada cambio). Funciona junto con Google Drive.
+- **Enlace desde la pestaña activa**: al tocar **🔗 Enlace** en un comentario, la URL y el título de la pestaña que estás viendo se completan solos (la primera vez, **Usar la pestaña activa** pide el permiso opcional `tabs`).
+- **Imágenes en la documentación**: se agregan desde la app web (🖼 Imagen, pegar o arrastrar) y la extensión las muestra al sincronizar.
 - **Documentación de épicas**: cada épica tiene su propia documentación (botón **Documentación** al abrirla), con las mismas plantillas, PDF y búsqueda en Docs.
 - **Casillas en Lectura**: en la documentación, las listas `- [ ]` se marcan y desmarcan con un clic en la vista Lectura.
 - **Ordenar épicas**: arrastrando la manija ⠿ de cada una (con mouse o con el dedo). El orden se sincroniza.

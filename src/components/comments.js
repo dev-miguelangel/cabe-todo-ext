@@ -1,5 +1,7 @@
 // Comentarios de una tarea: texto simple (sin Markdown; el Markdown queda para la documentación),
 // con enlaces: "🔗 Enlace" inserta una URL (o [texto](url)) donde está el cursor, y al mostrarse son clicables.
+// En la extensión, el formulario del enlace se completa con la pestaña activa (URL y título). Para leerla
+// hace falta el permiso opcional "tabs": se pide una sola vez, con el botón "Usar la pestaña activa".
 // Guarda su propio estado (borrador, comentario en edición) para sobrevivir a los re-render del modal.
 
 import { addComment, editComment, deleteComment } from '../services/store.js';
@@ -35,6 +37,30 @@ export function normalizeUrl(input) {
     return /^https?:$/.test(parsed.protocol) && parsed.hostname.includes('.') ? url : null;
   } catch {
     return null;
+  }
+}
+
+// ---------- Pestaña activa (solo extensión) ----------
+
+const canAskTabs = () => typeof chrome !== 'undefined' && Boolean(chrome.tabs?.query && chrome.permissions?.request);
+
+/** { url, title } de la pestaña activa (si es una página web y hay permiso para leerla), o null. */
+export async function activeTabLink() {
+  if (!canAskTabs()) return null;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    const url = tab?.url && normalizeUrl(tab.url);
+    return url ? { url, title: (tab.title || '').trim() } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function tabsGranted() {
+  try {
+    return await chrome.permissions.contains({ permissions: ['tabs'] });
+  } catch {
+    return false;
   }
 }
 
@@ -87,11 +113,60 @@ export function createComments({ rerender }) {
       onclick: () => {
         const value = textOf(key);
         const [start, end] = carets.get(key) || [value.length, value.length];
-        linkForm = { key, url: '', label: value.slice(start, end), error: '' };
+        linkForm = { key, url: '', label: value.slice(start, end), error: '', offerTab: false };
         rerender();
         document.querySelector('#modal .comment-link-url')?.focus();
+        fillFromTab();
       },
     }, '🔗 Enlace');
+  }
+
+  /** Completa la URL (y el texto, si está vacío) con la pestaña activa. */
+  function applyTab(tab) {
+    if (!linkForm || !tab) return false;
+    if (!linkForm.url.trim()) linkForm.url = tab.url;
+    if (!linkForm.label.trim() && tab.title && tab.title !== tab.url) linkForm.label = tab.title;
+    linkForm.offerTab = false;
+    linkForm.error = '';
+    rerender();
+    const input = document.querySelector('#modal .comment-link-url');
+    input?.focus();
+    input?.select(); // seleccionada: si no era la que querías, escribe encima
+    return true;
+  }
+
+  /** Al abrir el formulario: con permiso, se completa solo; sin él, se ofrece el botón. */
+  async function fillFromTab() {
+    if (!canAskTabs()) return;
+    const form = linkForm;
+    const tab = await activeTabLink();
+    if (form !== linkForm) return; // se cerró mientras tanto
+    if (tab) applyTab(tab);
+    else if (!(await tabsGranted())) {
+      linkForm.offerTab = true;
+      rerender();
+      document.querySelector('#modal .comment-link-url')?.focus();
+    }
+  }
+
+  /** Botón "Usar la pestaña activa": pide el permiso (una sola vez) y completa. */
+  async function useActiveTab() {
+    let granted = false;
+    try {
+      granted = await chrome.permissions.request({ permissions: ['tabs'] });
+    } catch { /* sin permiso */ }
+    if (!linkForm) return;
+    if (!granted) {
+      linkForm.offerTab = false;
+      linkForm.error = 'Sin el permiso, escribe o pega la URL.';
+      rerender();
+      return;
+    }
+    if (!applyTab(await activeTabLink())) {
+      linkForm.offerTab = false;
+      linkForm.error = 'La pestaña activa no es una página web: escribe o pega la URL.';
+      rerender();
+    }
   }
 
   function linkRow() {
@@ -111,6 +186,11 @@ export function createComments({ rerender }) {
     label.addEventListener('keydown', keys);
     return h('div', { class: 'comment-link-form' },
       h('div', { class: 'comment-link-fields' }, url, label),
+      linkForm.offerTab ? h('button', {
+        type: 'button', class: 'link-btn comment-link-tab',
+        title: 'Completar con la URL y el título de la pestaña que estás viendo (Chrome pide permiso una vez)',
+        onclick: useActiveTab,
+      }, '↳ Usar la pestaña activa') : null,
       linkForm.error ? h('p', { class: 'settings-error' }, linkForm.error) : null,
       h('div', { class: 'comment-actions' },
         h('button', { type: 'button', class: 'ghost small', onclick: () => { linkForm = null; rerender(); } }, 'Cancelar'),

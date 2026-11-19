@@ -15,6 +15,7 @@ import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../
 import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
 import { parseAmount, decimalsOf } from '../core/cost.js';
+import { imageRefs } from '../utils/markdown.js';
 import {
   snapshotOf, stampChanges, addTombstones, pruneTombstones, mergeData, stampSettings, stampAllSettings,
 } from '../core/merge.js';
@@ -810,6 +811,41 @@ export function setDoc(taskId, text) {
   task.doc = text;
   task.doc_updated_at = new Date().toISOString();
   commit();
+}
+
+/**
+ * Imágenes de la documentación (solo se agregan desde la app web). Viven en la propia tarea o épica
+ * (`images: { id: { data: 'data:image/webp;base64,…', at } }`), así viajan con ella en el respaldo, Drive
+ * y la carpeta, y se mezclan igual que el resto. La documentación las usa como ![texto](img:id).
+ */
+const docOwner = (kind, id) => (kind === 'epic' ? findEpic(id) : findTask(id));
+
+/** Guarda una imagen y la deja junto con el texto nuevo de la documentación (un solo cambio). */
+export function addDocImage(kind, id, imageId, data, text) {
+  const owner = docOwner(kind, id);
+  if (!owner) return;
+  const at = new Date().toISOString();
+  owner.images = { ...(owner.images || {}), [imageId]: { data, at } };
+  owner.doc = text;
+  owner.doc_updated_at = at;
+  commit();
+}
+
+/**
+ * Olvida las imágenes que la documentación ya no usa (al abrir la página: así cortar y pegar una
+ * imagen mientras se escribe no la pierde). Devuelve cuántas se borraron.
+ */
+export function pruneDocImages(kind, id) {
+  const owner = docOwner(kind, id);
+  if (!owner?.images) return 0;
+  const used = imageRefs(owner.doc);
+  const keep = Object.fromEntries(Object.entries(owner.images).filter(([imageId]) => used.has(imageId)));
+  const removed = Object.keys(owner.images).length - Object.keys(keep).length;
+  if (!removed) return 0;
+  if (Object.keys(keep).length) owner.images = keep;
+  else delete owner.images;
+  commit();
+  return removed;
 }
 
 /** Documentación de una épica (página de documentación con ?epic=…). */
