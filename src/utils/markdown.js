@@ -36,7 +36,11 @@ function inline(text) {
   s = s.replace(/`([^`]+)`/g, (_, code) => keep(`<code>${code}</code>`));
   s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m, alt, ref) => {
     const src = imageSource(ref.replace(/&amp;/g, '&'));
-    if (!src) return keep(`<span class="md-img-missing" title="${escapeHtml(ref)}">🖼 ${alt || 'Imagen'} (no disponible)</span>`);
+    if (!src) {
+      const inDrive = images?.[ref.match(/^img:([\w-]+)$/)?.[1]]?.drive;
+      const why = inDrive ? 'se descarga al sincronizar con Google Drive' : 'no disponible';
+      return keep(`<span class="md-img-missing" title="${escapeHtml(ref)}">🖼 ${alt || 'Imagen'} (${why})</span>`);
+    }
     return keep(`<img class="md-img" src="${escapeHtml(src)}" alt="${alt}" loading="lazy">`);
   });
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, url) => {

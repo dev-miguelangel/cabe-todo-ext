@@ -139,6 +139,21 @@ function mergeComments(a = [], b = [], deleted) {
     .sort((x, y) => (x.created_at || '').localeCompare(y.created_at || ''));
 }
 
+/**
+ * Imágenes de la documentación: gana la lista del lado más nuevo, pero los datos de cada imagen (`data`,
+ * que en Drive no viajan) y su archivo en Drive (`drive`) se toman de cualquiera de los dos lados.
+ */
+function mergeImages(winner, mine, theirs) {
+  if (!winner.images) return winner;
+  const images = {};
+  for (const [id, img] of Object.entries(winner.images)) {
+    const data = img.data || mine.images?.[id]?.data || theirs.images?.[id]?.data;
+    const drive = img.drive || mine.images?.[id]?.drive || theirs.images?.[id]?.drive;
+    images[id] = { ...img, ...(data ? { data } : {}), ...(drive ? { drive } : {}) };
+  }
+  return { ...winner, images };
+}
+
 function mergeList(local = [], remote = [], deleted, combine) {
   const byId = new Map(local.map((item) => [item.id, item]));
   for (const theirs of remote) {
@@ -189,15 +204,15 @@ function dedupeRoutineTasks(tasks) {
 export function mergeData(local, remote, now = new Date()) {
   let deleted = mergeTombstones(local.deleted, remote.deleted);
 
-  const epics = mergeList(local.epics, remote.epics, deleted);
+  const epics = mergeList(local.epics, remote.epics, deleted, mergeImages);
   const routines = mergeList(local.routines, remote.routines, deleted, (winner, mine, theirs) => ({
     ...winner,
     generated: [...new Set([...(mine.generated || []), ...(theirs.generated || [])])].sort(),
   }));
-  let tasks = mergeList(local.tasks, remote.tasks, deleted, (winner, mine, theirs) => ({
+  let tasks = mergeList(local.tasks, remote.tasks, deleted, (winner, mine, theirs) => mergeImages({
     ...winner,
     comments: mergeComments(mine.comments, theirs.comments, deleted),
-  }));
+  }, mine, theirs));
 
   const dedupe = dedupeRoutineTasks(tasks);
   tasks = dedupe.tasks;

@@ -9,7 +9,7 @@ import {
   calibrationFrom, setCalibration,
   enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
 } from '../core/pert.js';
-import { parseQuickAdd, tagKey, epicNameFromTag } from '../core/parser.js';
+import { parseQuickAdd, tagKey, epicNameFromTag, epicHandle } from '../core/parser.js';
 import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBlock, BACKLOG } from '../core/blocks.js';
 import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../core/routines.js';
 import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
@@ -842,11 +842,89 @@ export function pruneDocImages(kind, id) {
   const keep = Object.fromEntries(Object.entries(owner.images).filter(([imageId]) => used.has(imageId)));
   const removed = Object.keys(owner.images).length - Object.keys(keep).length;
   if (!removed) return 0;
+  // Sus archivos en Drive se mandan a la papelera en la próxima sincronización con Drive
+  queueImageTrash(Object.entries(owner.images).filter(([imageId, img]) => !used.has(imageId) && img.drive).map(([, img]) => img.drive));
   if (Object.keys(keep).length) owner.images = keep;
   else delete owner.images;
   commit();
   return removed;
 }
+
+// ---------- Imágenes en Google Drive ----------
+// En Drive cada imagen es un archivo aparte (Cabe Todo/img/{épica}/{id de la tarea}/{id}.webp) que se
+// sube una sola vez; en cabe-todo-sync.json solo va su referencia ({ at, drive }), sin los datos. Cada
+// equipo guarda los datos (`data`) y descarga los que le faltan al sincronizar. El respaldo y la carpeta
+// local siguen llevando las imágenes completas.
+
+const TRASH_KEY = 'cabetodo:driveImageTrash';
+let trashMemory = []; // por si el navegador no deja guardar (y en las pruebas)
+const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return trashMemory; } };
+const lsSet = (k, v) => { trashMemory = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };
+
+function queueImageTrash(fileIds) {
+  if (fileIds.length) lsSet(TRASH_KEY, [...new Set([...lsGet(TRASH_KEY), ...fileIds])]);
+}
+
+/** Todas las imágenes: { kind, owner, imageId, img }. */
+function allImages() {
+  const out = [];
+  for (const t of state.tasks) for (const [imageId, img] of Object.entries(t.images || {})) out.push({ kind: 'task', owner: t, imageId, img });
+  for (const e of state.epics) for (const [imageId, img] of Object.entries(e.images || {})) out.push({ kind: 'epic', owner: e, imageId, img });
+  return out;
+}
+
+/** Carpeta en Drive: img/{épica}/{id de la tarea} (sin épica: img/sin-epica/{id}); la de una épica: img/{épica}. */
+function imageFolder(kind, owner) {
+  if (kind === 'epic') return ['img', epicHandle(owner.name) || owner.id];
+  const epic = findEpic(owner.epic_id);
+  return ['img', epic ? epicHandle(epic.name) || epic.id : 'sin-epica', owner.id];
+}
+
+const extOf = (data) => ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif' }[data.slice(5, data.indexOf(';'))] || 'webp');
+
+/** Lo que la sincronización con Drive necesita de las imágenes (ver syncWithToken en drive-api.js). */
+export const driveImages = {
+  /** Por subir: tienen datos y todavía no tienen archivo en Drive. */
+  pending: () => allImages().filter(({ img }) => img.data && !img.drive).map(({ kind, owner, imageId, img }) => ({
+    kind, ownerId: owner.id, imageId, data: img.data, path: imageFolder(kind, owner), name: `${imageId}.${extOf(img.data)}`,
+  })),
+  /** Ya subidas: guardar su archivo (es un cambio que viaja a los otros equipos). */
+  setDrive(list) {
+    let changed = 0;
+    for (const { kind, ownerId, imageId, fileId } of list) {
+      const img = docOwner(kind, ownerId)?.images?.[imageId];
+      if (img && !img.drive) { img.drive = fileId; changed += 1; }
+    }
+    if (changed) commit();
+  },
+  /** Por descargar: están en Drive y faltan en este equipo. */
+  missing: () => allImages().filter(({ img }) => img.drive && !img.data)
+    .map(({ kind, owner, imageId, img }) => ({ kind, ownerId: owner.id, imageId, fileId: img.drive })),
+  /** Descargadas: los datos son solo de este equipo (no cuentan como cambio). */
+  setData(list) {
+    let changed = 0;
+    for (const { kind, ownerId, imageId, data } of list) {
+      const img = docOwner(kind, ownerId)?.images?.[imageId];
+      if (img && !img.data) { img.data = data; changed += 1; }
+    }
+    if (changed) commit({ stamp: false });
+  },
+  /** El respaldo para Drive: las imágenes que ya están en Drive van sin sus datos. */
+  exportForDrive() {
+    const data = JSON.parse(exportBackup());
+    for (const owner of [...data.tasks, ...data.epics]) {
+      for (const img of Object.values(owner.images || {})) if (img.drive) delete img.data;
+    }
+    return JSON.stringify(data, null, 2);
+  },
+  /** Archivos para mandar a la papelera (se vacía la lista; lo que falle se vuelve a poner). */
+  takeTrash() {
+    const ids = lsGet(TRASH_KEY);
+    lsSet(TRASH_KEY, []);
+    return ids;
+  },
+  requeueTrash: (ids) => queueImageTrash(ids),
+};
 
 /** Documentación de una épica (página de documentación con ?epic=…). */
 export function setEpicDoc(epicId, text) {

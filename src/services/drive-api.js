@@ -119,6 +119,68 @@ async function driveError(res) {
   return new Error(`Google Drive respondió ${res.status}${message ? `: ${message}` : ''}.`);
 }
 
+function fromDataUrl(dataUrl) {
+  const comma = dataUrl.indexOf(',');
+  const mime = dataUrl.slice(5, dataUrl.indexOf(';')) || 'image/webp';
+  const bin = atob(dataUrl.slice(comma + 1));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return { mime, bytes };
+}
+
+function toDataUrl(mime, bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return `data:${mime};base64,${btoa(bin)}`;
+}
+
+// ---------- Imágenes de la documentación (archivos aparte en Drive) ----------
+// images: driveImages de store.js. Los errores de una imagen no detienen la sincronización: la imagen
+// queda para la próxima (si no se subió, viaja dentro del archivo como antes). Un permiso vencido sí.
+
+/** Sube las imágenes nuevas a Cabe Todo/img/{épica}/{tarea}/. Devuelve cuántas subió. */
+export async function uploadPendingImages(drive, images) {
+  const done = [];
+  for (const p of images.pending()) {
+    try {
+      const parent = await drive.imageFolder(p.path);
+      const file = await drive.uploadImage(parent, p.name, p.data);
+      done.push({ ...p, fileId: file.id });
+    } catch (err) {
+      if (err instanceof DriveAuthError) { images.setDrive(done); throw err; }
+    }
+  }
+  images.setDrive(done);
+  return done.length;
+}
+
+/** Descarga las imágenes que faltan en este equipo. Devuelve cuántas bajó. */
+export async function downloadMissingImages(drive, images) {
+  const done = [];
+  for (const m of images.missing()) {
+    try {
+      done.push({ ...m, data: await drive.downloadImage(m.fileId) });
+    } catch (err) {
+      if (err instanceof DriveAuthError) break;
+    }
+  }
+  images.setData(done);
+  return done.length;
+}
+
+/** Manda a la papelera las imágenes que ya no se usan. */
+export async function trashUnusedImages(drive, images) {
+  const failed = [];
+  for (const id of images.takeTrash()) {
+    try {
+      await drive.trash(id);
+    } catch (err) {
+      if (!/\(404\)/.test(err.message)) failed.push(id); // si ya no existe, nada que hacer
+    }
+  }
+  if (failed.length) images.requeueTrash(failed);
+}
+
 export function googleDrive(token, fetchImpl = fetch) {
   const call = async (url, options = {}) => {
     const res = await fetchImpl(url, { ...options, headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) } });
@@ -139,7 +201,52 @@ export function googleDrive(token, fetchImpl = fetch) {
     return created.id;
   }
 
+  // Subcarpetas (img/…): se buscan o crean una vez por sincronización
+  const folders = new Map();
+  async function childFolder(parent, name) {
+    const key = `${parent}/${name}`;
+    if (folders.has(key)) return folders.get(key);
+    const safe = name.replace(/['\\]/g, '');
+    const found = await json(q(`name='${safe}' and '${parent}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`));
+    const id = found.files.length ? found.files[0].id : (await json(`${API}/files?fields=id`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: safe, mimeType: 'application/vnd.google-apps.folder', parents: [parent] }),
+    })).id;
+    folders.set(key, id);
+    return id;
+  }
+
   return {
+    /** Carpeta Cabe Todo/<path…> (la crea si falta). Devuelve su id. */
+    async imageFolder(path) {
+      let parent = await folderId();
+      for (const name of path) parent = await childFolder(parent, name);
+      return parent;
+    },
+    /** Sube una imagen (data:image/…;base64) a la carpeta. Devuelve { id }. */
+    async uploadImage(parent, name, dataUrl) {
+      const { mime, bytes } = fromDataUrl(dataUrl);
+      const boundary = `cabetodo${Date.now()}`;
+      const head = [`--${boundary}`, 'Content-Type: application/json; charset=UTF-8', '',
+        JSON.stringify({ name, mimeType: mime, parents: [parent] }), `--${boundary}`, `Content-Type: ${mime}`, '', ''].join('\r\n');
+      const body = new Blob([head, bytes, `\r\n--${boundary}--\r\n`]);
+      return json(`${UPLOAD}/files?uploadType=multipart&fields=id`, {
+        method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body,
+      });
+    },
+    /** Descarga una imagen como data:image/…;base64. */
+    async downloadImage(id) {
+      const res = await call(`${API}/files/${id}?alt=media`);
+      const mime = (res.headers.get('Content-Type') || 'image/webp').split(';')[0];
+      return toDataUrl(mime, new Uint8Array(await res.arrayBuffer()));
+    },
+    /** A la papelera de Drive (se puede recuperar desde ahí 30 días). */
+    async trash(id) {
+      await call(`${API}/files/${id}?fields=id`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }),
+      });
+    },
     /** Correo de la cuenta dueña del Drive (con el mismo permiso drive.file, sin pedir más). */
     async account() {
       const about = await json(`${API}/about?fields=user(emailAddress)`);
@@ -206,7 +313,16 @@ export function forgetDrive() {
  */
 export async function syncWithToken(token, local, { onAuthError = () => {} } = {}) {
   try {
-    const result = await runSync(googleDrive(token), local, { fileId: ls.get(KEYS.fileId), previousAccount: ls.get(KEYS.account) });
+    const drive = googleDrive(token);
+    const images = local.images;
+    // Primero las imágenes nuevas (así el archivo ya lleva solo sus referencias)
+    if (images) await uploadPendingImages(drive, images);
+    const forDrive = images ? { ...local, exportText: () => images.exportForDrive() } : local;
+    const result = await runSync(drive, forDrive, { fileId: ls.get(KEYS.fileId), previousAccount: ls.get(KEYS.account) });
+    if (images) {
+      await downloadMissingImages(drive, images).catch(() => {});
+      await trashUnusedImages(drive, images).catch(() => {});
+    }
     ls.set(KEYS.fileId, result.fileId);
     if (result.email) ls.set(KEYS.account, result.email);
     ls.set(KEYS.last, { at: new Date().toISOString(), summary: result.summary });

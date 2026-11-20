@@ -1516,3 +1516,112 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(await C.activeTabLink(), null, 'en la web no hace nada');
   console.log('OK: imágenes en la documentación; enlace desde la pestaña activa');
 }
+
+// ---------- Imágenes como archivos aparte en Google Drive ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const D = await import(root + '/src/services/drive-api.js');
+  const { mergeData } = await import(root + '/src/core/merge.js');
+  const png = 'data:image/png;base64,iVBORw0KGgo=';
+  const webp = 'data:image/webp;base64,UklGRg==';
+  const epic = S.createEpic('proyecto viaje');
+  S.addFromText(`Fotos hotel 30m am #${'proyectoViaje'}`, {});
+  const task = S.state.tasks.find((t) => t.title.startsWith('Fotos hotel'));
+  assert.equal(task.epic_id, epic.id);
+  S.addDocImage('task', task.id, 'i1', webp, '![Hotel](img:i1)');
+  S.addDocImage('epic', epic.id, 'e1', png, '![Mapa](img:e1)');
+
+  const I = S.driveImages;
+  const pending = I.pending().filter((p) => ['i1', 'e1'].includes(p.imageId));
+  assert.deepEqual(pending.map((p) => [p.path.join('/'), p.name]).sort(),
+    [['img/proyectoViaje', 'e1.png'], [`img/proyectoViaje/${task.id}`, 'i1.webp']], 'img/{épica}/{tarea}/ y la de la épica en img/{épica}/');
+
+  // Drive de mentira
+  const files = new Map();
+  const made = [];
+  let n = 0;
+  const drive = {
+    imageFolder: async (path) => { made.push(path.join('/')); return `folder:${path.join('/')}`; },
+    uploadImage: async (parent, name, data) => { n += 1; files.set(`f${n}`, { parent, name, data }); return { id: `f${n}` }; },
+    downloadImage: async (id) => files.get(id).data,
+    trash: async (id) => { files.delete(id); },
+  };
+  const before = S.findTask(task.id).updated_at;
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(await D.uploadPendingImages(drive, I) >= 2, true);
+  assert.ok(S.findTask(task.id).images.i1.drive && S.findTask(task.id).updated_at > before, 'el archivo en Drive es un cambio que viaja');
+  assert.equal(I.pending().length, 0, 'cada imagen se sube una sola vez');
+  assert.equal(await D.uploadPendingImages(drive, I), 0);
+
+  const forDrive = JSON.parse(I.exportForDrive());
+  const tImg = forDrive.tasks.find((t) => t.id === task.id).images.i1;
+  assert.ok(tImg.drive && !('data' in tImg), 'en cabe-todo-sync.json va solo la referencia');
+  assert.ok(JSON.parse(S.exportBackup()).tasks.find((t) => t.id === task.id).images.i1.data, 'el respaldo (y la carpeta local) la llevan completa');
+
+  // Otro equipo: recibe la referencia sin datos → la mezcla conserva lo que haya y luego se descarga
+  const remoteTask = { ...forDrive.tasks.find((t) => t.id === task.id), updated_at: '2099-01-01T00:00:00Z', title: 'Fotos hotel editada' };
+  const mergedKeep = mergeData({ ...S.state, tasks: [S.findTask(task.id)] }, { tasks: [remoteTask], epics: [], routines: [] });
+  assert.equal(mergedKeep.data.tasks[0].title, 'Fotos hotel editada');
+  assert.equal(mergedKeep.data.tasks[0].images.i1.data, webp, 'gana el más nuevo, pero los datos de la imagen no se pierden');
+  const fresh = mergeData({ tasks: [], epics: [], routines: [] }, { tasks: [remoteTask], epics: [], routines: [] });
+  assert.ok(!fresh.data.tasks[0].images.i1.data, 'en un equipo nuevo llega sin datos');
+
+  // Faltan los datos en este equipo → se descargan, sin contar como cambio
+  delete S.findTask(task.id).images.i1.data;
+  const stamp = S.findTask(task.id).updated_at;
+  assert.equal(I.missing().filter((m) => m.imageId === 'i1').length, 1);
+  assert.equal(await D.downloadMissingImages(drive, I) >= 1, true);
+  assert.equal(S.findTask(task.id).images.i1.data, webp);
+  assert.equal(S.findTask(task.id).updated_at, stamp, 'descargar no es editar');
+
+  // Quitar la imagen del texto → al abrir se olvida y su archivo va a la papelera en la próxima sincronización
+  const fileId = S.findTask(task.id).images.i1.drive;
+  S.setDoc(task.id, 'sin fotos');
+  S.pruneDocImages('task', task.id);
+  assert.ok(files.has(fileId));
+  await D.trashUnusedImages(drive, I);
+  assert.ok(!files.has(fileId), 'a la papelera de Drive');
+  assert.deepEqual(I.takeTrash(), [], 'y no queda pendiente');
+  console.log('OK: imágenes como archivos aparte en Google Drive (img/{épica}/{tarea})');
+}
+
+// ---------- Drive REST: carpetas img/…, subir y bajar imágenes ----------
+{
+  const D = await import(root + '/src/services/drive-api.js');
+  const calls = [];
+  const folders = { 'Cabe Todo': 'root1' };
+  let made = 0;
+  const fakeFetch = async (url, opts = {}) => {
+    calls.push({ url, method: opts.method || 'GET', body: opts.body, headers: opts.headers });
+    const ok = (body, headers = {}) => ({ ok: true, status: 200, json: async () => body, headers: { get: (h) => headers[h] }, arrayBuffer: async () => body });
+    if (url.includes('/files?q=')) {
+      const q = decodeURIComponent(url.split('q=')[1].split('&')[0]);
+      const name = q.match(/name='([^']+)'/)[1];
+      return ok({ files: folders[name] ? [{ id: folders[name] }] : [] });
+    }
+    if (url.endsWith('/files?fields=id') && opts.method === 'POST') {
+      const { name } = JSON.parse(opts.body); made += 1; folders[name] = `fold${made}`; return ok({ id: folders[name] });
+    }
+    if (url.includes('uploadType=multipart')) return ok({ id: 'img-file-1' });
+    if (url.includes('alt=media')) return ok(new Uint8Array([82, 73, 70, 70]).buffer, { 'Content-Type': 'image/webp' });
+    if (opts.method === 'PATCH') return ok({ id: 'x' });
+    return ok({});
+  };
+  const drive = D.googleDrive('tok', fakeFetch);
+  const parent = await drive.imageFolder(['img', 'proyectoViaje', 'task_abc']);
+  assert.equal(parent, 'fold3', 'crea img, la épica y la tarea dentro de Cabe Todo');
+  const creates = calls.filter((c) => c.method === 'POST' && c.url.endsWith('fields=id')).map((c) => JSON.parse(c.body));
+  assert.deepEqual(creates.map((c) => [c.name, c.parents[0]]), [['img', 'root1'], ['proyectoViaje', 'fold1'], ['task_abc', 'fold2']]);
+  await drive.imageFolder(['img', 'proyectoViaje', 'task_abc']);
+  assert.equal(calls.filter((c) => c.method === 'POST' && c.url.endsWith('fields=id')).length, 3, 'las carpetas se recuerdan en la misma sincronización');
+  const up = await drive.uploadImage(parent, 'i1.webp', 'data:image/webp;base64,UklGRg==');
+  assert.equal(up.id, 'img-file-1');
+  const upCall = calls.find((c) => c.url.includes('uploadType=multipart'));
+  const sent = new Uint8Array(await upCall.body.arrayBuffer());
+  const text = new TextDecoder().decode(sent);
+  assert.ok(text.includes('"name":"i1.webp"') && text.includes('"parents":["fold3"]') && text.includes('Content-Type: image/webp') && text.includes('RIFF'), 'multipart con los bytes de la imagen');
+  assert.equal(await drive.downloadImage('img-file-1'), 'data:image/webp;base64,UklGRg==', 'vuelve como data:image');
+  await drive.trash('img-file-1');
+  assert.deepEqual(JSON.parse(calls.at(-1).body), { trashed: true });
+  console.log('OK: Drive REST para imágenes (carpetas, subir, bajar, papelera)');
+}

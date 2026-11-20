@@ -37,7 +37,7 @@ Cabe Todo no lo sube a ningún lugar por su cuenta.
 Si activas **Ajustes → Sincronizar con Google Drive**:
 
 - **Permiso que se pide:** Google te pide permiso para que Cabe Todo use tu Drive con el alcance `drive.file`. Con él, Cabe Todo **solo puede ver y modificar los archivos que ella misma crea**, no el resto de tu Drive.
-- **Archivo que se usa:** Cabe Todo crea una carpeta `Cabe Todo` con un archivo `cabe-todo-sync.json`, que contiene los mismos datos del respaldo.
+- **Archivos que se usan:** Cabe Todo crea una carpeta `Cabe Todo` con un archivo `cabe-todo-sync.json`, que contiene los mismos datos del respaldo. Si agregas imágenes a la documentación, cada una se guarda aparte en `Cabe Todo/img/{épica}/{tarea}/`. Al quitarlas del texto se mandan a la papelera de tu Drive.
 - **Sincronizar:** al tocar **Sincronizar**, Cabe Todo descarga ese archivo, lo mezcla con lo de tu equipo y lo vuelve a subir. La comunicación es directa entre tu navegador y Google; no pasa por ningún servidor del desarrollador.
 - **Permiso de acceso (token):** Google entrega un permiso temporal de alrededor de una hora. Se guarda solo mientras el navegador está abierto (`chrome.storage.session` en la extensión, `sessionStorage` en la web) y nunca se envía a otro lugar que no sea Google.
 - **Correo de la cuenta:** para mostrarte con qué cuenta estás conectado y avisarte si sincronizas con otra, Cabe Todo consulta a Google Drive el correo de la cuenta, con el mismo permiso `drive.file` y sin pedir otros. Ese correo se guarda en tu equipo y dentro de tu archivo de sincronización en tu Drive. No se envía a ningún otro lugar.

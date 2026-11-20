@@ -7,7 +7,7 @@
 // propio de cada app.
 
 import {
-  state, exportBackup, readBackup, mergeBackup, setView, subscribe,
+  state, exportBackup, readBackup, mergeBackup, setView, subscribe, driveImages,
 } from '../services/store.js';
 import {
   folderAvailable, loadFolder, folderConnected, folderName, folderLastSync, folderGranted,
@@ -61,6 +61,7 @@ const local = {
   merge: (data) => mergeBackup(data),
   saveUndo: () => saveUndoPoint(),
   confirmAccount,
+  images: driveImages, // solo Drive las usa (archivos aparte); la carpeta local las lleva dentro
 };
 
 function whenText(iso) {
