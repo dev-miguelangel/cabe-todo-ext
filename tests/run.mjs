@@ -1625,3 +1625,48 @@ console.log('OK: parser + PERT + épicas');
   assert.deepEqual(JSON.parse(calls.at(-1).body), { trashed: true });
   console.log('OK: Drive REST para imágenes (carpetas, subir, bajar, papelera)');
 }
+
+// ---------- Tareas ancladas en Hoy ----------
+{
+  const S = await import(root + '/src/services/store.js');
+  const Hs = await import(root + '/src/core/history.js');
+  const { todayISO, shiftDate } = await import(root + '/src/utils/dates.js');
+  const P = await import(root + '/src/core/pert.js');
+  await S.initStore();
+  const today = todayISO();
+  const t = S.addFromText('Revisar contrato 30m', { date: shiftDate(today, 3), block: 'pm' });
+  assert.equal(S.setAnchored(t.id, true), true);
+  let a = S.findTask(t.id);
+  assert.ok(a.anchored_at, 'queda anclada');
+  assert.deepEqual([a.date, a.block], [null, null], 'anclada = sin día ni bloque');
+  assert.ok(S.anchoredTasks().some((x) => x.id === t.id), 'aparece en las ancladas');
+  assert.ok(!S.backlogTasks().some((x) => x.id === t.id), 'no aparece en el backlog');
+  const g = Hs.groupTasks(S.state.tasks, today);
+  assert.ok(g.anchored.some((x) => x.id === t.id) && !g.backlog.some((x) => x.id === t.id), 'vista Tareas: grupo Ancladas, no Backlog');
+
+  // Al terminarla queda hecha hoy en el bloque en curso y deja de estar anclada
+  S.updateTask(t.id, { done: true });
+  a = S.findTask(t.id);
+  assert.deepEqual([a.done, a.date, a.block, a.anchored_at], [true, today, P.currentBlock(S.state.settings), null]);
+  assert.ok(!S.anchoredTasks().some((x) => x.id === t.id));
+  // Desmarcarla no la vuelve a anclar: sigue en ese bloque
+  S.updateTask(t.id, { done: false });
+  assert.deepEqual([S.findTask(t.id).date, S.findTask(t.id).anchored_at], [today, null]);
+
+  // Planificarla (mover a un día) la desancla
+  const u = S.addFromText('Llamar al banco 15m bl', {});
+  S.setAnchored(u.id, true);
+  S.planTask(u.id, 'pm', shiftDate(today, 1));
+  assert.deepEqual([S.findTask(u.id).date, S.findTask(u.id).anchored_at], [shiftDate(today, 1), null], 'con día deja de estar anclada');
+  // Desanclar la deja en el backlog
+  const v = S.addFromText('Leer informe 1h bl', {});
+  S.setAnchored(v.id, true);
+  assert.equal(S.setAnchored(v.id, false), false);
+  assert.ok(S.backlogTasks().some((x) => x.id === v.id), 'desanclada: al backlog');
+  // Reuniones, rutinas y hechas no se anclan
+  const m = S.addFromText('Reunión equipo 3pm 30m', { date: today, block: 'pm' });
+  assert.equal(S.setAnchored(m.id, true), false, 'una reunión no se ancla');
+  S.updateTask(t.id, { done: true });
+  assert.equal(S.setAnchored(t.id, true), false, 'una hecha no se ancla');
+  console.log('OK: tareas ancladas en Hoy (se ven todos los días; al terminarlas, al bloque en curso)');
+}

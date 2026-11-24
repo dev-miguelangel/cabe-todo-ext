@@ -43,7 +43,8 @@ function whereLabel(pred, task) {
 }
 
 export function whenLabel(task) {
-  return task.date ? `${shortLabel(task.date)} · ${blockIcon(state.settings, task.block)}` : 'backlog';
+  if (task.date) return `${shortLabel(task.date)} · ${blockIcon(state.settings, task.block)}`;
+  return task.anchored_at && !task.done ? '📌 anclada' : 'backlog';
 }
 
 /**

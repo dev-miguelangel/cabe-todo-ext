@@ -10,7 +10,7 @@ import {
 import {
   state, findTask, findEpic, updateTask, setDependency, subscribe, toggleTimer, resetTimer, deleteTask,
   setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat, deleteRoutine, applyTaskToRoutine, setView,
-  clearDoc, restoreDoc, editFromText,
+  clearDoc, restoreDoc, editFromText, setAnchored,
 } from '../services/store.js';
 import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
 import { blockName, blockRange, firstBlock } from '../core/blocks.js';
@@ -34,7 +34,7 @@ let returnTo = null;    // abierto desde otra lista (Pendientes): { label, run }
 const comments = createComments({ rerender: () => render() });
 
 function whereText(task) {
-  if (!task.date) return '⤓ backlog';
+  if (!task.date) return task.anchored_at && !task.done ? '📌 anclada en Hoy' : '⤓ backlog';
   const day = task.date === todayISO() ? 'hoy' : shortLabel(task.date);
   return `${day} · ${blockName(state.settings, task.block)}`;
 }
@@ -68,12 +68,31 @@ function metaSection(task) {
       title: 'Darle fecha y horario fijo (inicio y fin) a esta tarea',
       onclick: () => { meetingForm = newMeetingForm(task); render(); },
     }, '◷ Convertir en reunión') : null,
-    !findRoutine(task.routine_id) && !repeatOpen ? h('button', {
+    !findRoutine(task.routine_id) && !repeatOpen && !task.anchored_at ? h('button', {
       type: 'button',
       class: 'link-btn meta-link',
       title: 'Crear esta tarea sola en los días que elijas',
       onclick: () => { repeatOpen = true; render(); },
-    }, '↻ Repetir') : null);
+    }, '↻ Repetir') : null,
+    anchorLink(task));
+}
+
+/** 📌 Anclar en Hoy (se ve todos los días hasta terminarla) o Desanclar (queda en el backlog). */
+function anchorLink(task) {
+  if (task.done || task.meeting || findRoutine(task.routine_id)) return null;
+  const on = Boolean(task.anchored_at);
+  return h('button', {
+    type: 'button',
+    class: 'link-btn meta-link',
+    'aria-pressed': String(on),
+    title: on
+      ? 'Deja de verse todos los días: queda en el backlog'
+      : 'Se ve arriba en Hoy todos los días hasta terminarla; al terminarla queda hecha en el bloque en curso',
+    onclick: () => {
+      setAnchored(task.id, !on);
+      showToast(on ? `"${task.title}" desanclada: quedó en el backlog.` : `📌 "${task.title}" anclada: se ve en Hoy todos los días hasta terminarla.`);
+    },
+  }, on ? '📌 Desanclar' : '📌 Anclar');
 }
 
 /** Días en que se repite (L M X J V S D). Cada cambio se guarda al tiro. */

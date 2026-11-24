@@ -4,9 +4,10 @@
 // sugerencia ("✦ Si mueves…") con su botón Mover. Un ✦ junto al % avisa que hay sugerencia.
 // Arriba, un quick-add con la misma sintaxis de siempre; va al bloque en curso o al que se nombre.
 // Las tareas se arrastran para reordenarlas o pasarlas a otro bloque (las reuniones tienen hora fija).
+// Antes de los bloques, las 📌 Ancladas: se ven todos los días hasta terminarlas (ahí quedan en el bloque en curso).
 
 import {
-  state, blockTasks, backlogTasks, overdueTasks, updateTask, toggleTimer, findTask, findEpic, addFromText, editFromText,
+  state, blockTasks, backlogTasks, anchoredTasks, overdueTasks, updateTask, toggleTimer, findTask, findEpic, addFromText, editFromText,
   activeEpics, planTask, applyOrder, ensureRoutines, applyTaskToRoutine, moveTasks,
 } from '../services/store.js';
 import { computeSuggestion, renderSuggestion } from '../components/suggestion.js';
@@ -171,6 +172,26 @@ function blockDivider(block, now, sched, nowMin, sug) {
     fc ? forecastTip(block, fc, sug) : null);
 }
 
+/** 📌 Ancladas: arriba de los bloques, el día que se vea. Al marcarlas quedan hechas en el bloque en curso. */
+function anchoredSection(ctx) {
+  const list = anchoredTasks();
+  if (!list.length) return [];
+  const where = blockById(state.settings, currentBlock(state.settings))?.title || '';
+  return [
+    h('li', { class: 'done-divider anchored-divider', role: 'separator' },
+      h('span', { class: 'done-line', 'aria-hidden': 'true' }),
+      h('span', {
+        class: 'done-date',
+        title: `Se ven todos los días hasta terminarlas. Al marcarlas quedan hechas hoy en ${titleCase(where)}.`,
+      }, `📌 Ancladas (${list.length})`)),
+    ...list.map((t) => {
+      const li = renderCard(t, { ctx, move: true });
+      li.classList.add('anchored');
+      return li;
+    }),
+  ];
+}
+
 export function renderMinimal() {
   const today = viewDate(); // el día que se ve (se llama "today" por costumbre del resto del código)
   const isToday = today === todayISO();
@@ -205,7 +226,7 @@ export function renderMinimal() {
   document.getElementById('minimal-count').textContent = total
     ? `${pending} pendiente${pending === 1 ? '' : 's'} de ${total}`
     : `Nada planificado para ${isToday ? 'hoy' : 'este día'}`;
-  document.getElementById('minimal-list').replaceChildren(...nodes);
+  document.getElementById('minimal-list').replaceChildren(...anchoredSection(ctx), ...nodes);
 
   // A dónde va una tarea si no se nombra un bloque (en el placeholder, sin texto extra)
   const target = blockById(state.settings, isToday ? currentBlock(state.settings) : firstBlock(state.settings).id);
@@ -303,6 +324,7 @@ function setupDragAndDrop(list) {
     const dragged = list.querySelector(`.task[data-id="${CSS.escape(dragId)}"]`);
     const over = e.target.closest('li');
     if (!dragged || !over || over === dragged || over.parentElement !== list) return;
+    if (over.matches('.anchored, .anchored-divider')) return; // las ancladas no son de ningún bloque
     if (over.classList.contains('block-divider')) {
       // Sobre la línea de un bloque: al principio de ese bloque
       over.after(dragged);

@@ -1,7 +1,7 @@
 // Vista "Tareas" (pestaña con el ícono ✓; antes "Hechas"): todas las tareas agrupadas, con filtros
 // Todas · Atrasadas · Backlog · Hechas y búsqueda. Compartida con la versión web.
 //
-// - Todas: Atrasadas, Hoy, Próximas, Backlog y Hechas (los últimos 7 días, con "Ver todas").
+// - Todas: Atrasadas, Ancladas, Hoy, Próximas, Backlog y Hechas (los últimos 7 días, con "Ver todas").
 // - Hechas: por el día en que se terminaron, cada día con su línea: ───────── 11-11-2026
 // Cada grupo empieza con una línea horizontal y su nombre a la derecha. Tocar una tarea abre su detalle.
 
@@ -67,7 +67,7 @@ export function renderDone() {
     'aria-pressed': String(f.id === filter),
   }, f.label, h('span', { class: 'tasks-filter-count' }, String(counts[f.id])))));
 
-  const pending = g.overdue.length + g.today.length + g.upcoming.length + g.backlog.length;
+  const pending = g.overdue.length + g.anchored.length + g.today.length + g.upcoming.length + g.backlog.length;
   document.getElementById('done-count').textContent = state.tasks.length
     ? `${plural(pending, 'pendiente')} · ${plural(doneCount, 'hecha')}`
     : '';
@@ -90,6 +90,7 @@ export function renderDone() {
     const olderCount = doneCount - recent.reduce((n, d) => n + d.tasks.length, 0);
     items = [
       ...group('Atrasadas', g.overdue, { when: true }),
+      ...group('📌 Ancladas', g.anchored, {}),
       ...group('Hoy', g.today, { showBlock: true }, { now: true }),
       ...group('Próximas', g.upcoming, { when: true }),
       ...group('Backlog', g.backlog, {}),

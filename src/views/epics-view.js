@@ -82,13 +82,15 @@ const divider = (label) => h('li', { class: 'done-divider' },
 function epicBody(epic, ctx) {
   const own = epicTasks(epic.id);
   const rank = (t) => blockIndex(state.settings, t.block);
-  const undated = own.filter((t) => !t.date && !t.done).sort((a, b) => a.order - b.order);
+  const anchored = own.filter((t) => !t.date && !t.done && t.anchored_at).sort((a, b) => a.anchored_at.localeCompare(b.anchored_at));
+  const undated = own.filter((t) => !t.date && !t.done && !t.anchored_at).sort((a, b) => a.order - b.order);
   const planned = own.filter((t) => t.date && !t.done)
     .sort((a, b) => a.date.localeCompare(b.date) || rank(a) - rank(b) || a.order - b.order);
   const done = own.filter((t) => t.done).sort((a, b) => (b.done_at || '').localeCompare(a.done_at || ''));
   const card = (t, opts = {}) => renderCard(t, { ctx, showEpic: false, move: true, ...opts });
 
   const items = [];
+  if (anchored.length) items.push(divider(`📌 Ancladas (${anchored.length})`), ...anchored.map((t) => card(t)));
   if (undated.length) items.push(divider(`Sin Fecha (${undated.length})`), ...undated.map((t) => card(t)));
   if (planned.length) items.push(divider(`Planificadas (${planned.length})`), ...planned.map((t) => card(t, { when: true })));
   if (done.length) items.push(divider(`Hechas (${done.length})`), ...done.map((t) => card(t, { when: true })));

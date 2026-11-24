@@ -45,6 +45,7 @@ export function normalizeTask(task) {
     doc: '',
     doc_updated_at: null,
     pinned_at: null,        // anclada arriba en Docs (fecha en que se ancló)
+    anchored_at: null,      // anclada en Hoy: sin día, visible todos los días hasta terminarla
     meeting: null,          // { start: 'HH:MM', end: 'HH:MM', blocking } si es reunión
     routine_id: null,       // rutina que la creó (tarea que se repite)
     ...task,

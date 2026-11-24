@@ -34,7 +34,8 @@ export function doneByDay(tasks) {
  * overdue  pendientes de días anteriores (la más antigua primero; sin reuniones pasadas)
  * today    pendientes de hoy
  * upcoming pendientes de días siguientes (la más cercana primero)
- * backlog  pendientes sin fecha
+ * anchored ancladas en Hoy (sin fecha, visibles todos los días; la más antigua primero)
+ * backlog  pendientes sin fecha (sin las ancladas)
  * done     hechas, por día (doneByDay)
  */
 export function groupTasks(tasks, today) {
@@ -44,7 +45,8 @@ export function groupTasks(tasks, today) {
     overdue: pending.filter((t) => t.date && t.date < today && !t.meeting).sort(byDate),
     today: pending.filter((t) => t.date === today).sort(byDate),
     upcoming: pending.filter((t) => t.date && t.date > today).sort(byDate),
-    backlog: pending.filter((t) => !t.date).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    anchored: pending.filter((t) => !t.date && t.anchored_at).sort((a, b) => a.anchored_at.localeCompare(b.anchored_at)),
+    backlog: pending.filter((t) => !t.date && !t.anchored_at).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     done: doneByDay(tasks),
   };
 }

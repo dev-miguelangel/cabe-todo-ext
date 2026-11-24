@@ -7,10 +7,10 @@ import {
 } from './storage.js';
 import {
   calibrationFrom, setCalibration,
-  enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy,
+  enforceBlockOrder, pruneInvalidDeps, wouldCreateCycle, canDepend, isMeeting, blockForTime, timerBlockedBy, currentBlock,
 } from '../core/pert.js';
 import { parseQuickAdd, tagKey, epicNameFromTag, epicHandle } from '../core/parser.js';
-import { blocksOf, blockWords, blockName, firstBlock, validateBlocks, neighborBlock, BACKLOG } from '../core/blocks.js';
+import { blocksOf, blockById, blockWords, blockName, firstBlock, validateBlocks, neighborBlock, BACKLOG } from '../core/blocks.js';
 import { routineFrom, dueInstances, repeatLabel, weekdayOf, ALL_DAYS } from '../core/routines.js';
 import { todayISO, shortLabel, shiftDate } from '../utils/dates.js';
 import { isRunning, timerConflicts } from '../core/timer.js';
@@ -123,6 +123,8 @@ function fixOrphanBlocks() {
 /** Aplica las reglas, guarda y avisa. stamp: false cuando los datos ya traen sus marcas (mezcla). */
 function commit({ stamp = true } = {}) {
   fixOrphanBlocks();
+  // Anclada = sin día. Si pasó a tener día (se planificó, se movió, es reunión), deja de estar anclada.
+  for (const t of state.tasks) if (t.anchored_at && t.date) t.anchored_at = null;
   const removed = pruneInvalidDeps(state.tasks);
   if (removed) {
     notify(`Se ${removed > 1 ? `quitaron ${removed} dependencias` : 'quitó 1 dependencia'}: entre días distintos solo se puede depender de tareas de la misma épica.`);
@@ -158,7 +160,11 @@ export const archivedEpics = () => state.epics.filter((e) => e.archived);
 export const dayTasks = (date = todayISO()) => state.tasks.filter((t) => t.date === date);
 export const blockTasks = (block, date = todayISO()) => dayTasks(date).filter((t) => t.block === block);
 export const backlogTasks = (epicId) =>
-  state.tasks.filter((t) => t.date === null && (epicId === undefined || t.epic_id === epicId));
+  state.tasks.filter((t) => t.date === null && !t.anchored_at && (epicId === undefined || t.epic_id === epicId));
+/** Ancladas: pendientes sin día que se ven arriba en Hoy, cualquiera sea el día (la más antigua primero). */
+export const anchoredTasks = () => state.tasks
+  .filter((t) => t.anchored_at && !t.done)
+  .sort((a, b) => a.anchored_at.localeCompare(b.anchored_at));
 export const epicTasks = (epicId) => state.tasks.filter((t) => t.epic_id === epicId);
 
 function nextOrder(date, block) {
@@ -582,10 +588,17 @@ export function updateTask(id, changes) {
   if ('done' in changes && changes.done !== t.done) {
     changes.done_at = changes.done ? new Date().toISOString() : null;
   }
+  // Anclada que se termina: queda hecha hoy, en el bloque en que se terminó, y deja de estar anclada
+  const wasAnchored = Boolean(changes.done && t.anchored_at);
+  if (wasAnchored) {
+    Object.assign(changes, { date: todayISO(), block: currentBlock(state.settings), anchored_at: null });
+    changes.order = nextOrder(changes.date, changes.block);
+  }
   // Al terminar una tarea, su temporizador se detiene.
   if (changes.done && isRunning(t)) stopEntry(t);
   Object.assign(t, changes);
   commit();
+  if (wasAnchored) notify(`📌 "${t.title}" hecha: quedó en ${blockById(state.settings, t.block)?.title || 'el bloque en curso'} de hoy.`);
   if (changes.done && t.epic_id) checkEpicComplete(t.epic_id);
 }
 
@@ -684,6 +697,24 @@ export function mergeBackup(data) {
 
 export function unplanTask(id) {
   updateTask(id, { date: null, block: null });
+}
+
+/**
+ * Anclar en Hoy: la tarea queda sin día y se ve arriba en Hoy, cualquiera sea el día, hasta terminarla
+ * (entonces queda hecha en el bloque en que se terminó). Desanclar la deja en el backlog.
+ * Reuniones, rutinas y tareas hechas no se anclan. Devuelve si quedó anclada.
+ */
+export function setAnchored(id, on) {
+  const task = findTask(id);
+  if (!task) return false;
+  if (on) {
+    if (task.meeting || task.routine_id || task.done) return false;
+    Object.assign(task, { anchored_at: new Date().toISOString(), date: null, block: null, order: nextOrder(null, null) });
+  } else {
+    task.anchored_at = null;
+  }
+  commit();
+  return Boolean(task.anchored_at);
 }
 
 /** Anclar / desanclar una tarea arriba de la vista Docs. Devuelve si quedó anclada. */
