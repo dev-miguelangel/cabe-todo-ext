@@ -15,6 +15,7 @@ import {
 import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
 import { blockName, blockRange, firstBlock } from '../core/blocks.js';
 import { createComments } from './comments.js';
+import { copyButton } from './copy-button.js';
 import { h, openModal, closeModal, isModalOpen, showToast } from '../utils/ui.js';
 import { titleCase } from '../utils/text.js';
 import { hasRate, amountOf, workedMinutes, formatMoney } from '../core/cost.js';
@@ -495,6 +496,7 @@ function decorateTitle(task) {
         startTitleEdit(task);
       }
     });
+    title.after(copyButton(() => titleCase(findTask(task.id)?.title ?? task.title), { label: 'Copiar el título de la tarea', className: 'modal-copy' }));
     return;
   }
   const input = h('input', {

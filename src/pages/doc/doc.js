@@ -12,6 +12,7 @@ import { isRunning, remainingMs, formatCountdown } from '../../core/timer.js';
 import { h, showToast, applyTheme } from '../../utils/ui.js';
 import { blockName } from '../../core/blocks.js';
 import { markdownEditor, markdownView } from '../../components/md-editor.js';
+import { copyButton } from '../../components/copy-button.js';
 import { setupThemeToggle, renderThemeToggle } from '../../components/theme-toggle.js';
 import { titleCase } from '../../utils/text.js';
 import { fillTemplate, firstPlaceholder, defaultTemplate } from '../../core/templates.js';
@@ -84,7 +85,8 @@ function renderEpicHead(epic) {
   document.title = `${titleCase(epic.name)} · Documentación`;
   document.getElementById('doc-head').replaceChildren(
     h('p', { class: 'doc-kicker' }, 'Documentación de la épica'),
-    h('h1', { class: 'doc-title' }, titleCase(epic.name)),
+    h('h1', { class: 'doc-title' }, titleCase(epic.name),
+      copyButton(() => titleCase(epic.name), { label: 'Copiar el nombre de la épica', className: 'doc-copy' })),
     h('p', { class: 'doc-meta' },
       h('span', { class: 'doc-chip' }, h('span', { class: 'dot', style: `background:${epic.color}` }), 'Épica'),
       h('span', { class: 'doc-chip' }, `${done}/${own.length} tareas hechas`),
@@ -109,7 +111,8 @@ function renderHead(task) {
   document.title = `${titleCase(task.title)} · Documentación`;
   document.getElementById('doc-head').replaceChildren(
     h('p', { class: 'doc-kicker' }, 'Documentación de la tarea'),
-    h('h1', { class: 'doc-title' }, titleCase(task.title)),
+    h('h1', { class: 'doc-title' }, titleCase(task.title),
+      copyButton(() => titleCase(task.title), { label: 'Copiar el título de la tarea', className: 'doc-copy' })),
     h('p', { class: 'doc-meta' },
       epic ? h('span', { class: 'doc-chip' }, h('span', { class: 'dot', style: `background:${epic.color}` }), titleCase(epic.name)) : null,
       h('span', { class: 'doc-chip' }, whereText(task)),

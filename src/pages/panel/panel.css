@@ -1308,6 +1308,18 @@ button.prob-tag { cursor: pointer; }
 }
 .modal-title-hint { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
 .modal-title-hint code { font-size: 10.5px; }
+
+/* Copiar el título (tarea / épica) con un clic: ⧉ y ✓ al copiar */
+.copy-btn {
+  flex: none; border: 0; background: none; padding: 2px 5px; border-radius: 6px;
+  font-size: 13px; font-weight: 400; line-height: 1; color: var(--muted); cursor: pointer;
+}
+.copy-btn:hover { color: var(--accent-text); background: var(--hover); }
+.copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.copy-btn.copied { color: var(--accent-text); }
+.modal-copy { margin-top: 1px; font-size: 15px; }
+.doc-copy { margin-left: 8px; vertical-align: middle; font-size: 18px; }
+@media print { .copy-btn { display: none; } }
 .task .actions .edit-btn { font-size: 13px; line-height: 1; padding: 2px 6px; }
 .task .actions .edit-btn:hover { color: var(--accent-text); }
 

@@ -18,6 +18,7 @@ import { renderCard } from '../components/cards.js';
 import { showTaskModal, openEpicDoc } from '../components/task-modal.js';
 import { openMoveMenu } from '../components/move-menu.js';
 import { probTag } from '../components/prob-tag.js';
+import { copyButton } from '../components/copy-button.js';
 import { makeSortable } from '../utils/drag-sort.js';
 import { titleCase } from '../utils/text.js';
 import {
@@ -147,6 +148,7 @@ function renderEpic(epic, ctx) {
         h('span', { class: 'dot', style: `background:${epic.color}` }),
         h('span', { class: 'epic-name' }, titleCase(epic.name),
           epic.doc ? h('span', { class: 'epic-has-doc', title: 'Tiene documentación', 'aria-label': 'Tiene documentación' }, ' ▤') : null),
+        copyButton(() => titleCase(epic.name), { label: 'Copiar el nombre de la épica', className: 'epic-copy' }),
         h('span', { class: 'epic-count', title: `${fc.doneCount} hechas de ${fc.total}` }, `${fc.doneCount}/${fc.total} ✓`),
         h('span', { class: 'ss-chevron', 'aria-hidden': 'true' })),
       h('span', { class: 'epic-meta' },
