@@ -10,7 +10,7 @@ import {
 import {
   state, findTask, findEpic, updateTask, setDependency, subscribe, toggleTimer, resetTimer, deleteTask,
   setMeeting, removeMeeting, finishMeeting, findRoutine, setRepeat, deleteRoutine, applyTaskToRoutine, setView,
-  clearDoc, restoreDoc, editFromText, setAnchored,
+  clearDoc, restoreDoc, editFromText, setAnchored, setRoutineMin, shrinkTask, expandTask,
 } from '../services/store.js';
 import { ALL_DAYS, WEEKDAYS, DAY_LETTER, repeatLabel } from '../core/routines.js';
 import { blockName, blockRange, firstBlock } from '../core/blocks.js';
@@ -27,6 +27,8 @@ let wasBlocked = false;
 let tick = null;
 let blockedById = null; // reunión que impide iniciar el temporizador (para notar cuando cambia)
 let repeatOpen = false; // sección "Repetir" abierta en una tarea que aún no se repite
+let minDraft = null;    // escribiendo la versión mínima de su rutina (texto); null = sin editar
+let minError = '';
 let meetingForm = null; // formulario de reunión abierto: { date, start, end, mode, duration, blocking, error }
 let deleteAsk = false; // tarea de una rutina: preguntando "¿solo esta o todas?" antes de borrar
 let titleDraft = null;  // editando la tarea (texto como en "+ Nueva tarea"); null = sin editar
@@ -119,6 +121,7 @@ function repeatSection(task) {
         onclick: () => { closeModal(); setView({ tab: 'routines' }); },
       }, 'Administrar rutinas') : null),
     h('div', { class: 'repeat-days', role: 'group', 'aria-label': 'Días' }, ...ALL_DAYS.map(chip)),
+    routine && !task.meeting ? minVersionBlock(task, routine) : null,
     h('p', { class: 'repeat-note' }, routine
       ? `Se crea sola esos días (${where}), con lo que tiene esta tarea ahora.`
       : 'Elige los días: se creará sola cada uno de ellos.'),
@@ -128,6 +131,68 @@ function repeatSection(task) {
       routine
         ? h('button', { type: 'button', class: 'ghost small', onclick: () => save([]) }, 'Dejar de repetir')
         : h('button', { type: 'button', class: 'ghost small', onclick: () => { repeatOpen = false; render(); } }, 'Cancelar')));
+}
+
+/**
+ * Versión mínima (regla de los 2 minutos): una versión tan corta del hábito que no haya excusa.
+ * Se define en la rutina; cada día se puede hacer la mínima en vez de la completa (y volver).
+ */
+function minVersionBlock(task, routine) {
+  const min = routine.min;
+  const fmt = (m) => `${titleCase(m.title)} · ${formatMinutes(m.minutes)}`;
+  // Escribiendo la versión mínima
+  if (minDraft !== null) {
+    const input = h('input', {
+      type: 'text', class: 'min-input', value: minDraft, dataset: { key: 'min-version' },
+      placeholder: 'Ej: Leer 1 página 2m', 'aria-label': 'Versión mínima', enterkeyhint: 'done', autocomplete: 'off',
+    });
+    const save = () => {
+      const problem = setRoutineMin(routine.id, minDraft);
+      if (problem) { minError = problem; render(); return; }
+      const now = findRoutine(routine.id)?.min;
+      minDraft = null;
+      minError = '';
+      showToast(now ? `Versión mínima de "${routine.title}": ${fmt(now)}.` : `"${routine.title}" ya no tiene versión mínima.`);
+    };
+    input.addEventListener('input', () => { minDraft = input.value; });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); save(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); minDraft = null; minError = ''; render(); }
+    });
+    return h('div', { class: 'min-version editing' },
+      h('label', { class: 'min-label' }, '⏬ Versión mínima', input),
+      h('p', { class: 'min-hint' }, 'Tan corta que no haya excusa (sin duración: 2 minutos). Si el bloque va mal, Cabe Todo te propone hacerla en vez de mover el hábito. Vacío = sin versión mínima.'),
+      minError ? h('p', { class: 'settings-error' }, minError) : null,
+      h('div', { class: 'mf-actions' },
+        h('button', { type: 'button', class: 'primary small', onclick: save }, 'Guardar'),
+        h('button', { type: 'button', class: 'ghost small', onclick: () => { minDraft = null; minError = ''; render(); } }, 'Cancelar')));
+  }
+  const edit = (label) => h('button', {
+    type: 'button', class: 'link-btn',
+    onclick: () => { minDraft = min ? `${min.title} ${formatMinutes(min.minutes)}` : ''; render(); },
+  }, label);
+  // Hoy en su versión mínima
+  if (task.full) {
+    return h('div', { class: 'min-version is-on' },
+      h('p', {}, task.done ? '✓ Hecha en su versión mínima' : '⏬ Hoy toca la versión mínima',
+        h('span', { class: 'min-full' }, ` · la completa: ${fmt(task.full)}`)),
+      task.done ? null : h('div', { class: 'mf-actions' },
+        h('button', {
+          type: 'button', class: 'ghost small',
+          onclick: () => { const { title } = task.full; expandTask(task.id); showToast(`De vuelta a la completa: "${title}".`); },
+        }, '↺ Volver a la completa')));
+  }
+  if (!min) {
+    return h('div', { class: 'min-version' },
+      h('p', {}, '⏬ ¿Y los días que no te alcanza? ', edit('Definir versión mínima')));
+  }
+  return h('div', { class: 'min-version' },
+    h('p', {}, `⏬ Versión mínima: ${fmt(min)} `, edit('Cambiar')),
+    !task.done && min.minutes < task.minutes ? h('div', { class: 'mf-actions' },
+      h('button', {
+        type: 'button', class: 'ghost small',
+        onclick: () => { shrinkTask(task.id); showToast(`Hoy, la versión mínima: "${min.title}". ✓ cuenta igual.`); },
+      }, 'Hacer solo la mínima hoy')) : null);
 }
 
 /** Pie del modal: borrar la tarea (con confirmación; si se repite, "¿solo esta o todas?"). */
@@ -589,6 +654,8 @@ function cleanup() {
   titleDraft = null;
   meetingForm = null;
   repeatOpen = false;
+  minDraft = null;
+  minError = '';
   deleteAsk = false;
   comments.stopEditing();
   clearInterval(tick);
@@ -616,6 +683,8 @@ export function showTaskModal(taskId, opts = {}) {
     comments.reset();
     meetingForm = null;
     repeatOpen = false;
+    minDraft = null;
+    minError = '';
     titleDraft = null;
   }
   currentId = taskId;

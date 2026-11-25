@@ -470,6 +470,29 @@ export function suggestMove(source, targets, { critical = new Set(), canMove = (
   return best && best.score > before && best.sourceProbability - before >= SUGGEST_MIN_GAIN ? best : null;
 }
 
+/**
+ * Regla de los 2 minutos: para un bloque que va mal, en vez de mover un hábito, achicarlo a su
+ * versión mínima. Busca la tarea pendiente cuya versión mínima más mejora el bloque.
+ *
+ * source: { tasks, range, nowMin }
+ * minOf(task) → { title, minutes } si la tarea tiene versión mínima disponible (y aún no se achicó), o null
+ * Devuelve { task, min, before, after } o null (si el bloque va bien o no mejora lo suficiente).
+ */
+export function suggestShrink(source, minOf) {
+  const before = scheduleBlock(source.tasks, source.range, source.nowMin).probability;
+  if (before === null || before >= SUGGEST_BELOW) return null;
+  let best = null;
+  for (const task of source.tasks) {
+    if (task.done || isMeeting(task)) continue;
+    const min = minOf(task);
+    if (!min || !(min.minutes < task.minutes)) continue;
+    const shrunk = source.tasks.map((t) => (t === task ? { ...t, minutes: min.minutes } : t));
+    const after = scheduleBlock(shrunk, source.range, source.nowMin).probability ?? 1;
+    if (!best || after > best.after + 1e-9) best = { task, min, before, after };
+  }
+  return best && best.after - before >= SUGGEST_MIN_GAIN ? best : null;
+}
+
 // ---------- Reunión que bloquea en curso ----------
 
 /** ¿La reunión está en curso ahora y bloquea la toma de tareas? */

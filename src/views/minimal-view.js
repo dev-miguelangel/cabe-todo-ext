@@ -8,7 +8,7 @@
 
 import {
   state, blockTasks, backlogTasks, anchoredTasks, overdueTasks, updateTask, toggleTimer, findTask, findEpic, addFromText, editFromText,
-  activeEpics, planTask, applyOrder, ensureRoutines, applyTaskToRoutine, moveTasks,
+  activeEpics, planTask, applyOrder, ensureRoutines, applyTaskToRoutine, moveTasks, shrinkTask,
 } from '../services/store.js';
 import { computeSuggestion, renderSuggestion } from '../components/suggestion.js';
 import { h, attachEpicAutocomplete, showToast } from '../utils/ui.js';
@@ -427,6 +427,12 @@ export function setupMinimal() {
       return;
     }
     const suggest = e.target.closest('.suggest-btn');
+    if (suggest?.dataset.shrink) {
+      closeTips();
+      const full = findTask(suggest.dataset.shrink)?.title;
+      if (shrinkTask(suggest.dataset.shrink)) showToast(`Hoy, la versión mínima de "${full}": "${findTask(suggest.dataset.shrink).title}". ✓ cuenta igual.`);
+      return;
+    }
     if (suggest) {
       closeTips();
       planTask(suggest.dataset.task, suggest.dataset.block, suggest.dataset.date);

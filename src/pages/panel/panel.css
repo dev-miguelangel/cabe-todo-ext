@@ -991,6 +991,20 @@ kbd { background: var(--field); }
   font: inherit; padding: 5px 8px; border: 0; border-radius: 8px; background: var(--field); color: var(--text);
 }
 .routine-note { margin: 0; font-size: 11px; color: var(--muted); }
+
+/* Versión mínima (regla de los 2 minutos): en Rutinas y en el detalle de una tarea que se repite */
+.routine-min { font-size: 11px; color: var(--accent-text); }
+.routine-fields .routine-min-field { flex: 1 1 100%; }
+.routine-min-field input { flex: 1; min-width: 0; }
+.min-version { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--raised); font-size: 12px; color: var(--label); }
+.min-version p { margin: 0; }
+.min-version.is-on { background: color-mix(in srgb, var(--accent) 10%, var(--raised)); color: var(--text); }
+.min-version .min-full { color: var(--muted); }
+.min-version .mf-actions { margin-top: 6px; justify-content: flex-start; }
+.min-label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; color: var(--text); }
+.min-input { font: inherit; font-weight: 400; padding: 7px 10px; border: 0; border-radius: 8px; background: var(--field); color: var(--text); }
+.min-input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.min-hint { margin-top: 4px !important; font-size: 11px; color: var(--muted); }
 .routine-empty { padding: 18px 14px; border-radius: 10px; background: var(--raised); font-size: 12px; color: var(--muted); text-align: center; }
 .routine-empty p { margin: 4px 0; }
 .routine-empty code { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--field); color: var(--text); }

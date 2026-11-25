@@ -420,9 +420,12 @@ export function nextOccurrence(routine, from = todayISO()) {
 function propagateRoutine(routine, exceptId = null) {
   for (const t of pendingInstances(routine.id, todayISO())) {
     if (t.id === exceptId) continue;
+    // Achicada a su versión mínima: se actualiza la completa (y la mínima, si la rutina la sigue teniendo)
+    const shrunk = Boolean(t.full && routine.min);
     Object.assign(t, {
-      title: routine.title,
-      minutes: routine.minutes,
+      title: shrunk ? routine.min.title : routine.title,
+      minutes: shrunk ? routine.min.minutes : routine.minutes,
+      full: shrunk ? { title: routine.title, minutes: routine.minutes } : null,
       certainty: routine.certainty,
       epic_id: routine.epic_id,
       meeting: routine.meeting ? { ...routine.meeting } : null,
@@ -454,11 +457,20 @@ export function updateRoutine(id, changes) {
     minutes = toMin(meeting.end) - toMin(meeting.start);
     if (minutes <= 0) return 'La reunión debe terminar después de empezar.';
   } else if (!(minutes > 0)) return 'Indica una duración.';
+  let { min } = routine;
+  if (changes.min !== undefined) {
+    const parsed = parseMinVersion(changes.min, title, minutes);
+    if (parsed.error) return parsed.error;
+    min = meeting ? null : parsed.min;
+  } else if (min && !(min.minutes < minutes)) {
+    return `La versión mínima (${min.minutes} min) tiene que durar menos que la rutina.`;
+  }
   Object.assign(routine, {
     title,
     days: ALL_DAYS.filter((d) => days.includes(d)),
     minutes,
     meeting,
+    min: min || null,
     block: meeting ? blockForTime(meeting.start, state.settings) : changes.block ?? routine.block,
   });
   propagateRoutine(routine);
@@ -494,15 +506,77 @@ export function applyTaskToRoutine(taskId) {
   const task = findTask(taskId);
   const routine = findRoutine(task?.routine_id);
   if (!task || !routine) return false;
+  // Si está en su versión mínima, el molde es la completa
   Object.assign(routine, {
-    title: task.title,
-    minutes: task.minutes,
+    title: task.full ? task.full.title : task.title,
+    minutes: task.full ? task.full.minutes : task.minutes,
     certainty: task.certainty,
     epic_id: task.epic_id ?? null,
     block: task.block || routine.block,
     meeting: task.meeting ? { ...task.meeting } : null,
   });
   propagateRoutine(routine, task.id);
+  commit();
+  return true;
+}
+
+// ---------- Versión mínima (regla de los 2 minutos) ----------
+
+const MIN_DEFAULT_MINUTES = 2;
+
+/**
+ * Lee la versión mínima escrita como en el quick-add: "Leer 1 página 2m" → { title, minutes }.
+ * Sin duración, 2 minutos. Vacío = sin versión mínima. Devuelve { min } o { error }.
+ */
+export function parseMinVersion(text, fullTitle, fullMinutes) {
+  const raw = String(text || '').trim();
+  if (!raw) return { min: null };
+  const parsed = parseQuickAdd(raw, blockWords(state.settings));
+  const title = (parsed?.title || raw).trim() || fullTitle;
+  const minutes = parsed?.minutes || MIN_DEFAULT_MINUTES;
+  if (!(minutes < fullMinutes)) {
+    return { error: `La versión mínima tiene que durar menos que la completa (${fullMinutes} min).` };
+  }
+  return { min: { title, minutes } };
+}
+
+/** Versión mínima disponible para una tarea: la de su rutina, si no está hecha ni ya achicada. */
+export function minVersionOf(task) {
+  if (!task || task.done || task.full || task.meeting) return null;
+  const routine = findRoutine(task.routine_id);
+  return routine?.min && routine.min.minutes < task.minutes ? routine.min : null;
+}
+
+/** Define (o quita, con texto vacío) la versión mínima de una rutina. Devuelve un mensaje de error o null. */
+export function setRoutineMin(routineId, text) {
+  const routine = findRoutine(routineId);
+  if (!routine) return 'La rutina ya no existe.';
+  if (routine.meeting) return 'Las reuniones no tienen versión mínima.';
+  const { min, error } = parseMinVersion(text, routine.title, routine.minutes);
+  if (error) return error;
+  routine.min = min;
+  propagateRoutine(routine);
+  commit();
+  return null;
+}
+
+/** Hacer solo la versión mínima hoy: la tarea se achica (y recuerda la completa para volver). */
+export function shrinkTask(id) {
+  const task = findTask(id);
+  const min = minVersionOf(task);
+  if (!min) return false;
+  task.full = { title: task.title, minutes: task.minutes };
+  task.title = min.title;
+  task.minutes = min.minutes;
+  commit();
+  return true;
+}
+
+/** Volver a la versión completa. */
+export function expandTask(id) {
+  const task = findTask(id);
+  if (!task?.full) return false;
+  Object.assign(task, { title: task.full.title, minutes: task.full.minutes, full: null });
   commit();
   return true;
 }
@@ -523,7 +597,9 @@ export function setRepeat(taskId, days) {
     return;
   }
   const generated = current ? current.generated : [];
-  const routine = routineFrom(task, {
+  // En su versión mínima, el molde es la completa (la mínima sigue en la rutina)
+  const mold = task.full ? { ...task, title: task.full.title, minutes: task.full.minutes } : task;
+  const routine = routineFrom(mold, {
     id: current?.id || newId('r'),
     days,
     startDate: current?.start_date || task.date || todayISO(),

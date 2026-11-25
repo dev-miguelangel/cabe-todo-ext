@@ -1,5 +1,6 @@
 // Vista "Rutinas": todo lo que se repite, con su próxima fecha. Se edita en el lugar (título, días,
-// bloque y duración, u horario si es reunión) o se elimina (con sus tareas pendientes).
+// bloque, duración y versión mínima, u horario si es reunión) o se elimina (con sus tareas pendientes).
+// Versión mínima: la regla de los 2 minutos de Hábitos atómicos (ver suggestion.js).
 
 import { state, findEpic, updateRoutine, deleteRoutine, nextOccurrence } from '../services/store.js';
 import { h, showToast } from '../utils/ui.js';
@@ -43,6 +44,8 @@ function viewRow(r) {
         epic ? h('span', { class: 'dot', style: `background:${epic.color}`, title: epic.name }) : null,
         titleCase(r.title)),
       h('span', { class: 'routine-meta' }, routineMeta(r)),
+      r.min && !r.meeting ? h('span', { class: 'routine-min', title: 'Versión mínima: la haces los días que no te alcanza' },
+        `⏬ Mínima: ${titleCase(r.min.title)} · ${formatMinutes(r.min.minutes)}`) : null,
       h('span', { class: `routine-next${next === todayISO() ? ' is-today' : ''}` }, whenText(next))),
     h('div', { class: 'routine-actions' },
       h('button', { type: 'button', class: 'ghost small', dataset: { action: 'edit' } }, 'Editar'),
@@ -67,7 +70,12 @@ function editRow(r) {
       h('label', {}, 'Bloque ', h('select', { name: 'block' },
         ...blocksOf(state.settings).map((b) => h('option', { value: b.id, selected: b.id === draft.block }, `${b.icon} ${b.title}`)))),
       h('label', {}, 'Duración ', h('select', { name: 'minutes' },
-        ...durations.map((m) => h('option', { value: m, selected: m === draft.minutes }, formatMinutes(m))))));
+        ...durations.map((m) => h('option', { value: m, selected: m === draft.minutes }, formatMinutes(m))))),
+      h('label', { class: 'routine-min-field' }, '⏬ Versión mínima ',
+        h('input', {
+          type: 'text', name: 'min', value: draft.min, placeholder: 'Ej: Leer 1 página 2m (opcional)',
+          title: 'La versión tan corta que no hay excusa. Sin duración: 2 minutos. Vacío: sin versión mínima.',
+        })));
 
   return h('li', { class: 'routine-card editing', dataset: { id: r.id } },
     h('form', { class: 'routine-form', autocomplete: 'off' },
@@ -113,6 +121,7 @@ function startEditing(r) {
     block: r.block,
     start: r.meeting?.start || '',
     end: r.meeting?.end || '',
+    min: r.min ? `${r.min.title} ${formatMinutes(r.min.minutes)}` : '',
   };
   renderRoutines();
   document.querySelector('#routine-list .editing [name="title"]')?.focus();
@@ -163,7 +172,7 @@ export function setupRoutines() {
     const problem = updateRoutine(r.id, {
       title: draft.title,
       days: draft.days,
-      ...(r.meeting ? { meeting: { start: draft.start, end: draft.end } } : { minutes: draft.minutes, block: draft.block }),
+      ...(r.meeting ? { meeting: { start: draft.start, end: draft.end } } : { minutes: draft.minutes, block: draft.block, min: draft.min }),
     });
     if (problem) {
       error = problem;

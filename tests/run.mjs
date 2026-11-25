@@ -1701,3 +1701,66 @@ console.log('OK: parser + PERT + épicas');
   assert.ok(JSON.parse(S.exportBackup()).settings.seen_updates.x, 'va en el respaldo y en la sincronización');
   console.log('OK: novedades vistas (en los ajustes, unidas entre equipos)');
 }
+
+// ---------- Versión mínima de una rutina (regla de los 2 minutos) ----------
+{
+  const P = await import(root + '/src/core/pert.js');
+  const S = await import(root + '/src/services/store.js');
+  const { todayISO } = await import(root + '/src/utils/dates.js');
+
+  // Pura: achicar el hábito que más mejora un bloque que va mal
+  const range = { start: '08:00', end: '09:00' };
+  const mk = (id, minutes, extra = {}) => ({ id, title: id, minutes, certainty: 'normal', dependencies: [], done: false, order: 0, time_entries: [], ...extra });
+  const tasks = [mk('informe', 45), mk('leer', 30), mk('correo', 10)];
+  const minOf = (t) => (t.id === 'leer' ? { title: 'Leer 1 página', minutes: 2 } : null);
+  const sh = P.suggestShrink({ tasks, range, nowMin: 0 }, minOf);
+  assert.equal(sh.task.id, 'leer');
+  assert.ok(sh.before < 0.5 && sh.after > sh.before + 0.05, 'el bloque mejora');
+  assert.equal(P.suggestShrink({ tasks: [mk('leer', 30)], range, nowMin: 0 }, minOf), null, 'si el bloque va bien, nada');
+  assert.equal(P.suggestShrink({ tasks: [mk('informe', 90)], range, nowMin: 0 }, minOf), null, 'sin versión mínima, nada');
+
+  // Store: definir, achicar, volver y propagar
+  await S.initStore();
+  const today = todayISO();
+  const t = S.addFromText('Leer 30m am cada día', { date: today, block: 'am' });
+  const r = S.findRoutine(t.routine_id);
+  assert.ok(r, 'es una rutina');
+  assert.match(S.setRoutineMin(r.id, 'Leer 1 página 45m'), /menos que la completa/, 'la mínima dura menos');
+  assert.equal(S.setRoutineMin(r.id, 'Leer 1 página'), null);
+  assert.deepEqual(S.findRoutine(r.id).min, { title: 'Leer 1 página', minutes: 2 }, 'sin duración: 2 minutos');
+  assert.deepEqual(S.minVersionOf(S.findTask(t.id)), { title: 'Leer 1 página', minutes: 2 });
+
+  assert.equal(S.shrinkTask(t.id), true);
+  let x = S.findTask(t.id);
+  assert.deepEqual([x.title, x.minutes, x.full], ['Leer 1 página', 2, { title: 'Leer', minutes: 30 }]);
+  assert.equal(S.minVersionOf(x), null, 'ya achicada: no se ofrece de nuevo');
+  assert.equal(S.shrinkTask(t.id), false);
+
+  // Editar la rutina con la tarea achicada: se actualiza la completa, sigue en la mínima
+  assert.equal(S.updateRoutine(r.id, { minutes: 40 }), null);
+  x = S.findTask(t.id);
+  assert.deepEqual([x.title, x.minutes, x.full], ['Leer 1 página', 2, { title: 'Leer', minutes: 40 }]);
+  // "Aplicar a todas" desde la achicada usa la completa como molde
+  S.applyTaskToRoutine(t.id);
+  assert.deepEqual([S.findRoutine(r.id).title, S.findRoutine(r.id).minutes], ['Leer', 40]);
+
+  assert.equal(S.expandTask(t.id), true);
+  x = S.findTask(t.id);
+  assert.deepEqual([x.title, x.minutes, x.full], ['Leer', 40, null], 'vuelve a la completa');
+
+  // Cambiar los días con la tarea achicada no cambia el molde de la rutina
+  S.shrinkTask(t.id);
+  S.setRepeat(t.id, [1, 2, 3, 4, 5]);
+  assert.deepEqual([S.findRoutine(r.id).title, S.findRoutine(r.id).minutes, S.findRoutine(r.id).min?.title], ['Leer', 40, 'Leer 1 página']);
+  S.expandTask(t.id);
+
+  // Hecha en su versión mínima: queda registrado
+  S.shrinkTask(t.id);
+  S.updateTask(t.id, { done: true });
+  assert.ok(S.findTask(t.id).done && S.findTask(t.id).full, 'hecha en su mínima');
+
+  // Desde la vista Rutinas: texto vacío quita la versión mínima
+  assert.equal(S.updateRoutine(r.id, { min: '' }), null);
+  assert.equal(S.findRoutine(r.id).min, null);
+  console.log('OK: versión mínima de una rutina (regla de los 2 minutos)');
+}
