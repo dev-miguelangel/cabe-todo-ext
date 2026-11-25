@@ -10,6 +10,8 @@
 // - Rutinas: `generated` (días ya creados) se une siempre y no cuenta como edición.
 // - Ajustes: por partes (SETTINGS_GROUPS), cada una con su fecha en `settings.updated`: cambiar las
 //   plantillas en un equipo no pisa los bloques cambiados en otro. El tema es de cada equipo: no viaja.
+// - Novedades vistas (`settings.seen_updates`): se UNEN (lo visto en cualquier equipo cuenta como visto);
+//   no llevan fecha de parte ni cuentan como cambio por sincronizar: viajan con la próxima sincronización.
 
 export const TOMBSTONE_DAYS = 60;
 
@@ -21,6 +23,24 @@ export const SETTINGS_GROUPS = {
   prefs: { label: 'preferencias', keys: ['default_minutes', 'notify', 'timer_sound', 'float_timer', 'calibrate', 'meeting_lead'] },
 };
 const LOCAL_ONLY = ['theme'];
+
+/**
+ * Une dos registros de novedades vistas { id: { at, viewed } }: queda cada id de los dos lados,
+ * con la primera fecha en que se vio y viewed: true si en algún equipo llegó a mostrarse.
+ */
+export function mergeSeenUpdates(a, b) {
+  const out = { ...(a && typeof a === 'object' ? a : {}) };
+  for (const [id, entry] of Object.entries(b && typeof b === 'object' ? b : {})) {
+    const mine = out[id];
+    if (!mine) {
+      out[id] = { at: entry?.at || null, viewed: Boolean(entry?.viewed) };
+      continue;
+    }
+    const ats = [mine.at, entry?.at].filter(Boolean).sort();
+    out[id] = { at: ats[0] || null, viewed: Boolean(mine.viewed || entry?.viewed) };
+  }
+  return out;
+}
 
 const groupValue = (settings, group) => JSON.stringify(SETTINGS_GROUPS[group].keys.map((k) => settings?.[k] ?? null));
 
@@ -68,7 +88,13 @@ export function mergeSettings(local, remote) {
   }
   for (const key of LOCAL_ONLY) if (key in local) out[key] = local[key];
   out.updated_at = Object.values(out.updated).sort().pop() || local.updated_at || null;
-  return { settings: changed.length || out.updated_at !== local.updated_at ? out : local, changed };
+  // Novedades vistas: la unión de los dos equipos (no se informa como cambio)
+  let seenChanged = false;
+  if (local.seen_updates || remote.seen_updates) {
+    out.seen_updates = mergeSeenUpdates(local.seen_updates, remote.seen_updates);
+    seenChanged = JSON.stringify(out.seen_updates) !== JSON.stringify(local.seen_updates || {});
+  }
+  return { settings: changed.length || seenChanged || out.updated_at !== local.updated_at ? out : local, changed };
 }
 
 /** Campos que no cuentan como edición al detectar cambios. */

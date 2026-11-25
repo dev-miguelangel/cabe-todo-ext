@@ -43,6 +43,7 @@ Va en el código compartido (`src/core/merge.js` de la extensión, copiado a la 
 - **Tareas, épicas y rutinas:** por id. Si existe en un solo lado, se agrega, salvo que esté en la lista de borrados con fecha posterior. Si existe en los dos, gana el `updated_at` más reciente, completo.
 - **Comentarios de una tarea:** se unen por id, aunque gane la otra versión de la tarea. Así no se pierde un comentario escrito en el celular.
 - **Ajustes:** por partes, cada una con su fecha (`settings.updated`): **bloques del día**, **plantillas**, **menú inferior** y **preferencias**. De cada parte gana la más reciente, así que cambiar el tema o las plantillas en un equipo no pisa los bloques cambiados en otro. **El tema es de cada equipo** y no se sincroniza. Los ajustes de versiones anteriores, que solo tienen `updated_at`, cuentan con esa fecha para todas las partes.
+- **Novedades vistas** (`settings.seen_updates`, las usa la app web): no van por partes, **se unen**. Cada id queda con la primera fecha en que se vio y con `viewed: true` si se mostró en algún equipo. No cuentan como cambio por sincronizar, y "Reemplazar todo" las conserva.
 - **Temporizador corriendo en dos equipos:** gana la versión más reciente de la tarea. Es aceptable para uso personal.
 - **Relojes desfasados** entre equipos: unos minutos de diferencia no importan en la práctica.
 

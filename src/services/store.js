@@ -17,7 +17,7 @@ import { isRunning, timerConflicts } from '../core/timer.js';
 import { parseAmount, decimalsOf } from '../core/cost.js';
 import { imageRefs } from '../utils/markdown.js';
 import {
-  snapshotOf, stampChanges, addTombstones, pruneTombstones, mergeData, stampSettings, stampAllSettings,
+  snapshotOf, stampChanges, addTombstones, pruneTombstones, mergeData, stampSettings, stampAllSettings, mergeSeenUpdates,
 } from '../core/merge.js';
 
 export { PALETTE } from './storage.js';
@@ -649,6 +649,22 @@ export function saveSettings(next) {
   return null;
 }
 
+// ---------- Novedades vistas (app web) ----------
+
+/** Registro de novedades vistas: { id: { at, viewed } }. Viaja en los ajustes y se une entre equipos. */
+export const seenUpdates = () => state.settings.seen_updates || {};
+
+/**
+ * Registra novedades como vistas. entries: { id: { at, viewed } }. Se une con lo que había (no baja un
+ * viewed: true). No cuenta como cambio por sincronizar ni re-renderiza: es solo un registro.
+ */
+export function markUpdatesSeen(entries) {
+  const next = mergeSeenUpdates(seenUpdates(), entries);
+  if (JSON.stringify(next) === JSON.stringify(seenUpdates())) return;
+  state.settings = { ...state.settings, seen_updates: next };
+  saveSettingsRaw(state.settings);
+}
+
 /** Cuántas tareas (pendientes, de hoy en adelante) y rutinas tiene un bloque: para avisar antes de borrarlo. */
 export function blockUsage(id) {
   const today = todayISO();
@@ -676,7 +692,9 @@ export function restoreBackup(data) {
   state.tasks = data.tasks;
   state.epics = data.epics;
   state.routines = data.routines;
-  state.settings = stampAllSettings(data.settings);
+  // Lo ya visto de las novedades se conserva: reemplazar los datos no hace que vuelvan a aparecer
+  const seen = mergeSeenUpdates(state.settings.seen_updates, data.settings?.seen_updates);
+  state.settings = stampAllSettings({ ...data.settings, seen_updates: seen });
   state.deleted = { ...state.deleted, ...(data.deleted || {}) };
   saveSettingsRaw(state.settings);
   commit(); // lo que se reemplazó cuenta como cambio de ahora (y lo que no venía, como borrado)

@@ -1670,3 +1670,34 @@ console.log('OK: parser + PERT + épicas');
   assert.equal(S.setAnchored(t.id, true), false, 'una hecha no se ancla');
   console.log('OK: tareas ancladas en Hoy (se ven todos los días; al terminarlas, al bloque en curso)');
 }
+
+// ---------- Novedades vistas: en los ajustes, unidas entre equipos ----------
+{
+  const M = await import(root + '/src/core/merge.js');
+  const S = await import(root + '/src/services/store.js');
+  const phone = { blocks: [], updated: { blocks: '2026-11-20T00:00:00Z' }, updated_at: '2026-11-20T00:00:00Z',
+    seen_updates: { a: { at: '2026-11-24T10:00:00Z', viewed: true }, b: { at: '2026-11-24T10:00:00Z', viewed: false } } };
+  const pc = { blocks: [], updated: { blocks: '2026-11-20T00:00:00Z' }, updated_at: '2026-11-20T00:00:00Z',
+    seen_updates: { b: { at: '2026-11-24T09:00:00Z', viewed: true }, c: { at: '2026-11-24T11:00:00Z', viewed: false } } };
+  const onPc = M.mergeSettings(pc, phone);
+  assert.deepEqual(onPc.settings.seen_updates, {
+    a: { at: '2026-11-24T10:00:00Z', viewed: true },
+    b: { at: '2026-11-24T09:00:00Z', viewed: true },
+    c: { at: '2026-11-24T11:00:00Z', viewed: false },
+  }, 'se unen: la primera fecha y viewed si se vio en algún equipo');
+  assert.deepEqual(onPc.changed, [], 'no se informa como cambio de ajustes');
+  assert.notEqual(onPc.settings, pc, 'pero los ajustes cambian (se guardan)');
+  assert.equal(onPc.settings.updated_at, pc.updated_at, 'no cuenta como cambio por sincronizar');
+  assert.equal(M.mergeSettings(onPc.settings, phone).settings, onPc.settings, 'mezclar de nuevo no cambia nada');
+  const { seen_updates: _, ...oldVersion } = phone;
+  assert.deepEqual(M.mergeSettings(pc, oldVersion).settings.seen_updates, pc.seen_updates, 'un equipo sin el registro no lo borra');
+
+  await S.initStore();
+  const before = S.state.settings.updated_at;
+  S.markUpdatesSeen({ x: { at: '2026-11-24T12:00:00Z', viewed: false } });
+  S.markUpdatesSeen({ x: { at: '2026-11-24T13:00:00Z', viewed: true } });
+  assert.deepEqual(S.seenUpdates().x, { at: '2026-11-24T12:00:00Z', viewed: true });
+  assert.equal(S.state.settings.updated_at, before, 'marcar vistas no deja cambios por sincronizar');
+  assert.ok(JSON.parse(S.exportBackup()).settings.seen_updates.x, 'va en el respaldo y en la sincronización');
+  console.log('OK: novedades vistas (en los ajustes, unidas entre equipos)');
+}

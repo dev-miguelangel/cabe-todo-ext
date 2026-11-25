@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   tab_order: TAB_IDS, // orden de las pestañas del menú inferior
   templates: DEFAULT_TEMPLATES, // plantillas de documentación (Ajustes → Plantillas)
   default_template: DEFAULT_TEMPLATE_ID,
+  seen_updates: {}, // novedades ya vistas (app web): { id: { at, viewed } }; se unen al sincronizar
 };
 
 // Colores de épicas: solo los tonos de la paleta (Cod Gray es el fondo, no sirve como color de épica).
